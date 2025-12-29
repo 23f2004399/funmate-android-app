@@ -10,7 +10,10 @@ import {
   Alert,
 } from 'react-native';
 import auth, { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import CountryPicker, { Country, CountryCode } from 'react-native-country-picker-modal';
+import Toast from 'react-native-toast-message';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface PhoneNumberScreenProps {
   navigation: any;
@@ -30,7 +33,12 @@ const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
 
   const handleContinue = async () => {
     if (phoneNumber.length < 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid phone number');
+      Toast.show({
+        type: 'error',
+        text1: 'Invalid Phone Number',
+        text2: 'Please enter a valid phone number',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -40,7 +48,7 @@ const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
       const fullPhoneNumber = callingCode + phoneNumber;
       console.log('Sending OTP to:', fullPhoneNumber);
       
-      // Use modular API
+      // Send OTP directly (Firebase Auth handles phone internally, no DB storage)
       const authInstance = getAuth();
       const confirmation = await signInWithPhoneNumber(
         authInstance,
@@ -58,10 +66,12 @@ const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
     } catch (error: any) {
       setLoading(false);
       console.error('Phone auth error:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Failed to send verification code. Please try again.'
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: error.message || 'Failed to send verification code',
+        visibilityTime: 4000,
+      });
     }
   };
 
@@ -71,8 +81,12 @@ const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
@@ -145,12 +159,14 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 40,
     paddingBottom: 10,
   },
   backButton: {
-    fontSize: 32,
-    color: '#1A1A1A',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

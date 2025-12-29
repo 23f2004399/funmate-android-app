@@ -12,6 +12,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import auth, { getAuth } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import Toast from 'react-native-toast-message';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface EmailVerificationScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'EmailVerification'>;
@@ -42,16 +44,23 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
         return true;
       } else {
         setChecking(false);
-        Alert.alert(
-          'Not Verified Yet',
-          'Please check your email and click the verification link. It may take a few moments to arrive.'
-        );
+        Toast.show({
+          type: 'info',
+          text1: 'Not Verified Yet',
+          text2: 'Please check your email and click the verification link',
+          visibilityTime: 4000,
+        });
         return false;
       }
     } catch (error: any) {
       setChecking(false);
       console.error('Verification check error:', error);
-      Alert.alert('Error', 'Failed to check verification status');
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Error',
+        text2: 'Failed to check verification status',
+        visibilityTime: 3000,
+      });
       return false;
     }
   };
@@ -75,20 +84,22 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
     const accountId = user.uid;
     const age = calculateAge(dob);
 
-    // Create account document
+    // Email/password already linked in ProfileSetupScreen, no need to link again
+
+    // Create account document (following schema exactly)
     await firestore().collection('accounts').doc(accountId).set({
       authUid: user.uid,
       role: 'user',
       creatorType: null,
       status: 'active',
       phoneVerified: true,
-      emailVerified: true,
+      emailVerified: user.emailVerified, // From Firebase Auth
       identityVerified: false,
       bankVerified: false,
       createdAt: firestore.FieldValue.serverTimestamp(),
     });
 
-    // Create user document
+    // Create user document (following schema exactly)
     await firestore().collection('users').doc(accountId).set({
       accountId,
       username: username.toLowerCase(),
@@ -133,22 +144,25 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       await saveUserData();
       
       setLoading(false);
-      Alert.alert('Success', 'Email verified! Your account is ready.', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // TODO: Navigate to main app
-            console.log('User created successfully');
-          },
-        },
-      ]);
+      Toast.show({
+        type: 'success',
+        text1: 'Email Verified!',
+        text2: 'Your account is ready',
+        visibilityTime: 3000,
+      });
+      
+      setTimeout(() => {
+        navigation.navigate('PhotoUpload');
+      }, 1000);
     } catch (error: any) {
       setLoading(false);
       console.error('Email verification error:', error);
-      Alert.alert(
-        'Verification Failed',
-        error.message || 'An error occurred. Please try again.'
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: error.message || 'An error occurred. Please try again',
+        visibilityTime: 4000,
+      });
     }
   };
 
@@ -160,10 +174,20 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       }
       
       await user.sendEmailVerification();
-      Alert.alert('Email Sent', 'A new verification email has been sent. Please check your inbox.');
+      Toast.show({
+        type: 'success',
+        text1: 'Email Sent',
+        text2: 'A new verification email has been sent',
+        visibilityTime: 3000,
+      });
     } catch (error: any) {
       console.error('Resend error:', error);
-      Alert.alert('Error', error.message || 'Failed to resend verification email');
+      Toast.show({
+        type: 'error',
+        text1: 'Resend Failed',
+        text2: error.message || 'Failed to resend verification email',
+        visibilityTime: 3000,
+      });
     }
   };
 
@@ -172,8 +196,12 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
@@ -242,12 +270,14 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 40,
     paddingBottom: 10,
   },
   backButton: {
-    fontSize: 32,
-    color: '#1A1A1A',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

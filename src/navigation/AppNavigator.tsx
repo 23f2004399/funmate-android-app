@@ -7,6 +7,8 @@ import PhoneNumberScreen from '../screens/auth/PhoneNumberScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
+import GoogleProfileSetupScreen from '../screens/auth/GoogleProfileSetupScreen';
+import PhotoUploadScreen from '../screens/auth/PhotoUploadScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -23,6 +25,8 @@ export type RootStackParamList = {
     gender: string;
     password: string;
   };
+  GoogleProfileSetup: { googleUser: any };
+  PhotoUpload: undefined;
   // TODO: Add more screens later
 };
 
@@ -42,6 +46,8 @@ const AppNavigator = () => {
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="GoogleProfileSetup" component={GoogleProfileSetupScreen} />
+        <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

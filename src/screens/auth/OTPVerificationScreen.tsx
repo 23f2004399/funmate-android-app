@@ -10,6 +10,9 @@ import {
   Alert,
 } from 'react-native';
 import auth, { getAuth, signInWithPhoneNumber, PhoneAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import Toast from 'react-native-toast-message';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface OTPVerificationScreenProps {
   navigation: any;
@@ -50,7 +53,12 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
     const otpCode = otp.join('');
     
     if (otpCode.length !== 6) {
-      Alert.alert('Incomplete Code', 'Please enter the complete 6-digit code');
+      Toast.show({
+        type: 'error',
+        text1: 'Incomplete Code',
+        text2: 'Please enter the complete 6-digit code',
+        visibilityTime: 3000,
+      });
       return;
     }
 
@@ -62,20 +70,61 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       // Use modular API to create credential and sign in
       const credential = PhoneAuthProvider.credential(verificationId, otpCode);
       const authInstance = getAuth();
-      await signInWithCredential(authInstance, credential);
+      const userCredential = await signInWithCredential(authInstance, credential);
+      
+      const userId = userCredential.user.uid;
+      console.log('Phone verified! User ID:', userId);
+      
+      // Check if this user already has an account (duplicate signup attempt)
+      let isExistingUser = false;
+      
+      try {
+        const accountDoc = await firestore()
+          .collection('accounts')
+          .doc(userId)
+          .get();
+        
+        console.log('Account doc data:', accountDoc.data());
+        console.log('Account exists?:', accountDoc.exists);
+        
+        // Only treat as existing if document actually has data
+        isExistingUser = accountDoc.exists && accountDoc.data() !== undefined;
+        console.log('Is existing user?:', isExistingUser);
+        
+      } catch (firestoreError: any) {
+        // If Firestore check fails, assume new user
+        console.log('Firestore check error (treating as new user):', firestoreError.code, firestoreError.message);
+        isExistingUser = false;
+      }
+      
+      if (isExistingUser) {
+        // User already registered - sign out and show error
+        await auth().signOut();
+        setLoading(false);
+        Toast.show({
+          type: 'error',
+          text1: 'Phone Number Already Registered',
+          text2: 'This phone number is already linked to an account',
+          visibilityTime: 4000,
+        });
+        navigation.goBack();
+        return;
+      }
       
       setLoading(false);
-      console.log('Phone verified! User ID:', auth().currentUser?.uid);
+      console.log('New user - navigating to ProfileSetup');
       
       // Navigate to profile setup
       navigation.navigate('ProfileSetup', { phoneNumber });
     } catch (error: any) {
       setLoading(false);
       console.error('OTP verification error:', error);
-      Alert.alert(
-        'Verification Failed',
-        error.message || 'Invalid code. Please try again.'
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Verification Failed',
+        text2: error.message || 'Invalid code. Please try again',
+        visibilityTime: 4000,
+      });
     }
   };
 
@@ -89,12 +138,22 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
         phoneNumber
       );
       
-      Alert.alert('Code Sent', 'A new verification code has been sent');
+      Toast.show({
+        type: 'success',
+        text1: 'Code Sent',
+        text2: 'A new verification code has been sent',
+        visibilityTime: 3000,
+      });
       
       // Update verificationId in route params
       navigation.setParams({ verificationId: newConfirmation.verificationId });
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to resend code');
+      Toast.show({
+        type: 'error',
+        text1: 'Resend Failed',
+        text2: error.message || 'Failed to resend code',
+        visibilityTime: 3000,
+      });
     }
   };
 
@@ -104,8 +163,12 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>←</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
@@ -176,7 +239,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 40,
     paddingBottom: 10,
   },
   backButton: {

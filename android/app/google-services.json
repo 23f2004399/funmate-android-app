@@ -12,7 +12,20 @@
           "package_name": "com.funmateapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "544227080732-cttslurce2113hnddm5v530f8fggc342.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.funmateapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "544227080732-ag40c3g4g64tgv910cu1it16bmmn4g3m.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDy7kLaVrKV5C760zDxR-x1QjaZWpUdiYk"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "544227080732-ag40c3g4g64tgv910cu1it16bmmn4g3m.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
