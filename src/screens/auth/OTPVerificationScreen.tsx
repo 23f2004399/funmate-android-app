@@ -20,9 +20,10 @@ interface OTPVerificationScreenProps {
 }
 
 const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps) => {
-  const { phoneNumber, verificationId } = route.params as {
+  const { phoneNumber, verificationId, accountType = 'user' } = route.params as {
     phoneNumber: string;
     verificationId: string;
+    accountType?: 'user' | 'creator';
   };
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -112,10 +113,22 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       }
       
       setLoading(false);
-      console.log('New user - navigating to ProfileSetup');
       
-      // Navigate to profile setup
-      navigation.navigate('ProfileSetup', { phoneNumber });
+      if (accountType === 'creator') {
+        console.log('New creator - navigating to CreatorTypeSelection');
+        // TODO: Navigate to CreatorTypeSelection
+        // navigation.navigate('CreatorTypeSelection', { phoneNumber });
+        Toast.show({
+          type: 'success',
+          text1: 'Phone Verified!',
+          text2: 'Creator signup coming soon',
+          visibilityTime: 3000,
+        });
+      } else {
+        console.log('New user - navigating to ProfileSetup');
+        // Navigate to profile setup
+        navigation.navigate('ProfileSetup', { phoneNumber });
+      }
     } catch (error: any) {
       setLoading(false);
       console.error('OTP verification error:', error);

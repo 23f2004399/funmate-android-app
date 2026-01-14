@@ -85,6 +85,11 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        
+        // Read usesCleartextTraffic from gradle.properties
+        manifestPlaceholders = [
+            usesCleartextTraffic: project.findProperty('usesCleartextTraffic') ?: 'false'
+        ]
     }
     signingConfigs {
         debug {

@@ -17,8 +17,8 @@ import DatingPreferencesScreen from '../screens/auth/DatingPreferencesScreen';
 export type RootStackParamList = {
   Login: undefined;
   AccountType: undefined;
-  PhoneNumber: undefined;
-  OTPVerification: { phoneNumber: string; verificationId: string };
+  PhoneNumber: { accountType?: 'user' | 'creator' };
+  OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator' };
   ProfileSetup: { phoneNumber: string };
   EmailVerification: {
     phoneNumber: string;

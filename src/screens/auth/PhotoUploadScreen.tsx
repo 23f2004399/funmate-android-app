@@ -92,53 +92,105 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
   };
 
   // ═══════════════════════════════════════════════════════════════════
-  // 🤖 ML MODEL PLACEHOLDER - NSFW DETECTION
+  // 🤖 FACE DETECTION API - InsightFace Model
   // ═══════════════════════════════════════════════════════════════════
-  // TODO: INTEGRATE ML MODEL OR API FOR NSFW CONTENT DETECTION
-  // 
-  // This function should:
-  // 1. Send image to ML model/API endpoint
-  // 2. Get confidence score for NSFW/nudity detection
-  // 3. Return true if safe, false if NSFW detected
-  // 
-  // Options for future:
-  // - Use TensorFlow Lite model on-device
-  // - Call external API (e.g., AWS Rekognition, Clarifai, Sightengine)
-  // - Use custom trained model via Cloud Functions
-  // 
-  // For now, this placeholder always returns true (approve all)
+  // Validates photo contains a clear, visible human face
+  // Backend: Flask API running InsightFace buffalo_l model
   // ═══════════════════════════════════════════════════════════════════
   const checkPhotoWithMLModel = async (imageUri: string): Promise<{
     isApproved: boolean;
     reason: string;
     confidenceScore: number;
   }> => {
-    // 🚨🚨🚨 ML MODEL INTEGRATION NEEDED HERE 🚨🚨🚨
-    console.log('⚠️ ML MODEL PLACEHOLDER - Checking image:', imageUri);
-    
-    // Simulate ML check delay
-    await new Promise<void>(resolve => setTimeout(resolve, 500));
-    
-    // TODO: Replace this with actual ML model call
-    // Example API integration:
-    // const response = await fetch('YOUR_ML_API_ENDPOINT', {
-    //   method: 'POST',
-    //   body: formData,
-    //   headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
-    // });
-    // const result = await response.json();
-    // return {
-    //   isApproved: result.safe,
-    //   reason: result.reason,
-    //   confidenceScore: result.confidence
-    // };
-    
-    // For now: approve all photos
-    return {
-      isApproved: true,
-      reason: 'ML model not integrated yet - auto-approved',
-      confidenceScore: 1.0
-    };
+    try {
+      console.log('🔍 Validating face in image:', imageUri);
+      
+      // Auto-switch between development and production
+      const API_URL = __DEV__ 
+        ? 'http://10.42.243.80:5000/detect-face'  // Development: Local Flask on your computer
+        : 'https://your-backend.railway.app/detect-face';  // Production: Deploy Flask and update this URL
+      
+      console.log('🌐 Environment:', __DEV__ ? 'Development' : 'Production');
+      console.log('📡 API URL:', API_URL);
+      
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('image', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'photo.jpg',
+      } as any);
+      
+      // Call face detection API with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      console.log('📡 Sending request to:', API_URL);
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Face detection result:', result);
+      
+      // Check if face was detected and approved
+      if (result.decision === 'ACCEPTED' && result.faces_count > 0) {
+        const face = result.faces[0];
+        return {
+          isApproved: true,
+          reason: `Face detected (confidence: ${(face.score * 100).toFixed(1)}%)`,
+          confidenceScore: face.score,
+        };
+      } else {
+        return {
+          isApproved: false,
+          reason: 'No clear face detected. Please ensure your face is visible.',
+          confidenceScore: 0,
+        };
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Face detection error:', error);
+      
+      // User-friendly error messages
+      if (error.name === 'AbortError') {
+        console.error('⏱️ Request timed out after 30 seconds');
+        return {
+          isApproved: false,
+          reason: 'Request timed out. Please try again with a smaller photo.',
+          confidenceScore: 0,
+        };
+      }
+      
+      if (error.message.includes('Network request failed') || error.message.includes('ECONNREFUSED')) {
+        // Backend is not running - this is a developer error, not user error
+        console.error('⚠️ DEVELOPER: Backend not running. Start with: python backend/app.py');
+        console.error('⚠️ DEVELOPER: Or check if 10.0.2.2:5000 is accessible from emulator');
+        return {
+          isApproved: false,
+          reason: 'Unable to validate photo. Please try again.',
+          confidenceScore: 0,
+        };
+      }
+      
+      return {
+        isApproved: false,
+        reason: 'Photo validation failed. Please try again.',
+        confidenceScore: 0,
+      };
+    }
   };
 
   const handleUpload = async () => {
@@ -164,6 +216,29 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       }
 
       const userId = user.uid;
+      
+      // ═══════════════════════════════════════════════════════════════════
+      // 🗑️ DELETE OLD PHOTOS IF USER IS RE-UPLOADING
+      // ═══════════════════════════════════════════════════════════════════
+      const userDoc = await firestore().collection('users').doc(userId).get();
+      const existingPhotos = userDoc.data()?.photos || [];
+      
+      if (existingPhotos.length > 0) {
+        console.log(`🗑️ Deleting ${existingPhotos.length} old photos before uploading new ones...`);
+        
+        // Delete old photos from Storage
+        for (const oldPhoto of existingPhotos) {
+          try {
+            const oldRef = storage().refFromURL(oldPhoto.url);
+            await oldRef.delete();
+            console.log(`✅ Deleted old photo: ${oldPhoto.url.substring(0, 50)}...`);
+          } catch (deleteError) {
+            console.warn(`⚠️ Could not delete old photo (may not exist):`, deleteError);
+          }
+        }
+      }
+      // ═══════════════════════════════════════════════════════════════════
+      
       const photoUrls: Array<{
         url: string;
         isPrimary: boolean;
@@ -172,18 +247,18 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
         order: number;
       }> = [];
 
-      // Process each photo
+      // ═══════════════════════════════════════════════════════════════════
+      // 🤖 STEP 1: VALIDATE ALL PHOTOS WITH ML MODEL FIRST
+      // ═══════════════════════════════════════════════════════════════════
+      console.log('🤖 Step 1: Validating all photos with ML model...');
       for (const photo of uploadedPhotos) {
         if (!photo.localUri || !photo.asset) continue;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // 🤖 ML MODEL CHECK - NSFW DETECTION
-        // ═══════════════════════════════════════════════════════════════════
         console.log(`🤖 Checking photo ${photo.order} with ML model...`);
         const mlResult = await checkPhotoWithMLModel(photo.localUri);
         
         if (!mlResult.isApproved) {
-          // Photo rejected by ML model
+          // Photo rejected by ML model - STOP EVERYTHING
           Toast.show({
             type: 'error',
             text1: 'Photo Rejected',
@@ -191,11 +266,20 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
             visibilityTime: 5000,
           });
           setUploading(false);
-          return;
+          return; // Exit before uploading anything
         }
         
         console.log(`✅ Photo ${photo.order} approved by ML model (confidence: ${mlResult.confidenceScore})`);
-        // ═══════════════════════════════════════════════════════════════════
+      }
+      console.log('✅ All photos passed ML validation!');
+      // ═══════════════════════════════════════════════════════════════════
+
+      // ═══════════════════════════════════════════════════════════════════
+      // 📤 STEP 2: UPLOAD ALL PHOTOS TO STORAGE
+      // ═══════════════════════════════════════════════════════════════════
+      console.log('📤 Step 2: Uploading all photos to Storage...');
+      for (const photo of uploadedPhotos) {
+        if (!photo.localUri || !photo.asset) continue;
 
         // Upload to Firebase Storage
         const fileName = `photo_${photo.order}_${Date.now()}.jpg`;
@@ -237,10 +321,48 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
         }
       }
 
-      // Update user document with photos
-      await firestore().collection('users').doc(userId).update({
-        photos: photoUrls,
-      });
+      // ═══════════════════════════════════════════════════════════════════
+      // 🧠 STEP 3: CREATE FACE TEMPLATE FOR LIVENESS VERIFICATION
+      // ═══════════════════════════════════════════════════════════════════
+      console.log('🧠 Step 3: Creating face template for liveness verification...');
+      
+      const API_URL = __DEV__ 
+        ? 'http://10.42.243.80:5000/create-template'
+        : 'https://your-backend.railway.app/create-template';
+      
+      try {
+        const templateResponse = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            photo_urls: photoUrls.map(p => p.url),
+          }),
+        });
+        
+        if (!templateResponse.ok) {
+          throw new Error('Failed to create face template');
+        }
+        
+        const templateResult = await templateResponse.json();
+        console.log('✅ Face template created:', templateResult.photos_processed, 'photos processed');
+        
+        // Update user document with photos AND template
+        await firestore().collection('users').doc(userId).update({
+          photos: photoUrls,
+          faceTemplate: templateResult.template, // Base64 template for liveness verification
+          templateCreatedAt: new Date().toISOString(),
+        });
+        
+      } catch (templateError: any) {
+        console.error('⚠️ Template creation failed:', templateError);
+        // Still save photos, but without template
+        await firestore().collection('users').doc(userId).update({
+          photos: photoUrls,
+        });
+      }
+      // ═══════════════════════════════════════════════════════════════════
 
       setUploading(false);
 
