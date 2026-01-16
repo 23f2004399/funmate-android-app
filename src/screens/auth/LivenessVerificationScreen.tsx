@@ -220,7 +220,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
       
       // Call liveness verification API
       const API_URL = __DEV__ 
-        ? 'http://10.42.243.80:5000/verify-liveness'
+        ? 'http://10.44.49.243:5000/verify-liveness'
         : 'https://your-backend.railway.app/verify-liveness';
       
       const formData = new FormData();

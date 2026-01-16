@@ -14,7 +14,8 @@ interface LoginScreenProps {
 const LoginScreen = ({ navigation }: LoginScreenProps) => {
   const handlePhoneLogin = () => {
     console.log('Phone login pressed');
-    // TODO: Navigate to phone login
+    // Navigate to phone number screen with isLogin flag
+    navigation.navigate('PhoneNumber', { isLogin: true });
   };
 
   const handleEmailLogin = () => {

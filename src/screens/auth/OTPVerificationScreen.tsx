@@ -20,10 +20,11 @@ interface OTPVerificationScreenProps {
 }
 
 const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps) => {
-  const { phoneNumber, verificationId, accountType = 'user' } = route.params as {
+  const { phoneNumber, verificationId, accountType = 'user', isLogin = false } = route.params as {
     phoneNumber: string;
     verificationId: string;
     accountType?: 'user' | 'creator';
+    isLogin?: boolean;
   };
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
@@ -98,6 +99,37 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
         isExistingUser = false;
       }
       
+      // Handle LOGIN flow
+      if (isLogin) {
+        if (!isExistingUser) {
+          // User doesn't exist - can't login
+          await auth().signOut();
+          setLoading(false);
+          Toast.show({
+            type: 'error',
+            text1: 'Account Not Found',
+            text2: 'No account found with this phone number. Please sign up first.',
+            visibilityTime: 4000,
+          });
+          navigation.navigate('Login');
+          return;
+        }
+        
+        // Login successful
+        setLoading(false);
+        Toast.show({
+          type: 'success',
+          text1: 'Login Successful!',
+          text2: 'Welcome back to Funmate',
+          visibilityTime: 3000,
+        });
+        
+        // TODO: Navigate to Home/Dashboard when ready
+        // For now, just stay here and show success
+        return;
+      }
+      
+      // Handle SIGNUP flow
       if (isExistingUser) {
         // User already registered - sign out and show error
         await auth().signOut();
@@ -114,16 +146,17 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       
       setLoading(false);
       
+      Toast.show({
+        type: 'success',
+        text1: 'Phone Verified!',
+        text2: accountType === 'creator' ? 'Complete your profile' : 'Let\'s set up your profile',
+        visibilityTime: 2000,
+      });
+      
       if (accountType === 'creator') {
-        console.log('New creator - navigating to CreatorTypeSelection');
-        // TODO: Navigate to CreatorTypeSelection
-        // navigation.navigate('CreatorTypeSelection', { phoneNumber });
-        Toast.show({
-          type: 'success',
-          text1: 'Phone Verified!',
-          text2: 'Creator signup coming soon',
-          visibilityTime: 3000,
-        });
+        console.log('New creator - navigating to CreatorBasicInfo');
+        // Navigate to creator basic info (Full Name, Email, Username, Password)
+        navigation.navigate('CreatorBasicInfo', { phoneNumber });
       } else {
         console.log('New user - navigating to ProfileSetup');
         // Navigate to profile setup

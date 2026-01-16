@@ -107,7 +107,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       
       // Auto-switch between development and production
       const API_URL = __DEV__ 
-        ? 'http://10.42.243.80:5000/detect-face'  // Development: Local Flask on your computer
+        ? 'http://10.44.49.243:5000/detect-face'  // Development: Local Flask on your computer
         : 'https://your-backend.railway.app/detect-face';  // Production: Deploy Flask and update this URL
       
       console.log('🌐 Environment:', __DEV__ ? 'Development' : 'Production');
@@ -327,7 +327,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       console.log('🧠 Step 3: Creating face template for liveness verification...');
       
       const API_URL = __DEV__ 
-        ? 'http://10.42.243.80:5000/create-template'
+        ? 'http://10.44.49.243:5000/create-template'
         : 'https://your-backend.railway.app/create-template';
       
       try {

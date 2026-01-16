@@ -21,7 +21,7 @@ interface PhoneNumberScreenProps {
 }
 
 const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
-  const { accountType = 'user' } = route.params || {};
+  const { accountType = 'user', isLogin = false } = route.params || {};
   const [countryCode, setCountryCode] = useState<CountryCode>('IN');
   const [callingCode, setCallingCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -65,6 +65,7 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
         phoneNumber: fullPhoneNumber,
         verificationId: confirmation.verificationId,
         accountType,
+        isLogin,
       });
     } catch (error: any) {
       setLoading(false);
