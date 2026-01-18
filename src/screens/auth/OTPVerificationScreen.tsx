@@ -124,8 +124,13 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           visibilityTime: 3000,
         });
         
-        // TODO: Navigate to Home/Dashboard when ready
-        // For now, just stay here and show success
+        // Navigate to main app
+        setTimeout(() => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' as never }],
+          });
+        }, 1500);
         return;
       }
       

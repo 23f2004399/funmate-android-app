@@ -38,6 +38,7 @@ import Toast from 'react-native-toast-message';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { API_ENDPOINTS } from '../../config/api';
 
 const { width, height } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.8; // 80% of screen width
@@ -219,10 +220,6 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
       }
       
       // Call liveness verification API
-      const API_URL = __DEV__ 
-        ? 'http://10.44.49.243:5000/verify-liveness'
-        : 'https://your-backend.railway.app/verify-liveness';
-      
       const formData = new FormData();
       formData.append('image', {
         uri: `file://${photo.path}`,
@@ -232,7 +229,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
       formData.append('template', faceTemplate);
       
       console.log('📡 Sending to liveness API...');
-      const response = await fetch(API_URL, {
+      const response = await fetch(API_ENDPOINTS.VERIFY_LIVENESS, {
         method: 'POST',
         body: formData,
         headers: {

@@ -17,6 +17,7 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { API_ENDPOINTS, getEnvironmentInfo } from '../../config/api';
 
 interface PhotoUploadScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PhotoUpload'>;
@@ -105,13 +106,9 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
     try {
       console.log('🔍 Validating face in image:', imageUri);
       
-      // Auto-switch between development and production
-      const API_URL = __DEV__ 
-        ? 'http://10.44.49.243:5000/detect-face'  // Development: Local Flask on your computer
-        : 'https://your-backend.railway.app/detect-face';  // Production: Deploy Flask and update this URL
-      
-      console.log('🌐 Environment:', __DEV__ ? 'Development' : 'Production');
-      console.log('📡 API URL:', API_URL);
+      const envInfo = getEnvironmentInfo();
+      console.log('🌐 Environment:', envInfo);
+      console.log('📡 API URL:', API_ENDPOINTS.DETECT_FACE);
       
       // Prepare form data
       const formData = new FormData();
@@ -125,8 +122,8 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      console.log('📡 Sending request to:', API_URL);
-      const response = await fetch(API_URL, {
+      console.log('📡 Sending request to:', API_ENDPOINTS.DETECT_FACE);
+      const response = await fetch(API_ENDPOINTS.DETECT_FACE, {
         method: 'POST',
         body: formData,
         headers: {
@@ -176,8 +173,14 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       
       if (error.message.includes('Network request failed') || error.message.includes('ECONNREFUSED')) {
         // Backend is not running - this is a developer error, not user error
-        console.error('⚠️ DEVELOPER: Backend not running. Start with: python backend/app.py');
-        console.error('⚠️ DEVELOPER: Or check if 10.0.2.2:5000 is accessible from emulator');
+        const envInfo = getEnvironmentInfo();
+        console.error('⚠️ DEVELOPER: Backend not running or not reachable!');
+        console.error('⚠️ Current API URL:', API_ENDPOINTS.DETECT_FACE);
+        console.error('⚠️ Environment:', envInfo);
+        console.error('⚠️ STEPS TO FIX:');
+        console.error('   1. Check backend is running: python app.py');
+        console.error(`   2. Verify IP in src/config/api.ts: LOCAL_WIFI_IP = '${envInfo.localIP}'`);
+        console.error('   3. If on emulator, set IS_ANDROID_EMULATOR = true');
         return {
           isApproved: false,
           reason: 'Unable to validate photo. Please try again.',
@@ -326,12 +329,8 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       // ═══════════════════════════════════════════════════════════════════
       console.log('🧠 Step 3: Creating face template for liveness verification...');
       
-      const API_URL = __DEV__ 
-        ? 'http://10.44.49.243:5000/create-template'
-        : 'https://your-backend.railway.app/create-template';
-      
       try {
-        const templateResponse = await fetch(API_URL, {
+        const templateResponse = await fetch(API_ENDPOINTS.CREATE_TEMPLATE, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

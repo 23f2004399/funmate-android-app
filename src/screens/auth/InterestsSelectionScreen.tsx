@@ -152,6 +152,44 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
     }
   };
 
+  /**
+   * Skip interests selection - creates empty interests array
+   */
+  const handleSkip = async () => {
+    setSaving(true);
+
+    try {
+      const userId = auth().currentUser?.uid;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Save empty interests array (for profile completion tracking)
+      await firestore()
+        .collection('users')
+        .doc(userId)
+        .update({
+          interests: [],
+        });
+
+      console.log('✅ Interests skipped - empty array saved');
+      
+      // Navigate to Dating Preferences screen
+      navigation.navigate('DatingPreferences' as never);
+
+    } catch (error: any) {
+      console.error('❌ Error skipping interests:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Skip Failed',
+        text2: error.message || 'Could not skip. Please try again.',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleContinue = async () => {
     if (selectedInterests.length < 5) {
       Toast.show({
@@ -223,6 +261,14 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
           <Text style={styles.title}>Your Interests</Text>
           <Text style={styles.subtitle}>Select 5-15 interests to help us find your match</Text>
         </View>
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={handleSkip}
+          disabled={saving}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Selected Count */}
@@ -327,16 +373,13 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
       {/* Continue Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[
-            styles.continueButton,
-            (selectedInterests.length < 5 || saving) && styles.continueButtonDisabled,
-          ]}
+          style={styles.continueButton}
           onPress={handleContinue}
-          disabled={selectedInterests.length < 5 || saving}
+          disabled={saving}
           activeOpacity={0.8}
         >
           <Text style={styles.continueButtonText}>
-            {saving ? 'Saving...' : `Continue ${selectedInterests.length >= 5 ? `(${selectedInterests.length})` : ''}`}
+            {saving ? 'Saving...' : `Continue ${selectedInterests.length > 0 ? `(${selectedInterests.length})` : ''}`}
           </Text>
         </TouchableOpacity>
       </View>
@@ -365,6 +408,16 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginLeft: 8,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF4458',
   },
   title: {
     fontSize: 28,

@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import MainTabNavigator from './MainTabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import EmailLoginScreen from '../screens/auth/EmailLoginScreen';
 import AccountTypeScreen from '../screens/auth/AccountTypeScreen';
@@ -23,6 +26,7 @@ import IndividualVerificationScreen from '../screens/auth/IndividualVerification
 export type RootStackParamList = {
   Login: undefined;
   EmailLogin: undefined;
+  MainTabs: undefined;
   AccountType: undefined;
   PhoneNumber: { accountType?: 'user' | 'creator'; isLogin?: boolean };
   OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator'; isLogin?: boolean };
@@ -61,15 +65,38 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
+  const [initializing, setInitializing] = useState(true);
+  const [user, setUser] = useState<any>(null);
+
+  // Handle user state changes
+  useEffect(() => {
+    const subscriber = auth().onAuthStateChanged((userState) => {
+      setUser(userState);
+      if (initializing) setInitializing(false);
+    });
+    return subscriber; // Unsubscribe on unmount
+  }, [initializing]);
+
+  // Show loading screen while checking auth state
+  if (initializing) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF4458" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
         }}
+        initialRouteName={user ? 'MainTabs' : 'Login'}
       >
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="AccountType" component={AccountTypeScreen} />
         <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
@@ -90,5 +117,14 @@ const AppNavigator = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+});
 
 export default AppNavigator;

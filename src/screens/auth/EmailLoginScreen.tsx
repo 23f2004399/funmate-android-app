@@ -96,8 +96,13 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // TODO: Navigate to Home/Dashboard when ready
-      console.log('✅ Google login successful');
+      // Navigate to main app
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }, 1500);
 
     } catch (error: any) {
       setGoogleLoading(false);
@@ -178,8 +183,13 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // TODO: Navigate to Home/Dashboard when ready
-      console.log('✅ Email/password login successful');
+      // Navigate to main app
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }, 1500);
 
     } catch (error: any) {
       setLoading(false);

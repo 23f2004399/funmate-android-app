@@ -81,3 +81,4 @@ START_BOTH_SERVICES.md
 face_detection_sys_HF.ipynb
 live_selfie_check_HF.ipynb
 ./backend/env/
+API_CONFIG_GUIDE.md
