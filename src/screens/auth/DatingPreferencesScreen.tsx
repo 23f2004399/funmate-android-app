@@ -61,6 +61,59 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
     }
   };
 
+  /**
+   * Skip dating preferences - creates empty preference fields
+   */
+  const handleSkip = async () => {
+    setSaving(true);
+
+    try {
+      const userId = auth().currentUser?.uid;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Save empty preferences (for profile completion tracking)
+      await firestore()
+        .collection('users')
+        .doc(userId)
+        .update({
+          bio: '',
+          relationshipIntent: null,
+          interestedIn: [],
+          matchRadiusKm: 25, // Default value
+        });
+
+      console.log('✅ Dating preferences skipped - empty fields saved');
+
+      Toast.show({
+        type: 'success',
+        text1: 'Profile Setup Complete! 🎉',
+        text2: 'Welcome to Funmate',
+        visibilityTime: 2000,
+      });
+
+      // Navigate to main app
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('❌ Error skipping preferences:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Skip Failed',
+        text2: error.message || 'Could not skip. Please try again.',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleComplete = async () => {
     // Validation
     if (bio.trim().length < 20) {
@@ -131,8 +184,13 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
         visibilityTime: 2000,
       });
 
-      // TODO: Navigate to main app (home/swipe screen) or location permission screen
-      // navigation.navigate('MainApp');
+      // Navigate to main app
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' as never }],
+        });
+      }, 1500);
 
     } catch (error: any) {
       console.error('❌ Error saving preferences:', error);
@@ -176,6 +234,14 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
             <Text style={styles.title}>Almost Done!</Text>
             <Text style={styles.subtitle}>Complete your dating profile</Text>
           </View>
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={handleSkip}
+            disabled={saving}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </TouchableOpacity>
         </View>
 
         {/* About Me */}
@@ -313,12 +379,9 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
       {/* Complete Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[
-            styles.completeButton,
-            (!bioValid || !relationshipIntent || interestedIn.length === 0 || saving) && styles.completeButtonDisabled,
-          ]}
+          style={styles.completeButton}
           onPress={handleComplete}
-          disabled={!bioValid || !relationshipIntent || interestedIn.length === 0 || saving}
+          disabled={saving}
           activeOpacity={0.8}
         >
           <Text style={styles.completeButtonText}>
@@ -357,6 +420,16 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
+  },
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginLeft: 8,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF4458',
   },
   title: {
     fontSize: 28,

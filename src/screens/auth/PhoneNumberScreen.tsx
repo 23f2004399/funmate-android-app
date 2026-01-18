@@ -17,9 +17,11 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface PhoneNumberScreenProps {
   navigation: any;
+  route: any;
 }
 
-const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
+const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
+  const { accountType = 'user', isLogin = false } = route.params || {};
   const [countryCode, setCountryCode] = useState<CountryCode>('IN');
   const [callingCode, setCallingCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -62,6 +64,8 @@ const PhoneNumberScreen = ({ navigation }: PhoneNumberScreenProps) => {
       navigation.navigate('OTPVerification', {
         phoneNumber: fullPhoneNumber,
         verificationId: confirmation.verificationId,
+        accountType,
+        isLogin,
       });
     } catch (error: any) {
       setLoading(false);

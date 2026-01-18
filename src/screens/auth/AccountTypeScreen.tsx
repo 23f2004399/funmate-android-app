@@ -14,12 +14,12 @@ interface AccountTypeScreenProps {
 const AccountTypeScreen = ({ navigation }: AccountTypeScreenProps) => {
   const handleUserAccount = () => {
     console.log('Creating User Account');
-    navigation.navigate('PhoneNumber');
+    navigation.navigate('PhoneNumber', { accountType: 'user' });
   };
 
   const handleCreatorAccount = () => {
     console.log('Creating Event Creator Account');
-    // TODO: Navigate to event creator signup flow
+    navigation.navigate('PhoneNumber', { accountType: 'creator' });
   };
 
   return (
