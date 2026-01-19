@@ -81,6 +81,15 @@ const SwipeHubScreen = () => {
         
         const swipedUserIds = swipedDocs.docs.map(doc => doc.data().toUserId);
 
+        // Check if user has filled ANY preferences
+        const hasFilledPreferences = 
+          (currentUserData.interests && currentUserData.interests.length > 0) ||
+          currentUserData.relationshipIntent;
+
+        // Check if user has selected gender preference
+        const hasGenderPreference = 
+          currentUserData.interestedIn && currentUserData.interestedIn.length > 0;
+
         // Fetch all users (we'll filter client-side for now)
         const usersSnapshot = await firestore()
           .collection('users')
@@ -110,7 +119,81 @@ const SwipeHubScreen = () => {
             );
           }
 
-          // Apply hard filters
+          // If user hasn't filled ANY preferences, show random cards (no filtering, no scoring)
+          if (!hasFilledPreferences) {
+            potentialMatches.push({
+              id: matchUserId,
+              fullName: userData.fullName || 'Unknown',
+              age: userData.age || 25,
+              gender: userData.gender,
+              bio: userData.bio || '',
+              interests: userData.interests || [],
+              relationshipIntent: userData.relationshipIntent,
+              photos: userData.photos || [],
+              location: userData.location,
+              distance: Math.round(distance),
+              matchScore: 0, // No scoring for users without preferences
+              lastActiveAt: userData.lastActiveAt,
+            });
+            return;
+          }
+
+          // If user has preferences but NO gender preference, skip gender filtering
+          // but still apply other filters (radius, intent)
+          if (hasFilledPreferences && !hasGenderPreference) {
+            // Apply filters WITHOUT gender check
+            const passes = passesFilters(
+              {
+                interestedIn: [], // Empty array = show all genders
+                matchRadiusKm: currentUserData.matchRadiusKm || 25,
+                relationshipIntent: currentUserData.relationshipIntent,
+              },
+              {
+                gender: userData.gender,
+                relationshipIntent: userData.relationshipIntent,
+              },
+              distance
+            );
+
+            if (!passes) return;
+
+            // Calculate match score based on interests, intent, distance
+            const matchScore = calculateMatchScore(
+              {
+                location: currentUserData.location,
+                matchRadiusKm: currentUserData.matchRadiusKm || 25,
+                relationshipIntent: currentUserData.relationshipIntent,
+                interests: currentUserData.interests || [],
+                lastActiveAt: currentUserData.lastActiveAt,
+              },
+              {
+                location: userData.location,
+                matchRadiusKm: userData.matchRadiusKm,
+                relationshipIntent: userData.relationshipIntent,
+                interests: userData.interests || [],
+                lastActiveAt: userData.lastActiveAt,
+              },
+              distance
+            );
+
+            potentialMatches.push({
+              id: matchUserId,
+              fullName: userData.fullName || 'Unknown',
+              age: userData.age || 25,
+              gender: userData.gender,
+              bio: userData.bio || '',
+              interests: userData.interests || [],
+              relationshipIntent: userData.relationshipIntent,
+              photos: userData.photos || [],
+              location: userData.location,
+              distance: Math.round(distance),
+              matchScore,
+              lastActiveAt: userData.lastActiveAt,
+            });
+            return;
+          }
+
+          // If user has full preferences (including gender), apply all filters
           const passes = passesFilters(
             {
               interestedIn: currentUserData.interestedIn || [],
@@ -161,8 +244,17 @@ const SwipeHubScreen = () => {
           });
         });
 
-        // Sort by match score (highest first)
-        potentialMatches.sort((a, b) => b.matchScore - a.matchScore);
+        // Sort by match score (highest first) if user has preferences
+        // Otherwise shuffle randomly for users without preferences
+        if (hasFilledPreferences) {
+          potentialMatches.sort((a, b) => b.matchScore - a.matchScore);
+        } else {
+          // Shuffle array randomly (Fisher-Yates algorithm)
+          for (let i = potentialMatches.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [potentialMatches[i], potentialMatches[j]] = [potentialMatches[j], potentialMatches[i]];
+          }
+        }
 
         setMatches(potentialMatches);
         setLoading(false);
