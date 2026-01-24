@@ -28,6 +28,7 @@ import {
 import { useIsFocused } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import CardSwiper from '../../components/CardSwiper';
+import MatchAnimation from '../../components/MatchAnimation';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
@@ -65,12 +66,24 @@ interface Match {
   lastActiveAt?: any;
 }
 
+// Match data for animation (mutual match)
+interface MatchAnimationData {
+  matchId: string;
+  chatId: string;
+  matchedUser: Match;
+}
+
 const SwipeHubScreen = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showLocationBanner, setShowLocationBanner] = useState(false);
+  
+  // Match animation state (for mutual matches)
+  const [showMatchAnimation, setShowMatchAnimation] = useState(false);
+  const [matchAnimationData, setMatchAnimationData] = useState<MatchAnimationData | null>(null);
+  const [currentUserPhoto, setCurrentUserPhoto] = useState<string>('');
   
   const userId = auth().currentUser?.uid;
   const isFocused = useIsFocused();
@@ -228,6 +241,29 @@ const SwipeHubScreen = () => {
   }, [userId]);
 
   /**
+   * Fetch current user's photo for match animation
+   */
+  useEffect(() => {
+    const fetchCurrentUserPhoto = async () => {
+      if (!userId) return;
+      
+      try {
+        const userDoc = await firestore().collection('users').doc(userId).get();
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const primaryPhoto = userData?.photos?.find((p: any) => p.isPrimary)?.url;
+          const firstPhoto = userData?.photos?.[0]?.url;
+          setCurrentUserPhoto(primaryPhoto || firstPhoto || '');
+        }
+      } catch (error) {
+        console.error('Error fetching current user photo:', error);
+      }
+    };
+    
+    fetchCurrentUserPhoto();
+  }, [userId]);
+
+  /**
    * On tab focus or loading complete - check permission status and show/hide banner accordingly
    */
   useEffect(() => {
@@ -332,6 +368,17 @@ const SwipeHubScreen = () => {
         
         const swipedUserIds = swipedDocs.docs.map(doc => doc.data().toUserId);
 
+        // Get users who liked us and we already acted on (from "Who Liked You")
+        // These should NOT appear in SwipeHub since we already handled them
+        const actedOnLikesQuery = await firestore()
+          .collection('swipes')
+          .where('toUserId', '==', userId)
+          .where('action', '==', 'like')
+          .where('actedOnByTarget', '==', true)
+          .get();
+        
+        const actedOnLikerIds = actedOnLikesQuery.docs.map(doc => doc.data().fromUserId);
+
         // Check if user has filled ANY preferences
         const hasFilledPreferences = 
           (currentUserData.interests && currentUserData.interests.length > 0) ||
@@ -350,6 +397,7 @@ const SwipeHubScreen = () => {
         console.log('📊 Query results:', {
           totalUsers: usersSnapshot.size,
           swipedCount: swipedUserIds.length,
+          actedOnLikersCount: actedOnLikerIds.length,
         });
 
         const potentialMatches: Match[] = [];
@@ -358,13 +406,17 @@ const SwipeHubScreen = () => {
           const userData = doc.data();
           const matchUserId = doc.id;
 
-          // Skip self and already swiped users
-          if (matchUserId === userId || swipedUserIds.includes(matchUserId)) {
+          // Skip self, already swiped users, and users we already acted on in "Who Liked You"
+          if (
+            matchUserId === userId || 
+            swipedUserIds.includes(matchUserId) ||
+            actedOnLikerIds.includes(matchUserId)
+          ) {
             return;
           }
 
-          // Calculate distance
-          let distance = 0;
+          // Calculate distance (null if either user has no location)
+          let distance: number | null = null;
           if (currentUserData.location && userData.location) {
             distance = calculateDistance(
               currentUserData.location.latitude,
@@ -374,7 +426,26 @@ const SwipeHubScreen = () => {
             );
           }
 
-          // If user hasn't filled ANY preferences, show random cards (no filtering, no scoring)
+          // ALWAYS calculate match score using RecommendationEngine
+          const matchScore = calculateMatchScore(
+            {
+              location: currentUserData.location,
+              matchRadiusKm: currentUserData.matchRadiusKm || 25,
+              relationshipIntent: currentUserData.relationshipIntent,
+              interests: currentUserData.interests || [],
+              lastActiveAt: currentUserData.lastActiveAt,
+            },
+            {
+              location: userData.location,
+              matchRadiusKm: userData.matchRadiusKm,
+              relationshipIntent: userData.relationshipIntent,
+              interests: userData.interests || [],
+              lastActiveAt: userData.lastActiveAt,
+            },
+            distance
+          );
+
+          // If user hasn't filled ANY preferences, show cards without filtering
           if (!hasFilledPreferences) {
             potentialMatches.push({
               id: matchUserId,
@@ -386,8 +457,8 @@ const SwipeHubScreen = () => {
               relationshipIntent: userData.relationshipIntent,
               photos: userData.photos || [],
               location: userData.location,
-              distance: Math.round(distance),
-              matchScore: 0, // No scoring for users without preferences
+              distance: distance !== null ? Math.round(distance) : 0,
+              matchScore, // Use calculated score
               lastActiveAt: userData.lastActiveAt,
             });
             return;
@@ -410,25 +481,6 @@ const SwipeHubScreen = () => {
 
             if (!passes) return;
 
-            // Calculate match score based on interests, intent, distance
-            const matchScore = calculateMatchScore(
-              {
-                location: currentUserData.location,
-                matchRadiusKm: currentUserData.matchRadiusKm || 25,
-                relationshipIntent: currentUserData.relationshipIntent,
-                interests: currentUserData.interests || [],
-                lastActiveAt: currentUserData.lastActiveAt,
-              },
-              {
-                location: userData.location,
-                matchRadiusKm: userData.matchRadiusKm,
-                relationshipIntent: userData.relationshipIntent,
-                interests: userData.interests || [],
-                lastActiveAt: userData.lastActiveAt,
-              },
-              distance
-            );
-
             potentialMatches.push({
               id: matchUserId,
               name: userData.name || 'Unknown',
@@ -439,7 +491,7 @@ const SwipeHubScreen = () => {
               relationshipIntent: userData.relationshipIntent,
               photos: userData.photos || [],
               location: userData.location,
-              distance: Math.round(distance),
+              distance: distance !== null ? Math.round(distance) : 0,
               matchScore,
               lastActiveAt: userData.lastActiveAt,
             });
@@ -460,25 +512,6 @@ const SwipeHubScreen = () => {
 
           if (!passes) return;
 
-          // Calculate match score
-          const matchScore = calculateMatchScore(
-            {
-              location: currentUserData.location,
-              matchRadiusKm: currentUserData.matchRadiusKm || 25,
-              relationshipIntent: currentUserData.relationshipIntent,
-              interests: currentUserData.interests || [],
-              lastActiveAt: currentUserData.lastActiveAt,
-            },
-            {
-              location: userData.location,
-              matchRadiusKm: userData.matchRadiusKm,
-              relationshipIntent: userData.relationshipIntent,
-              interests: userData.interests || [],
-              lastActiveAt: userData.lastActiveAt,
-            },
-            distance
-          );
-
           potentialMatches.push({
             id: matchUserId,
             name: userData.name || 'Unknown',
@@ -491,7 +524,7 @@ const SwipeHubScreen = () => {
             isVerified: userData.isVerified || false,
             photos: userData.photos || [],
             location: userData.location,
-            distance: Math.round(distance),
+            distance: distance !== null ? Math.round(distance) : 0,
             matchScore,
             lastActiveAt: userData.lastActiveAt,
           });
@@ -541,13 +574,27 @@ const SwipeHubScreen = () => {
 
   /**
    * Handle swipe right (like)
+   * Checks if the other user already liked us - if so, it's a mutual match!
    */
   const handleSwipeRight = async (cardIndex: number) => {
     const match = matches[cardIndex];
     if (!match || !userId) return;
 
     try {
-      // Save swipe to Firestore
+      // Check if this user has already liked us (mutual match!)
+      const existingLikeQuery = await firestore()
+        .collection('swipes')
+        .where('fromUserId', '==', match.id)
+        .where('toUserId', '==', userId)
+        .where('action', '==', 'like')
+        .where('actedOnByTarget', '==', false)
+        .limit(1)
+        .get();
+
+      const isMutualMatch = !existingLikeQuery.empty;
+      const existingLikeDoc = isMutualMatch ? existingLikeQuery.docs[0] : null;
+
+      // Save our swipe to Firestore
       await firestore().collection('swipes').add({
         fromUserId: userId,
         toUserId: match.id,
@@ -556,10 +603,49 @@ const SwipeHubScreen = () => {
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
-      // Note: Notifications are created by Cloud Functions, not client-side
-      // This avoids permission-denied errors
+      if (isMutualMatch && existingLikeDoc) {
+        // 🎉 It's a mutual match! Create match and chat
+        console.log(`💕 Mutual match with ${match.name}!`);
 
-      console.log(`✅ Liked: ${match.name}`);
+        // Create the match document (using userA/userB to match Firestore rules)
+        const matchRef = await firestore().collection('matches').add({
+          userA: userId,
+          userB: match.id,
+          isActive: true,
+          createdAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Create a chat for the match
+        const chatRef = await firestore().collection('chats').add({
+          type: 'dating',
+          participants: [userId, match.id],
+          relatedMatchId: matchRef.id,
+          isMutual: true,
+          lastMessage: null,
+          relatedEventId: null,
+          deletionPolicy: {
+            type: 'on_unmatch',
+            days: null,
+          },
+          allowDeleteForEveryone: false,
+          deleteForEveryoneWindowDays: null,
+          createdAt: firestore.FieldValue.serverTimestamp(),
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+
+        // Mark their original like as acted on (so it disappears from "Who Liked You")
+        await existingLikeDoc.ref.update({ actedOnByTarget: true });
+
+        // Store match data and show animation
+        setMatchAnimationData({
+          matchId: matchRef.id,
+          chatId: chatRef.id,
+          matchedUser: match,
+        });
+        setShowMatchAnimation(true);
+      } else {
+        console.log(`✅ Liked: ${match.name}`);
+      }
       
       // Remove the swiped card from matches array for immediate UI update
       setMatches(prev => prev.filter((_, idx) => idx !== cardIndex));
@@ -601,6 +687,31 @@ const SwipeHubScreen = () => {
       console.error('Error saving pass:', error);
     }
   };
+
+  /**
+   * Handle "Send Message" from match animation
+   */
+  const handleSendMessage = useCallback(() => {
+    if (!matchAnimationData) return;
+    
+    setShowMatchAnimation(false);
+    setMatchAnimationData(null);
+    
+    Toast.show({
+      type: 'success',
+      text1: 'Match Created!',
+      text2: 'You can chat with ' + matchAnimationData.matchedUser.name + ' in My Hub',
+      visibilityTime: 3000,
+    });
+  }, [matchAnimationData]);
+
+  /**
+   * Handle "Keep Swiping" from match animation
+   */
+  const handleKeepSwiping = useCallback(() => {
+    setShowMatchAnimation(false);
+    setMatchAnimationData(null);
+  }, []);
 
   /**
    * Navigate photos in current card
@@ -943,6 +1054,16 @@ const SwipeHubScreen = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Match Animation Overlay - shown when mutual match detected */}
+      <MatchAnimation
+        visible={showMatchAnimation}
+        currentUserPhoto={currentUserPhoto}
+        matchedUserPhoto={matchAnimationData?.matchedUser.photos.find(p => p.isPrimary)?.url || matchAnimationData?.matchedUser.photos[0]?.url}
+        matchedUserName={matchAnimationData?.matchedUser.name}
+        onSendMessage={handleSendMessage}
+        onKeepSwiping={handleKeepSwiping}
+      />
     </View>
   );
 };

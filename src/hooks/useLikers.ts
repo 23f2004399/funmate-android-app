@@ -337,9 +337,11 @@ export const useLikers = (): UseLikersResult => {
   useEffect(() => {
     if (!userId) return;
 
+    let unsubscribe: (() => void) | null = null;
+
     // Small delay to let initial fetch complete first
     const timeoutId = setTimeout(() => {
-      const unsubscribe = firestore()
+      unsubscribe = firestore()
         .collection('swipes')
         .where('toUserId', '==', userId)
         .where('action', '==', 'like')
@@ -371,14 +373,20 @@ export const useLikers = (): UseLikersResult => {
             }
           },
           (err) => {
-            console.error('Likers listener error:', err);
+            // Only log error if we still have a user (not logged out)
+            if (auth().currentUser) {
+              console.error('Likers listener error:', err);
+            }
           }
         );
-
-      return () => unsubscribe();
     }, 500);
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [userId]);
 
   return {

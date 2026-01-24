@@ -75,6 +75,7 @@ const LikesSwiperScreen = () => {
   
   // Match animation state
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
+  const showMatchAnimationRef = useRef(false); // Ref for synchronous access in callbacks
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string>('');
 
@@ -172,6 +173,10 @@ const LikesSwiperScreen = () => {
     const liker = orderedLikers[cardIndex];
     if (!liker || !userId || isProcessing) return;
 
+    // Set ref IMMEDIATELY before any async work - this tells handleSwipedAll not to navigate
+    // Every swipe right in "Who Liked You" creates a match, so animation will show
+    showMatchAnimationRef.current = true;
+
     setIsProcessing(true);
 
     try {
@@ -230,6 +235,7 @@ const LikesSwiperScreen = () => {
         chatId: chatRef.id,
         matchedUser: liker,
       });
+      // Ref already set at start of function
       setShowMatchAnimation(true);
 
       // Force re-render of CardSwiper with new key
@@ -242,6 +248,8 @@ const LikesSwiperScreen = () => {
 
     } catch (error) {
       console.error('Error creating match:', error);
+      // Reset ref on error - no animation will show
+      showMatchAnimationRef.current = false;
       // Rollback local state on error
       setSwipedIds(prev => {
         const next = new Set(prev);
@@ -315,15 +323,27 @@ const LikesSwiperScreen = () => {
 
   /**
    * Handle all cards swiped
+   * Don't navigate away if match animation is showing
    */
   const handleSwipedAll = useCallback(() => {
-    Toast.show({
-      type: 'info',
-      text1: 'All Done!',
-      text2: "You've gone through all your likes",
-      visibilityTime: 2000,
-    });
-    navigation.goBack();
+    // If match animation is about to show, don't navigate away yet
+    // The animation handlers will take care of navigation
+    // Use ref for synchronous check (state may not be updated yet)
+    if (showMatchAnimationRef.current) return;
+    
+    // Small delay to let the last swipe's match animation trigger if needed
+    setTimeout(() => {
+      // Re-check after delay in case animation was triggered
+      if (!showMatchAnimationRef.current) {
+        Toast.show({
+          type: 'info',
+          text1: 'All Done!',
+          text2: "You've gone through all your likes",
+          visibilityTime: 2000,
+        });
+        navigation.goBack();
+      }
+    }, 100);
   }, [navigation]);
 
   /**
@@ -332,6 +352,7 @@ const LikesSwiperScreen = () => {
   const handleSendMessage = useCallback(() => {
     if (!matchData) return;
     
+    showMatchAnimationRef.current = false; // Reset ref
     setShowMatchAnimation(false);
     setMatchData(null);
     
@@ -351,9 +372,21 @@ const LikesSwiperScreen = () => {
    * Handle "Keep Swiping" from match animation
    */
   const handleKeepSwiping = useCallback(() => {
+    showMatchAnimationRef.current = false; // Reset ref
     setShowMatchAnimation(false);
     setMatchData(null);
-  }, []);
+    
+    // Check if there are more cards to swipe, if not go back
+    if (orderedLikers.length === 0) {
+      Toast.show({
+        type: 'info',
+        text1: 'All Done!',
+        text2: "You've gone through all your likes",
+        visibilityTime: 2000,
+      });
+      navigation.goBack();
+    }
+  }, [orderedLikers.length, navigation]);
 
   /**
    * Render individual card
@@ -480,27 +513,32 @@ const LikesSwiperScreen = () => {
     );
   }
 
-  // Empty state
-  if (orderedLikers.length === 0) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Who Liked You</Text>
+  // Empty state - only show if NO animation is pending or showing
+  // When animation is active, we skip this and render the main view (which includes MatchAnimation)
+  if (orderedLikers.length === 0 && !showMatchAnimation) {
+    // Double-check ref - if ref says animation should show, skip empty state
+    // This handles the timing gap between ref update and state update
+    if (!showMatchAnimationRef.current) {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Who Liked You</Text>
+          </View>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="heart-outline" size={80} color="#E0E0E0" />
+            <Text style={styles.emptyTitle}>All Caught Up!</Text>
+            <Text style={styles.emptyText}>You've responded to all your likes</Text>
+            <TouchableOpacity style={styles.backToHubButton} onPress={handleBack}>
+              <Text style={styles.backToHubText}>Back to My Hub</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.emptyContainer}>
-          <Ionicons name="heart-outline" size={80} color="#E0E0E0" />
-          <Text style={styles.emptyTitle}>All Caught Up!</Text>
-          <Text style={styles.emptyText}>You've responded to all your likes</Text>
-          <TouchableOpacity style={styles.backToHubButton} onPress={handleBack}>
-            <Text style={styles.backToHubText}>Back to My Hub</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+      );
+    }
   }
 
   return (
