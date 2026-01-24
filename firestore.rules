@@ -92,8 +92,12 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+      // Allow sender to update/delete their message
+      // Allow any chat participant to update reactions only
       allow update: if isAuthenticated() && 
-                       resource.data.senderId == request.auth.uid;
+                       (resource.data.senderId == request.auth.uid ||
+                        // Allow reactions update by checking only reactions field changes
+                        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])));
       allow delete: if isAuthenticated() && 
                        resource.data.senderId == request.auth.uid;
     }

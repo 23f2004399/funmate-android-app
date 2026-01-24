@@ -3,7 +3,12 @@
  * 
  * Dual-state chat interface:
  * - Restricted (isMutual: false): Shadow message chips only
- * - Mutual (isMutual: true): Full text input
+ * - Mutual (isMutual: true): Full text input with photo sharing
+ * 
+ * Features:
+ * - Photo sharing via image picker (mutual only)
+ * - Message reactions with long-press
+ * - Seen status and relative timestamps
  * 
  * Entry points:
  * - "Send Message" button in Match Animation overlay
@@ -26,12 +31,32 @@ import {
   ActivityIndicator,
   Keyboard,
   Animated,
+  TouchableWithoutFeedback,
+  Modal,
+  Pressable,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import firestore from '@react-native-firebase/firestore';
+import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
 import auth from '@react-native-firebase/auth';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { Chat, Message, User } from '../../types/database';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Reaction emojis
+const REACTION_EMOJIS = ['❤️', '😂', '😮', '😢', '😡', '👍'];
+
+// Extended emoji list for the "more" modal
+const EXTENDED_EMOJIS = [
+  '❤️', '😂', '😮', '😢', '😡', '👍',
+  '🔥', '💯', '🙌', '👏', '🎉', '💪',
+  '😍', '🥰', '😘', '😊', '🤗', '😎',
+  '🤔', '😏', '🙄', '😴', '🤮', '💀',
+  '👀', '🙏', '✨', '💕', '💔', '🤝',
+];
 
 // Shadow message chips for restricted chat
 const SHADOW_CHIPS = [
@@ -73,6 +98,13 @@ const ChatScreen = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [isMutual, setIsMutual] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [recipientLastRead, setRecipientLastRead] = useState<any>(null); // When recipient last read the chat
+  
+  // Reaction overlay state
+  const [reactionMessageId, setReactionMessageId] = useState<string | null>(null);
+  const [reactionPosition, setReactionPosition] = useState({ x: 0, y: 0, isOwnMessage: false });
+  const [showExtendedEmojis, setShowExtendedEmojis] = useState(false);
 
   // Keyboard height animation for Android
   const keyboardHeight = useRef(new Animated.Value(0)).current;
@@ -152,6 +184,11 @@ const ChatScreen = () => {
             const chatData = { id: chatDoc.id, ...chatDoc.data() } as Chat;
             setChat(chatData);
             setIsMutual(chatData.isMutual);
+          } else {
+            // Chat was deleted - go back
+            console.warn('Chat not found, may have been deleted');
+            navigation.goBack();
+            return;
           }
         } else {
           // No chatId - check if chat exists between these users
@@ -208,15 +245,20 @@ const ChatScreen = () => {
             setIsMutual(false);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error initializing chat:', error);
+        // Permission denied means chat was deleted or user removed
+        if (error.code === 'permission-denied') {
+          navigation.goBack();
+          return;
+        }
       } finally {
         setLoading(false);
       }
     };
 
     initializeChat();
-  }, [userId, recipientId, chatId]);
+  }, [userId, recipientId, chatId, navigation]);
 
   /**
    * Real-time messages listener
@@ -246,7 +288,7 @@ const ChatScreen = () => {
   }, [chatId]);
 
   /**
-   * Real-time chat listener (for isMutual updates)
+   * Real-time chat listener (for isMutual updates and seen status)
    */
   useEffect(() => {
     if (!chatId) return;
@@ -260,15 +302,52 @@ const ChatScreen = () => {
             const chatData = { id: doc.id, ...doc.data() } as Chat;
             setChat(chatData);
             setIsMutual(chatData.isMutual);
+            
+            // Track when recipient last read the chat
+            if (chatData.lastReadBy && recipientId) {
+              setRecipientLastRead(chatData.lastReadBy[recipientId] || null);
+            }
+          } else {
+            // Chat was deleted - navigate back
+            console.warn('Chat document no longer exists');
+            navigation.goBack();
           }
         },
-        (error) => {
+        (error: any) => {
           console.error('Chat listener error:', error);
+          // Permission denied usually means chat was deleted or user removed
+          if (error.code === 'permission-denied') {
+            navigation.goBack();
+          }
         }
       );
 
     return () => unsubscribe();
-  }, [chatId]);
+  }, [chatId, recipientId]);
+
+  /**
+   * Mark chat as read when user views it
+   */
+  useEffect(() => {
+    if (!chatId || !userId) return;
+
+    // Update lastReadBy for current user
+    const markAsRead = async () => {
+      try {
+        await firestore()
+          .collection('chats')
+          .doc(chatId)
+          .update({
+            [`lastReadBy.${userId}`]: firestore.FieldValue.serverTimestamp(),
+          });
+      } catch (error) {
+        // Ignore errors - chat might not exist yet or user doesn't have permission
+        console.log('Could not mark chat as read:', error);
+      }
+    };
+
+    markAsRead();
+  }, [chatId, userId, messages.length]); // Re-run when new messages arrive
 
   /**
    * Send a text message (mutual chat only)
@@ -353,6 +432,126 @@ const ChatScreen = () => {
   };
 
   /**
+   * Pick and send a photo (mutual chats only)
+   */
+  const handlePickPhoto = async () => {
+    if (!chatId || !userId || uploadingPhoto) return;
+
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+        quality: 0.8,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      });
+
+      if (result.didCancel || !result.assets?.[0]?.uri) return;
+
+      const photo = result.assets[0];
+      const photoUri = photo.uri!;
+      setUploadingPhoto(true);
+
+      // Upload to Firebase Storage
+      const filename = `chat_images/${chatId}/${Date.now()}_${userId}.jpg`;
+      const reference = storage().ref(filename);
+      
+      await reference.putFile(photoUri);
+      const downloadUrl = await reference.getDownloadURL();
+
+      // Create image message
+      await firestore().collection('messages').add({
+        chatId,
+        senderId: userId,
+        type: 'image',
+        content: downloadUrl,
+        reactions: {},
+        deletedForEveryone: false,
+        deletedForEveryoneAt: null,
+        deletedForEveryoneBy: null,
+        deletedForUsers: [],
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Update chat's lastMessage
+      await firestore().collection('chats').doc(chatId).update({
+        lastMessage: {
+          text: '📷 Photo',
+          senderId: userId,
+          timestamp: firestore.FieldValue.serverTimestamp(),
+        },
+        lastMessageAt: firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error sending photo:', error);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  /**
+   * Handle long press on a message to show reaction picker
+   */
+  const handleMessageLongPress = (messageId: string, event: any, isOwnMessage: boolean) => {
+    const { pageY } = event.nativeEvent;
+    setReactionPosition({ x: 0, y: pageY, isOwnMessage });
+    setReactionMessageId(messageId);
+    setShowExtendedEmojis(false);
+  };
+
+  /**
+   * Add a reaction to a message
+   */
+  const handleAddReaction = async (emoji: string) => {
+    if (!reactionMessageId || !userId) return;
+
+    try {
+      const messageRef = firestore().collection('messages').doc(reactionMessageId);
+      const messageDoc = await messageRef.get();
+      
+      if (messageDoc.exists()) {
+        const currentReactions = messageDoc.data()?.reactions || {};
+        
+        // Toggle reaction: if user already reacted with this emoji, remove it
+        if (currentReactions[userId] === emoji) {
+          await messageRef.update({
+            [`reactions.${userId}`]: firestore.FieldValue.delete(),
+          });
+        } else {
+          await messageRef.update({
+            [`reactions.${userId}`]: emoji,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error adding reaction:', error);
+    } finally {
+      setReactionMessageId(null);
+      setShowExtendedEmojis(false);
+    }
+  };
+
+  /**
+   * Format relative timestamp
+   */
+  const formatRelativeTime = (timestamp: any): string => {
+    if (!timestamp) return '';
+    
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString();
+  };
+
+  /**
    * Navigate back
    */
   const handleBack = () => {
@@ -363,35 +562,103 @@ const ChatScreen = () => {
    * Render a single message
    */
   const renderMessage = useCallback(
-    ({ item }: { item: MessageWithId }) => {
+    ({ item, index }: { item: MessageWithId; index: number }) => {
       const isOwnMessage = item.senderId === userId;
       const isShadowChip = item.type === 'shadow_chip';
+      const isImage = item.type === 'image';
+      const reactions = item.reactions || {};
+      const reactionEntries = Object.entries(reactions);
+      const hasReactions = reactionEntries.length > 0;
+
+      // Group reactions by emoji
+      const reactionCounts: { [emoji: string]: number } = {};
+      reactionEntries.forEach(([_, emoji]) => {
+        reactionCounts[emoji as string] = (reactionCounts[emoji as string] || 0) + 1;
+      });
 
       return (
-        <View
-          style={[
-            styles.messageBubble,
-            isOwnMessage ? styles.ownMessage : styles.otherMessage,
-            isShadowChip && styles.shadowChipMessage,
-          ]}
+        <Pressable
+          onLongPress={(e) => handleMessageLongPress(item.id, e, isOwnMessage)}
+          delayLongPress={300}
+          style={[styles.messageContainer, isOwnMessage ? styles.ownMessageContainer : styles.otherMessageContainer]}
         >
-          <Text
-            style={[
-              styles.messageText,
-              isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
-            ]}
-          >
-            {item.content}
-          </Text>
-          {isShadowChip && (
-            <View style={styles.shadowChipBadge}>
-              <Text style={styles.shadowChipBadgeText}>Quick Message</Text>
+          <View style={styles.messageBubbleWrapper}>
+            <View
+              style={[
+                styles.messageBubble,
+                isOwnMessage ? styles.ownMessage : styles.otherMessage,
+                isShadowChip && styles.shadowChipMessage,
+                isImage && styles.imageMessage,
+              ]}
+            >
+            {/* Image message */}
+            {isImage ? (
+              <Image
+                source={{ uri: item.content }}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            ) : (
+              /* Text/Shadow chip message */
+              <Text
+                style={[
+                  styles.messageText,
+                  isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+                ]}
+              >
+                {item.content}
+              </Text>
+            )}
+
+            {isShadowChip && (
+              <View style={styles.shadowChipBadge}>
+                <Text style={styles.shadowChipBadgeText}>Quick Message</Text>
+              </View>
+            )}
+
+            {/* Timestamp */}
+            <Text
+              style={[
+                styles.messageTimestamp,
+                isOwnMessage ? styles.ownMessageTimestamp : styles.otherMessageTimestamp,
+              ]}
+            >
+              {formatRelativeTime(item.createdAt)}
+              {/* Seen status for own messages (only show for most recent) */}
+              {isOwnMessage && index === 0 && (() => {
+                // Check if recipient has read this message
+                if (recipientLastRead && item.createdAt) {
+                  const messageTime = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+                  const readTime = recipientLastRead.toDate ? recipientLastRead.toDate() : new Date(recipientLastRead);
+                  if (readTime >= messageTime) {
+                    return ' • Seen';
+                  }
+                }
+                return ' • Sent';
+              })()}
+            </Text>
             </View>
-          )}
-        </View>
+
+            {/* Reactions display - positioned at bottom corner of bubble */}
+            {hasReactions && (
+              <View style={[
+                styles.reactionsContainer,
+                isOwnMessage ? styles.ownReactionsContainer : styles.otherReactionsContainer,
+                isImage ? styles.imageReactionsPosition : styles.textReactionsPosition,
+              ]}>
+                {Object.entries(reactionCounts).map(([emoji, count]) => (
+                  <View key={emoji} style={styles.reactionBubble}>
+                    <Text style={styles.reactionEmoji}>{emoji}</Text>
+                    {count > 1 && <Text style={styles.reactionCount}>{count}</Text>}
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </Pressable>
       );
     },
-    [userId]
+    [userId, recipientLastRead]
   );
 
   /**
@@ -406,6 +673,94 @@ const ChatScreen = () => {
       <Text style={styles.shadowChipText}>{item.text}</Text>
     </TouchableOpacity>
   );
+
+  /**
+   * Render reaction picker overlay
+   */
+  const renderReactionPicker = () => {
+    if (!reactionMessageId) return null;
+
+    // Calculate position - center horizontally, position above the message
+    const pickerTop = Math.max(100, reactionPosition.y - 80);
+
+    return (
+      <Modal
+        visible={true}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setReactionMessageId(null);
+          setShowExtendedEmojis(false);
+        }}
+      >
+        <TouchableWithoutFeedback 
+          onPress={() => {
+            setReactionMessageId(null);
+            setShowExtendedEmojis(false);
+          }}
+        >
+          <View style={styles.reactionOverlay}>
+            {/* Quick reaction picker - centered above message */}
+            {!showExtendedEmojis && (
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View
+                  style={[
+                    styles.reactionPicker,
+                    { top: pickerTop },
+                  ]}
+                >
+                  {REACTION_EMOJIS.map((emoji) => (
+                    <TouchableOpacity
+                      key={emoji}
+                      style={styles.reactionOption}
+                      onPress={() => handleAddReaction(emoji)}
+                    >
+                      <Text style={styles.reactionOptionEmoji}>{emoji}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {/* Plus button for more emojis */}
+                  <TouchableOpacity
+                    style={styles.reactionOptionMore}
+                    onPress={() => setShowExtendedEmojis(true)}
+                  >
+                    <Ionicons name="add" size={24} color="#666666" />
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            )}
+
+            {/* Extended emoji picker modal */}
+            {showExtendedEmojis && (
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={styles.extendedEmojiPicker}>
+                  <View style={styles.extendedEmojiHeader}>
+                    <Text style={styles.extendedEmojiTitle}>Choose Reaction</Text>
+                    <TouchableOpacity 
+                      onPress={() => setShowExtendedEmojis(false)}
+                      style={styles.extendedEmojiClose}
+                    >
+                      <Ionicons name="close" size={24} color="#666666" />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.extendedEmojiGrid}>
+                    {EXTENDED_EMOJIS.map((emoji) => (
+                      <TouchableOpacity
+                        key={emoji}
+                        style={styles.extendedEmojiOption}
+                        onPress={() => handleAddReaction(emoji)}
+                      >
+                        <Text style={styles.extendedEmojiText}>{emoji}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            )}
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
 
   // Get recipient display info
   const displayName = recipient?.name || recipientName || 'User';
@@ -490,8 +845,21 @@ const ChatScreen = () => {
 
       {/* Input Area */}
       {isMutual ? (
-        // Full text input for mutual chats
+        // Full text input for mutual chats with photo button
         <View style={styles.inputContainer}>
+          {/* Photo picker button */}
+          <TouchableOpacity
+            style={styles.photoButton}
+            onPress={handlePickPhoto}
+            disabled={uploadingPhoto}
+          >
+            {uploadingPhoto ? (
+              <ActivityIndicator size="small" color="#FF4458" />
+            ) : (
+              <Ionicons name="image-outline" size={24} color="#FF4458" />
+            )}
+          </TouchableOpacity>
+
           <TextInput
             style={styles.textInput}
             placeholder="Type a message..."
@@ -535,6 +903,9 @@ const ChatScreen = () => {
       {Platform.OS === 'android' && (
         <Animated.View style={{ height: keyboardHeight }} />
       )}
+
+      {/* Reaction Picker Modal */}
+      {renderReactionPicker()}
     </View>
   );
 };
@@ -622,7 +993,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-    transform: [{ scaleY: -1 }], // Flip because FlatList is inverted
   },
   emptyMessagesText: {
     marginTop: 16,
@@ -631,19 +1001,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   messageBubble: {
-    maxWidth: '80%',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    marginVertical: 4,
   },
   ownMessage: {
-    alignSelf: 'flex-end',
     backgroundColor: '#FF4458',
     borderBottomRightRadius: 4,
   },
   otherMessage: {
-    alignSelf: 'flex-start',
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
@@ -654,6 +1020,20 @@ const styles = StyleSheet.create({
     borderColor: '#FF4458',
     borderStyle: 'dashed',
   },
+  messageContainer: {
+    marginVertical: 2,
+    marginBottom: 20, // Extra space for reactions below bubble
+  },
+  ownMessageContainer: {
+    alignItems: 'flex-end',
+  },
+  otherMessageContainer: {
+    alignItems: 'flex-start',
+  },
+  messageBubbleWrapper: {
+    position: 'relative',
+    maxWidth: '80%',
+  },
   messageText: {
     fontSize: 16,
     lineHeight: 22,
@@ -663,6 +1043,63 @@ const styles = StyleSheet.create({
   },
   otherMessageText: {
     color: '#1A1A1A',
+  },
+  imageMessage: {
+    padding: 4,
+    backgroundColor: 'transparent',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 16,
+  },
+  messageTimestamp: {
+    fontSize: 10,
+    marginTop: 4,
+  },
+  ownMessageTimestamp: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'right',
+  },
+  otherMessageTimestamp: {
+    color: '#999999',
+    textAlign: 'left',
+  },
+  reactionsContainer: {
+    position: 'absolute',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+  },
+  ownReactionsContainer: {
+    right: 8,
+  },
+  otherReactionsContainer: {
+    left: 8,
+  },
+  textReactionsPosition: {
+    bottom: -18,
+  },
+  imageReactionsPosition: {
+    bottom: -4,
+  },
+  reactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  reactionEmoji: {
+    fontSize: 14,
+  },
+  reactionCount: {
+    fontSize: 11,
+    color: '#666666',
+    marginLeft: 2,
   },
   shadowChipBadge: {
     marginTop: 6,
@@ -676,12 +1113,20 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
-    gap: 12,
+    gap: 8,
+  },
+  photoButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF0F2',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textInput: {
     flex: 1,
@@ -704,6 +1149,88 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#CCCCCC',
+  },
+  // Reaction picker styles
+  reactionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  reactionPicker: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+    alignSelf: 'center',
+  },
+  reactionOption: {
+    padding: 8,
+  },
+  reactionOptionEmoji: {
+    fontSize: 26,
+  },
+  reactionOptionMore: {
+    padding: 8,
+    marginLeft: 4,
+    borderLeftWidth: 1,
+    borderLeftColor: '#E0E0E0',
+  },
+  // Extended emoji picker styles
+  extendedEmojiPicker: {
+    position: 'absolute',
+    top: '30%',
+    alignSelf: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    width: SCREEN_WIDTH - 40,
+    maxWidth: 360,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  extendedEmojiHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  extendedEmojiTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  extendedEmojiClose: {
+    padding: 4,
+  },
+  extendedEmojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  extendedEmojiOption: {
+    width: '16.66%',
+    aspectRatio: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+  },
+  extendedEmojiText: {
+    fontSize: 28,
   },
   shadowChipsContainer: {
     backgroundColor: '#FFFFFF',

@@ -602,11 +602,12 @@ const SwipeHubScreen = () => {
       }
 
       // Save our swipe to Firestore
+      // If it's a mutual match, mark as already acted on (they already swiped on us)
       await firestore().collection('swipes').add({
         fromUserId: userId,
         toUserId: match.id,
         action: 'like',
-        actedOnByTarget: false,
+        actedOnByTarget: isMutualMatch, // true if mutual, false otherwise
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
@@ -622,23 +623,47 @@ const SwipeHubScreen = () => {
           createdAt: firestore.FieldValue.serverTimestamp(),
         });
 
-        // Create a chat for the match
-        const chatRef = await firestore().collection('chats').add({
-          type: 'dating',
-          participants: [userId, match.id],
-          relatedMatchId: matchRef.id,
-          isMutual: true,
-          lastMessage: null,
-          relatedEventId: null,
-          deletionPolicy: {
-            type: 'on_unmatch',
-            days: null,
-          },
-          allowDeleteForEveryone: false,
-          deleteForEveryoneWindowDays: null,
-          createdAt: firestore.FieldValue.serverTimestamp(),
-          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        // Check if chat already exists between these users
+        const existingChats = await firestore()
+          .collection('chats')
+          .where('participants', 'array-contains', userId)
+          .get();
+        
+        const existingChat = existingChats.docs.find(doc => {
+          const data = doc.data();
+          return data.participants.includes(match.id);
         });
+
+        let chatRef: { id: string };
+        
+        if (existingChat) {
+          // Update existing chat to be mutual
+          await existingChat.ref.update({
+            isMutual: true,
+            relatedMatchId: matchRef.id,
+            lastMessageAt: firestore.FieldValue.serverTimestamp(),
+          });
+          chatRef = { id: existingChat.id };
+        } else {
+          // Create a new chat for the match
+          const newChatRef = await firestore().collection('chats').add({
+            type: 'dating',
+            participants: [userId, match.id],
+            relatedMatchId: matchRef.id,
+            isMutual: true,
+            lastMessage: null,
+            relatedEventId: null,
+            deletionPolicy: {
+              type: 'on_unmatch',
+              days: null,
+            },
+            allowDeleteForEveryone: false,
+            deleteForEveryoneWindowDays: null,
+            createdAt: firestore.FieldValue.serverTimestamp(),
+            lastMessageAt: firestore.FieldValue.serverTimestamp(),
+          });
+          chatRef = newChatRef;
+        }
 
         // Mark their original like as acted on (so it disappears from "Who Liked You")
         await existingLikeDoc.ref.update({ actedOnByTarget: true });

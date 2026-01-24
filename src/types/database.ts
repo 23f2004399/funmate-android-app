@@ -95,6 +95,7 @@ export interface Chat {
   relatedMatchId: string | null;
   isMutual: boolean;
   lastMessage: LastMessage | null;
+  lastReadBy?: Record<string, any>; // userId -> timestamp when they last read the chat
   relatedEventId: string | null;
   deletionPolicy: DeletionPolicy;
   allowDeleteForEveryone: boolean;

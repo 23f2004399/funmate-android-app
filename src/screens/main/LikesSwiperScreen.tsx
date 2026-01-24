@@ -206,23 +206,47 @@ const LikesSwiperScreen = () => {
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
-      // Create a chat for the match with isMutual: true
-      const chatRef = await firestore().collection('chats').add({
-        type: 'dating',
-        participants: [userId, liker.id],
-        relatedMatchId: matchRef.id,
-        isMutual: true,
-        lastMessage: null,
-        relatedEventId: null,
-        deletionPolicy: {
-          type: 'on_unmatch',
-          days: null,
-        },
-        allowDeleteForEveryone: false,
-        deleteForEveryoneWindowDays: null,
-        createdAt: firestore.FieldValue.serverTimestamp(),
-        lastMessageAt: firestore.FieldValue.serverTimestamp(),
+      // Check if chat already exists between these users
+      const existingChats = await firestore()
+        .collection('chats')
+        .where('participants', 'array-contains', userId)
+        .get();
+      
+      const existingChat = existingChats.docs.find(doc => {
+        const data = doc.data();
+        return data.participants.includes(liker.id);
       });
+
+      let chatRef: { id: string };
+      
+      if (existingChat) {
+        // Update existing chat to be mutual
+        await existingChat.ref.update({
+          isMutual: true,
+          relatedMatchId: matchRef.id,
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+        chatRef = { id: existingChat.id };
+      } else {
+        // Create a new chat for the match with isMutual: true
+        const newChatRef = await firestore().collection('chats').add({
+          type: 'dating',
+          participants: [userId, liker.id],
+          relatedMatchId: matchRef.id,
+          isMutual: true,
+          lastMessage: null,
+          relatedEventId: null,
+          deletionPolicy: {
+            type: 'on_unmatch',
+            days: null,
+          },
+          allowDeleteForEveryone: false,
+          deleteForEveryoneWindowDays: null,
+          createdAt: firestore.FieldValue.serverTimestamp(),
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+        chatRef = newChatRef;
+      }
 
       // Mark as acted on in the hook for proper tracking
       markAsActedOn(liker.swipeId);
