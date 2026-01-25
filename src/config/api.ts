@@ -35,7 +35,7 @@ const LOCAL_WIFI_IP = '10.44.48.129';
  * - Render: https://your-app.onrender.com
  * - Heroku: https://your-app.herokuapp.com
  */
-const PRODUCTION_API_URL = 'https://your-backend.railway.app';
+const PRODUCTION_API_URL = 'https://funmate-backend-production.up.railway.app';
 
 /**
  * Set this to true if you're testing on Android Emulator
