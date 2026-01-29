@@ -25,7 +25,10 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
+  Modal,
+  FlatList,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Svg, { Circle } from 'react-native-svg';
 import firestore from '@react-native-firebase/firestore';
@@ -53,6 +56,67 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: 'trans', label: 'Trans' },
   { value: 'non_binary', label: 'Non-binary' },
 ];
+
+// Height options in cm (4'8" to 7'0")
+const HEIGHT_OPTIONS = [
+  { cm: 142, label: "4'8\" (142 cm)" },
+  { cm: 145, label: "4'9\" (145 cm)" },
+  { cm: 147, label: "4'10\" (147 cm)" },
+  { cm: 150, label: "4'11\" (150 cm)" },
+  { cm: 152, label: "5'0\" (152 cm)" },
+  { cm: 155, label: "5'1\" (155 cm)" },
+  { cm: 157, label: "5'2\" (157 cm)" },
+  { cm: 160, label: "5'3\" (160 cm)" },
+  { cm: 163, label: "5'4\" (163 cm)" },
+  { cm: 165, label: "5'5\" (165 cm)" },
+  { cm: 168, label: "5'6\" (168 cm)" },
+  { cm: 170, label: "5'7\" (170 cm)" },
+  { cm: 173, label: "5'8\" (173 cm)" },
+  { cm: 175, label: "5'9\" (175 cm)" },
+  { cm: 178, label: "5'10\" (178 cm)" },
+  { cm: 180, label: "5'11\" (180 cm)" },
+  { cm: 183, label: "6'0\" (183 cm)" },
+  { cm: 185, label: "6'1\" (185 cm)" },
+  { cm: 188, label: "6'2\" (188 cm)" },
+  { cm: 191, label: "6'3\" (191 cm)" },
+  { cm: 193, label: "6'4\" (193 cm)" },
+  { cm: 196, label: "6'5\" (196 cm)" },
+  { cm: 198, label: "6'6\" (198 cm)" },
+  { cm: 201, label: "6'7\" (201 cm)" },
+  { cm: 203, label: "6'8\" (203 cm)" },
+  { cm: 206, label: "6'9\" (206 cm)" },
+  { cm: 208, label: "6'10\" (208 cm)" },
+  { cm: 211, label: "6'11\" (211 cm)" },
+  { cm: 213, label: "7'0\" (213 cm)" },
+];
+
+// Occupation suggestions for autocomplete
+const OCCUPATION_SUGGESTIONS = [
+  'Software Engineer', 'Doctor', 'Nurse', 'Teacher', 'Professor',
+  'Lawyer', 'Accountant', 'Marketing Manager', 'Data Analyst', 'Designer',
+  'Product Manager', 'Consultant', 'Entrepreneur', 'Student', 'Researcher',
+  'Engineer', 'Architect', 'Photographer', 'Writer', 'Artist',
+  'Chef', 'Pilot', 'Flight Attendant', 'HR Manager', 'Sales Manager',
+  'Business Analyst', 'Financial Analyst', 'Investment Banker', 'Trader', 'Real Estate Agent',
+  'Dentist', 'Pharmacist', 'Physiotherapist', 'Psychologist', 'Veterinarian',
+  'Civil Engineer', 'Mechanical Engineer', 'Electrical Engineer', 'Chemical Engineer',
+  'Content Creator', 'Influencer', 'Journalist', 'Editor', 'Filmmaker',
+  'Fashion Designer', 'Interior Designer', 'Graphic Designer', 'UX Designer', 'UI Designer',
+  'Personal Trainer', 'Yoga Instructor', 'Life Coach', 'Counselor',
+  'Police Officer', 'Military', 'Firefighter', 'Government Employee',
+  'Banker', 'Insurance Agent', 'Travel Agent', 'Event Planner',
+  'CA', 'CS', 'MBA', 'PhD Student', 'Medical Student', 'Law Student',
+];
+
+/**
+ * Convert cm to feet/inches string
+ */
+const cmToFeetInches = (cm: number): string => {
+  const totalInches = cm / 2.54;
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return `${feet}'${inches}"`;
+};
 
 // Interest categories (matching signup)
 const INTEREST_CATEGORIES = [
@@ -163,12 +227,25 @@ const ProfileScreen = ({ navigation }: any) => {
   const [completeness, setCompleteness] = useState(0);
 
   // Editable fields
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [relationshipIntent, setRelationshipIntent] = useState<RelationshipIntent | null>(null);
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [matchRadiusKm, setMatchRadiusKm] = useState(25);
+  
+  // New fields
+  const [height, setHeight] = useState<number | null>(null);
+  const [heightDisplayUnit, setHeightDisplayUnit] = useState<'cm' | 'ft'>('ft');
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
+  const [occupation, setOccupation] = useState('');
+  const [filteredOccupations, setFilteredOccupations] = useState<string[]>([]);
+  const [showOccupationSuggestions, setShowOccupationSuggestions] = useState(false);
+  const [instagram, setInstagram] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [facebook, setFacebook] = useState('');
+  const [twitter, setTwitter] = useState('');
 
   const [editMode, setEditMode] = useState<string | null>(null); // 'bio', 'interests', etc.
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -189,12 +266,22 @@ const ProfileScreen = ({ navigation }: any) => {
 
         if (data) {
           setUserData(data);
+          setName(data.name || '');
           setUsername(data.username || '');
           setBio(data.bio || '');
           setInterests(data.interests || []);
           setRelationshipIntent(data.relationshipIntent || null);
           setInterestedIn(data.interestedIn || []);
           setMatchRadiusKm(data.matchRadiusKm || 25);
+          
+          // Load new fields
+          setHeight(data.height?.value || null);
+          setHeightDisplayUnit(data.height?.displayUnit || 'ft');
+          setOccupation(data.occupation || '');
+          setInstagram(data.socialHandles?.instagram || '');
+          setLinkedin(data.socialHandles?.linkedin || '');
+          setFacebook(data.socialHandles?.facebook || '');
+          setTwitter(data.socialHandles?.twitter || '');
 
           // Calculate completeness
           const percent = calculateProfileCompleteness(data);
@@ -244,6 +331,15 @@ const ProfileScreen = ({ navigation }: any) => {
         setRelationshipIntent(data.relationshipIntent || null);
         setInterestedIn(data.interestedIn || []);
         setMatchRadiusKm(data.matchRadiusKm || 25);
+        
+        // Load new fields on refresh
+        setHeight(data.height?.value || null);
+        setHeightDisplayUnit(data.height?.displayUnit || 'ft');
+        setOccupation(data.occupation || '');
+        setInstagram(data.socialHandles?.instagram || '');
+        setLinkedin(data.socialHandles?.linkedin || '');
+        setFacebook(data.socialHandles?.facebook || '');
+        setTwitter(data.socialHandles?.twitter || '');
 
         // Recalculate completeness with current data
         const percent = calculateProfileCompleteness(data);
@@ -281,6 +377,19 @@ const ProfileScreen = ({ navigation }: any) => {
    * Save profile changes
    */
   const handleSave = async () => {
+    // Validate name - cannot be empty
+    if (editMode === 'name') {
+      if (!name.trim()) {
+        Toast.show({
+          type: 'error',
+          text1: 'Name Required',
+          text2: 'Full name cannot be empty',
+          visibilityTime: 3000,
+        });
+        return;
+      }
+    }
+
     // Validation for interests
     if (editMode === 'interests') {
       if (tempInterests.length > 0 && tempInterests.length < 5) {
@@ -301,12 +410,21 @@ const ProfileScreen = ({ navigation }: any) => {
 
       const updateData: any = {};
 
+      if (editMode === 'name') updateData.name = name.trim();
       if (editMode === 'username') updateData.username = username;
       if (editMode === 'bio') updateData.bio = bio;
       if (editMode === 'interests') updateData.interests = tempInterests;
       if (editMode === 'intent') updateData.relationshipIntent = relationshipIntent;
       if (editMode === 'gender') updateData.interestedIn = interestedIn;
       if (editMode === 'radius') updateData.matchRadiusKm = matchRadiusKm;
+      if (editMode === 'height') updateData.height = height ? { value: height, displayUnit: heightDisplayUnit } : null;
+      if (editMode === 'occupation') updateData.occupation = occupation.trim() || null;
+      if (editMode === 'social') updateData.socialHandles = (instagram || linkedin || facebook || twitter) ? {
+        instagram: instagram.trim() || null,
+        linkedin: linkedin.trim() || null,
+        facebook: facebook.trim() || null,
+        twitter: twitter.trim() || null,
+      } : null;
 
       await firestore()
         .collection('users')
@@ -321,6 +439,7 @@ const ProfileScreen = ({ navigation }: any) => {
       // Recalculate completeness
       const updatedData = {
         ...userData,
+        name: editMode === 'name' ? name.trim() : userData.name,
         username,
         bio,
         interests: editMode === 'interests' ? tempInterests : interests,
@@ -614,12 +733,36 @@ const ProfileScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView
+        style={styles.scrollView}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={120}
+        extraHeight={180}
+        keyboardOpeningTime={0}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Ionicons name="log-out-outline" size={24} color="#FF4458" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Settings Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          <TouchableOpacity 
+            style={styles.settingsItem}
+            onPress={() => (navigation as any).navigate('BlockedUsers')}
+          >
+            <View style={styles.settingsItemLeft}>
+              <Ionicons name="ban-outline" size={22} color="#666" />
+              <Text style={styles.settingsItemText}>Blocked Users</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
           </TouchableOpacity>
         </View>
 
@@ -666,8 +809,29 @@ const ProfileScreen = ({ navigation }: any) => {
           <View style={styles.infoRow}>
             <Ionicons name="person-outline" size={20} color="#666666" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Full Name</Text>
-              <Text style={styles.infoValue}>{userData.name}</Text>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.infoLabel}>Full Name</Text>
+                {editMode === 'name' ? (
+                  <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    <Text style={styles.saveButton}>Save</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setEditMode('name')}>
+                    <Ionicons name="create-outline" size={20} color="#FF4458" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {editMode === 'name' ? (
+                <TextInput
+                  style={styles.input}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your full name"
+                  autoFocus
+                />
+              ) : (
+                <Text style={styles.infoValue}>{userData.name}</Text>
+              )}
             </View>
           </View>
 
@@ -964,6 +1128,203 @@ const ProfileScreen = ({ navigation }: any) => {
           )}
         </View>
 
+        {/* Height (Editable) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Height</Text>
+            {editMode === 'height' ? (
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setEditMode('height')}>
+                <Ionicons name="create-outline" size={20} color="#FF4458" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {editMode === 'height' ? (
+            <View style={styles.heightInputWrapper}>
+              <Ionicons name="resize-outline" size={22} color="#FF4458" style={styles.heightIcon} />
+              <TextInput
+                style={styles.heightInput}
+                placeholder="Enter height in cm"
+                value={height ? height.toString() : ''}
+                onChangeText={(text) => {
+                  const numValue = parseInt(text);
+                  if (text === '') {
+                    setHeight(null);
+                  } else if (!isNaN(numValue) && numValue > 0 && numValue <= 300) {
+                    setHeight(numValue);
+                  }
+                }}
+                keyboardType="numeric"
+                maxLength={3}
+                autoFocus
+              />
+              <Text style={styles.heightUnit}>cm</Text>
+            </View>
+          ) : (
+            <Text style={styles.displayValue}>
+              {height ? `${height} cm` : 'Not set'}
+            </Text>
+          )}
+        </View>
+
+        {/* Occupation (Editable) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Occupation</Text>
+            {editMode === 'occupation' ? (
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setEditMode('occupation')}>
+                <Ionicons name="create-outline" size={20} color="#FF4458" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {editMode === 'occupation' ? (
+            <View>
+              <TextInput
+                style={styles.input}
+                value={occupation}
+                onChangeText={(text) => {
+                  setOccupation(text);
+                  if (text.length >= 2) {
+                    const filtered = OCCUPATION_SUGGESTIONS.filter(occ =>
+                      occ.toLowerCase().includes(text.toLowerCase())
+                    );
+                    setFilteredOccupations(filtered.slice(0, 5));
+                  } else {
+                    setFilteredOccupations([]);
+                  }
+                }}
+                placeholder="e.g., Software Engineer, Doctor, Student..."
+                maxLength={50}
+                autoFocus
+              />
+              
+              {/* Suggestions as simple list below input */}
+              {filteredOccupations.length > 0 && occupation.length >= 2 && (
+                <View style={styles.suggestionsList}>
+                  {filteredOccupations.map((occ, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestionItemInline}
+                      onPress={() => {
+                        setOccupation(occ);
+                        setFilteredOccupations([]);
+                      }}
+                    >
+                      <Text style={styles.suggestionTextInline}>{occ}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.displayValue}>{occupation || 'Not set'}</Text>
+          )}
+        </View>
+
+        {/* Social Handles (Editable) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Social Handles</Text>
+            {editMode === 'social' ? (
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setEditMode('social')}>
+                <Ionicons name="create-outline" size={20} color="#FF4458" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {editMode === 'social' ? (
+            <View style={styles.socialEditContainer}>
+              <View style={styles.socialInputRow}>
+                <Ionicons name="logo-instagram" size={22} color="#E4405F" />
+                <TextInput
+                  style={styles.socialInput}
+                  value={instagram}
+                  onChangeText={setInstagram}
+                  placeholder="@username"
+                  autoCapitalize="none"
+                  maxLength={30}
+                />
+              </View>
+              <View style={styles.socialInputRow}>
+                <Ionicons name="logo-linkedin" size={22} color="#0A66C2" />
+                <TextInput
+                  style={styles.socialInput}
+                  value={linkedin}
+                  onChangeText={setLinkedin}
+                  placeholder="Profile URL or username"
+                  autoCapitalize="none"
+                  maxLength={100}
+                />
+              </View>
+              <View style={styles.socialInputRow}>
+                <Ionicons name="logo-facebook" size={22} color="#1877F2" />
+                <TextInput
+                  style={styles.socialInput}
+                  value={facebook}
+                  onChangeText={setFacebook}
+                  placeholder="Profile URL or username"
+                  autoCapitalize="none"
+                  maxLength={100}
+                />
+              </View>
+              <View style={styles.socialInputRow}>
+                <Text style={styles.xLogoSmall}>𝕏</Text>
+                <TextInput
+                  style={styles.socialInput}
+                  value={twitter}
+                  onChangeText={setTwitter}
+                  placeholder="@username"
+                  autoCapitalize="none"
+                  maxLength={30}
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.socialDisplayContainer}>
+              {instagram && (
+                <View style={styles.socialDisplayRow}>
+                  <Ionicons name="logo-instagram" size={18} color="#E4405F" />
+                  <Text style={styles.socialDisplayText}>@{instagram.replace('@', '')}</Text>
+                </View>
+              )}
+              {linkedin && (
+                <View style={styles.socialDisplayRow}>
+                  <Ionicons name="logo-linkedin" size={18} color="#0A66C2" />
+                  <Text style={styles.socialDisplayText}>{linkedin}</Text>
+                </View>
+              )}
+              {facebook && (
+                <View style={styles.socialDisplayRow}>
+                  <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+                  <Text style={styles.socialDisplayText}>{facebook}</Text>
+                </View>
+              )}
+              {twitter && (
+                <View style={styles.socialDisplayRow}>
+                  <Text style={styles.xLogoDisplay}>𝕏</Text>
+                  <Text style={styles.socialDisplayText}>@{twitter.replace('@', '')}</Text>
+                </View>
+              )}
+              {!instagram && !linkedin && !facebook && !twitter && (
+                <Text style={styles.displayValue}>Not set</Text>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Match Radius (Editable) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -995,7 +1356,8 @@ const ProfileScreen = ({ navigation }: any) => {
         </View>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
+
     </View>
   );
 };
@@ -1360,6 +1722,132 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Settings Section
+  settingsSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  settingsItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  settingsItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  settingsItemText: {
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  // Height Edit Styles
+  heightInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    paddingHorizontal: 14,
+  },
+  heightIcon: {
+    marginRight: 12,
+  },
+  heightInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A1A1A',
+    paddingVertical: 14,
+  },
+  heightUnit: {
+    fontSize: 15,
+    color: '#666666',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  // Social Edit Styles
+  socialEditContainer: {
+    marginTop: 8,
+    gap: 12,
+  },
+  socialInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  socialIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialInput: {
+    flex: 1,
+    padding: 14,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    fontSize: 15,
+    color: '#1A1A1A',
+  },
+  xLogoSmall: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  socialDisplayContainer: {
+    marginTop: 4,
+  },
+  socialDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 12,
+  },
+  socialDisplayText: {
+    fontSize: 15,
+    color: '#1A1A1A',
+  },
+  xLogoDisplay: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  // Occupation autocomplete styles - inline list (not absolute positioned)
+  suggestionsList: {
+    marginTop: 8,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    overflow: 'hidden',
+  },
+  suggestionItemInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
+    backgroundColor: '#FFFFFF',
+  },
+  suggestionTextInline: {
+    fontSize: 15,
+    color: '#1A1A1A',
   },
 });
 

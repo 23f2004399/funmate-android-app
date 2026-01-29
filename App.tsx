@@ -15,8 +15,8 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
-    // Initialize App Check to avoid reCAPTCHA browser redirects
-    initializeAppCheckService();
+    // App Check disabled for now - will enable with Play Store release
+    // initializeAppCheckService();
     
     // Configure Google Sign-In
     GoogleSignin.configure({

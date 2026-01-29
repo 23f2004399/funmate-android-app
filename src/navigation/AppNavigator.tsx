@@ -24,6 +24,7 @@ import CreatorTypeSelectionScreen from '../screens/auth/CreatorTypeSelectionScre
 import IndividualVerificationScreen from '../screens/auth/IndividualVerificationScreen';
 import LikesSwiperScreen from '../screens/main/LikesSwiperScreen';
 import ChatScreen from '../screens/main/ChatScreen';
+import { BlockedUsersScreen } from '../screens/settings/BlockedUsersScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -68,6 +69,7 @@ export type RootStackParamList = {
     recipientName?: string;
     recipientPhoto?: string;
   };
+  BlockedUsers: undefined;
   // TODO: Add more screens later
 };
 
@@ -124,6 +126,16 @@ const AppNavigator = () => {
         <Stack.Screen name="DatingPreferences" component={DatingPreferencesScreen} />
         <Stack.Screen name="LikesSwiper" component={LikesSwiperScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen 
+          name="BlockedUsers" 
+          component={BlockedUsersScreen}
+          options={{ 
+            headerShown: true,
+            title: 'Blocked Users',
+            headerStyle: { backgroundColor: '#FFFFFF' },
+            headerTintColor: '#1A1A1A',
+          }}
+        />
         {/* Main app - after auth */}
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
       </Stack.Navigator>

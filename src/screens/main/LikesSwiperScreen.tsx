@@ -72,6 +72,7 @@ const LikesSwiperScreen = () => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [swipedIds, setSwipedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
+  const [expandedSocial, setExpandedSocial] = useState<string | null>(null);
   
   // Match animation state
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
@@ -478,9 +479,6 @@ const LikesSwiperScreen = () => {
                 <Text style={styles.cardName}>
                   {liker.name}, {liker.age}
                 </Text>
-                {liker.isVerified && (
-                  <Ionicons name="checkmark-circle" size={18} color="#4CAF50" />
-                )}
               </View>
               <View style={styles.cardMeta}>
                 <Ionicons name="location-outline" size={14} color="#999999" />
@@ -686,16 +684,95 @@ const LikesSwiperScreen = () => {
               </Text>
             </View>
 
-            {/* Match Score Section */}
+            {/* Height Section */}
             <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Match Score</Text>
-              <View style={styles.matchScoreContainer}>
-                <View style={styles.matchScoreBar}>
-                  <View style={[styles.matchScoreFill, { width: `${Math.min(currentLiker.matchScore, 100)}%` }]} />
-                </View>
-                <Text style={styles.matchScoreText}>{Math.round(currentLiker.matchScore)}%</Text>
-              </View>
+              <Text style={styles.detailSectionTitle}>Height</Text>
+              <Text style={styles.detailSectionContent}>
+                {currentLiker.height?.value ? `${currentLiker.height.value} cm` : 'Not specified'}
+              </Text>
             </View>
+
+            {/* Occupation Section */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailSectionTitle}>Occupation</Text>
+              <Text style={styles.detailSectionContent}>
+                {currentLiker.occupation || 'Not specified'}
+              </Text>
+            </View>
+
+            {/* Socials Section */}
+            {currentLiker.socialHandles && (
+              currentLiker.socialHandles.instagram ||
+              currentLiker.socialHandles.linkedin ||
+              currentLiker.socialHandles.facebook ||
+              currentLiker.socialHandles.twitter
+            ) && (
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>Socials</Text>
+                <View style={styles.socialIconsContainer}>
+                  {currentLiker.socialHandles.instagram && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
+                      >
+                        <Ionicons name="logo-instagram" size={24} color="#E4405F" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'instagram' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.instagram}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentLiker.socialHandles.linkedin && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
+                      >
+                        <Ionicons name="logo-linkedin" size={24} color="#0A66C2" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'linkedin' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.linkedin}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentLiker.socialHandles.facebook && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
+                      >
+                        <Ionicons name="logo-facebook" size={24} color="#1877F2" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'facebook' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.facebook}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentLiker.socialHandles.twitter && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
+                      >
+                        <Text style={styles.xLogoLarge}>𝕏</Text>
+                      </TouchableOpacity>
+                      {expandedSocial === 'twitter' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.twitter}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
 
             {/* Bottom padding */}
             <View style={styles.bottomPadding} />
@@ -1010,6 +1087,43 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4CAF50',
     fontWeight: '500',
+  },
+  socialIconsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  socialIconWrapper: {
+    alignItems: 'center',
+  },
+  socialIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F8F8F8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  socialHandlePopup: {
+    marginTop: 8,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    maxWidth: 150,
+  },
+  socialHandlePopupText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  xLogoLarge: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
   },
   verificationBadge: {
     flexDirection: 'row',

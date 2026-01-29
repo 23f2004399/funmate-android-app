@@ -33,6 +33,7 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
 import Geolocation from '@react-native-community/geolocation';
+import { getBlockedUserIds } from '../../utils/blockCache';
 import { calculateMatchScore, calculateDistance, passesFilters } from '../../utils/RecomendationEngine';
 import { calculateProfileCompleteness } from '../../utils/profileCompleteness';
 
@@ -85,6 +86,7 @@ const SwipeHubScreen = () => {
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
   const [matchAnimationData, setMatchAnimationData] = useState<MatchAnimationData | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string>('');
+  const [expandedSocial, setExpandedSocial] = useState<string | null>(null);
   const showMatchAnimationRef = useRef(false); // Ref for synchronous access to prevent empty state flicker
   
   const userId = auth().currentUser?.uid;
@@ -362,6 +364,11 @@ const SwipeHubScreen = () => {
           hasInterestedIn: currentUserData.interestedIn?.length || 0,
         });
 
+        // Get blocked user IDs (cached for 5 minutes)
+        const blockedUserIds = await getBlockedUserIds(userId);
+
+        console.log('🚫 Blocked users:', blockedUserIds.length);
+
         // Get already swiped user IDs
         const swipedDocs = await firestore()
           .collection('swipes')
@@ -408,9 +415,10 @@ const SwipeHubScreen = () => {
           const userData = doc.data();
           const matchUserId = doc.id;
 
-          // Skip self, already swiped users, and users we already acted on in "Who Liked You"
+          // Skip self, blocked users, already swiped users, and users we already acted on in "Who Liked You"
           if (
             matchUserId === userId || 
+            blockedUserIds.includes(matchUserId) ||
             swipedUserIds.includes(matchUserId) ||
             actedOnLikerIds.includes(matchUserId)
           ) {
@@ -462,6 +470,9 @@ const SwipeHubScreen = () => {
               distance: distance !== null ? Math.round(distance) : 0,
               matchScore, // Use calculated score
               lastActiveAt: userData.lastActiveAt,
+              height: userData.height,
+              occupation: userData.occupation,
+              socialHandles: userData.socialHandles,
             });
             return;
           }
@@ -496,6 +507,9 @@ const SwipeHubScreen = () => {
               distance: distance !== null ? Math.round(distance) : 0,
               matchScore,
               lastActiveAt: userData.lastActiveAt,
+              height: userData.height,
+              occupation: userData.occupation,
+              socialHandles: userData.socialHandles,
             });
             return;
           }
@@ -529,6 +543,9 @@ const SwipeHubScreen = () => {
             distance: distance !== null ? Math.round(distance) : 0,
             matchScore,
             lastActiveAt: userData.lastActiveAt,
+            height: userData.height,
+            occupation: userData.occupation,
+            socialHandles: userData.socialHandles,
           });
         });
         console.log('✅ Potential matches found:', {
@@ -1075,16 +1092,103 @@ const SwipeHubScreen = () => {
               </Text>
             </View>
 
-            {/* Match Score Section */}
+            {/* Height Section */}
             <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Match Score</Text>
-              <View style={styles.matchScoreContainer}>
-                <View style={styles.matchScoreBar}>
-                  <View style={[styles.matchScoreFill, { width: `${Math.min(currentMatch.matchScore, 100)}%` }]} />
-                </View>
-                <Text style={styles.matchScoreText}>{Math.round(currentMatch.matchScore)}%</Text>
-              </View>
+              <Text style={styles.detailSectionTitle}>Height</Text>
+              <Text style={styles.detailSectionContent}>
+                {currentMatch.height ? `${currentMatch.height.value} cm` : 'Not specified'}
+              </Text>
             </View>
+
+            {/* Occupation Section */}
+            <View style={styles.detailSection}>
+              <Text style={styles.detailSectionTitle}>Occupation</Text>
+              <Text style={styles.detailSectionContent}>
+                {currentMatch.occupation || 'Not specified'}
+              </Text>
+            </View>
+
+            {/* Social Handles Section */}
+            {currentMatch.socialHandles && (
+              currentMatch.socialHandles.instagram || 
+              currentMatch.socialHandles.linkedin || 
+              currentMatch.socialHandles.facebook || 
+              currentMatch.socialHandles.twitter
+            ) && (
+              <View style={styles.detailSection}>
+                <Text style={styles.detailSectionTitle}>Socials</Text>
+                <View style={styles.socialIconsContainer}>
+                  {currentMatch.socialHandles.instagram && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
+                      >
+                        <Ionicons name="logo-instagram" size={28} color="#E4405F" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'instagram' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>
+                            @{currentMatch.socialHandles.instagram.replace('@', '')}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentMatch.socialHandles.linkedin && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
+                      >
+                        <Ionicons name="logo-linkedin" size={28} color="#0A66C2" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'linkedin' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>
+                            {currentMatch.socialHandles.linkedin}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentMatch.socialHandles.facebook && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
+                      >
+                        <Ionicons name="logo-facebook" size={28} color="#1877F2" />
+                      </TouchableOpacity>
+                      {expandedSocial === 'facebook' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>
+                            {currentMatch.socialHandles.facebook}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  {currentMatch.socialHandles.twitter && (
+                    <View style={styles.socialIconWrapper}>
+                      <TouchableOpacity
+                        style={styles.socialIconButton}
+                        onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
+                      >
+                        <Text style={styles.xLogoLarge}>𝕏</Text>
+                      </TouchableOpacity>
+                      {expandedSocial === 'twitter' && (
+                        <View style={styles.socialHandlePopup}>
+                          <Text style={styles.socialHandlePopupText}>
+                            @{currentMatch.socialHandles.twitter.replace('@', '')}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
 
             {/* Bottom padding for scroll */}
             <View style={styles.bottomPadding} />
@@ -1559,6 +1663,43 @@ const styles = StyleSheet.create({
     color: '#FF4458',
     width: 45,
     textAlign: 'right',
+  },
+  socialIconsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+  },
+  socialIconWrapper: {
+    alignItems: 'center',
+  },
+  socialIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F8F8F8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  socialHandlePopup: {
+    marginTop: 8,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    maxWidth: 150,
+  },
+  socialHandlePopupText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  xLogoLarge: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#000',
   },
   bottomPadding: {
     height: 40,

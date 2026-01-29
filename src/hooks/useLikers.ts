@@ -16,6 +16,7 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { Liker, Swipe, UserLocation } from '../types/database';
 import { calculateMatchScore, calculateDistance } from '../utils/RecomendationEngine';
+import { getBlockedUserIds } from '../utils/blockCache';
 
 const BATCH_SIZE = 20;
 
@@ -143,6 +144,9 @@ export const useLikers = (): UseLikersResult => {
         distance,
         lastActiveAt: likerData.lastActiveAt,
         likedAt: swipeData.createdAt,
+        height: likerData.height || null,
+        occupation: likerData.occupation || null,
+        socialHandles: likerData.socialHandles || null,
       };
     } catch (err) {
       console.error('Error processing swipe:', err);
@@ -197,6 +201,9 @@ export const useLikers = (): UseLikersResult => {
       const userProfile = await fetchCurrentUserProfile(userId);
       currentUserProfileRef.current = userProfile;
 
+      // Get blocked user IDs (cached for 5 minutes)
+      const blockedUserIds = new Set(await getBlockedUserIds(userId));
+
       // Build query for swipes where current user is the target
       let query = firestore()
         .collection('swipes')
@@ -231,9 +238,9 @@ export const useLikers = (): UseLikersResult => {
       const likerPromises = snapshot.docs.map(doc => processSwipe(doc, userProfile));
       const processedLikers = await Promise.all(likerPromises);
       
-      // Filter out nulls and sort by match score descending
+      // Filter out nulls, blocked users, and sort by match score descending
       const validLikers = processedLikers
-        .filter((liker): liker is Liker => liker !== null)
+        .filter((liker): liker is Liker => liker !== null && !blockedUserIds.has(liker.id))
         .sort((a, b) => b.matchScore - a.matchScore);
 
       if (isRefill) {

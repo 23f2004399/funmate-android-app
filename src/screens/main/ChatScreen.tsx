@@ -35,6 +35,7 @@ import {
   Modal,
   Pressable,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -43,6 +44,10 @@ import storage from '@react-native-firebase/storage';
 import auth from '@react-native-firebase/auth';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { Chat, Message, User } from '../../types/database';
+import { BlockReportModal } from '../../components/modals/BlockReportModal';
+import { useBlockReport } from '../../hooks/useBlockReport';
+import { ReportReason } from '../../types/database';
+import { isBlockedBy, isUserBlocked } from '../../services/blockService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -100,11 +105,32 @@ const ChatScreen = () => {
   const [isMutual, setIsMutual] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [recipientLastRead, setRecipientLastRead] = useState<any>(null); // When recipient last read the chat
+  const [hasBlockedRecipient, setHasBlockedRecipient] = useState(false); // If current user blocked the recipient
   
   // Reaction overlay state
   const [reactionMessageId, setReactionMessageId] = useState<string | null>(null);
   const [reactionPosition, setReactionPosition] = useState({ x: 0, y: 0, isOwnMessage: false });
   const [showExtendedEmojis, setShowExtendedEmojis] = useState(false);
+
+  // Block & Report integration
+  const {
+    isBlocked,
+    showModal: showBlockReportModal,
+    handleBlock,
+    handleUnblock,
+    handleReport,
+    openModal: openBlockReportModal,
+    closeModal: closeBlockReportModal,
+  } = useBlockReport({
+    targetUserId: recipientId,
+    targetUserName: recipient?.name || recipientName || 'User',
+    onBlockSuccess: () => {
+      navigation.goBack();
+    },
+    onUnblockSuccess: () => {
+      setHasBlockedRecipient(false);
+    },
+  });
 
   // Keyboard height animation for Android
   const keyboardHeight = useRef(new Animated.Value(0)).current;
@@ -199,17 +225,18 @@ const ChatScreen = () => {
 
           const foundChat = existingChat.docs.find((doc) => {
             const data = doc.data();
-            return data.participants.includes(recipientId);
+            // Only use chat if it includes both participants AND is not deleted
+            return data.participants.includes(recipientId) && !data.deletedAt;
           });
 
           if (foundChat) {
-            // Chat already exists
+            // Chat already exists and not deleted
             const chatData = { id: foundChat.id, ...foundChat.data() } as Chat;
             setChatId(foundChat.id);
             setChat(chatData);
             setIsMutual(chatData.isMutual);
           } else {
-            // Create new restricted chat (cold outreach from global search)
+            // Create new restricted chat (cold outreach from global search or deleted chat)
             const newChatRef = await firestore().collection('chats').add({
               type: 'dating',
               participants: [userId, recipientId],
@@ -223,6 +250,9 @@ const ChatScreen = () => {
               },
               allowDeleteForEveryone: false,
               deleteForEveryoneWindowDays: null,
+              deletedAt: null,
+              deletedBy: null,
+              permanentlyDeleteAt: null,
               createdAt: firestore.FieldValue.serverTimestamp(),
               lastMessageAt: firestore.FieldValue.serverTimestamp(),
             });
@@ -239,6 +269,9 @@ const ChatScreen = () => {
               deletionPolicy: { type: 'none', days: null },
               allowDeleteForEveryone: false,
               deleteForEveryoneWindowDays: null,
+              deletedAt: null,
+              deletedBy: null,
+              permanentlyDeleteAt: null,
               createdAt: new Date(),
               lastMessageAt: new Date(),
             });
@@ -261,6 +294,18 @@ const ChatScreen = () => {
   }, [userId, recipientId, chatId, navigation]);
 
   /**
+   * Check if current user has blocked the recipient
+   */
+  useEffect(() => {
+    const checkIfBlocked = async () => {
+      if (!userId || !recipientId) return;
+      const blocked = await isUserBlocked(userId, recipientId);
+      setHasBlockedRecipient(blocked);
+    };
+    checkIfBlocked();
+  }, [userId, recipientId]);
+
+  /**
    * Real-time messages listener
    */
   useEffect(() => {
@@ -275,7 +320,11 @@ const ChatScreen = () => {
         (snapshot) => {
           const msgs: MessageWithId[] = [];
           snapshot.forEach((doc) => {
-            msgs.push({ id: doc.id, ...doc.data() } as MessageWithId);
+            const msgData = doc.data() as Message;
+            // Filter out messages hidden from current user (sent while blocked)
+            if (!msgData.hiddenForUsers?.includes(userId!)) {
+              msgs.push({ id: doc.id, ...msgData } as MessageWithId);
+            }
           });
           setMessages(msgs);
         },
@@ -361,6 +410,10 @@ const ChatScreen = () => {
     // Keep keyboard open - user can dismiss manually
 
     try {
+      // Check if recipient has blocked sender (shadow blocking)
+      const blockedByRecipient = await isBlockedBy(userId, recipientId);
+      const hiddenForUsers = blockedByRecipient ? [recipientId] : [];
+
       // Create message document
       await firestore().collection('messages').add({
         chatId,
@@ -372,18 +425,21 @@ const ChatScreen = () => {
         deletedForEveryoneAt: null,
         deletedForEveryoneBy: null,
         deletedForUsers: [],
+        hiddenForUsers, // Hide from recipient if they blocked sender
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
-      // Update chat's lastMessage
-      await firestore().collection('chats').doc(chatId).update({
-        lastMessage: {
-          text: messageText,
-          senderId: userId,
-          timestamp: firestore.FieldValue.serverTimestamp(),
-        },
-        lastMessageAt: firestore.FieldValue.serverTimestamp(),
-      });
+      // Update chat's lastMessage ONLY if message is not hidden
+      if (!blockedByRecipient) {
+        await firestore().collection('chats').doc(chatId).update({
+          lastMessage: {
+            text: messageText,
+            senderId: userId,
+            timestamp: firestore.FieldValue.serverTimestamp(),
+          },
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       setInputText(messageText); // Restore input on error
@@ -401,6 +457,10 @@ const ChatScreen = () => {
     setSending(true);
 
     try {
+      // Check if recipient has blocked sender (shadow blocking)
+      const blockedByRecipient = await isBlockedBy(userId, recipientId);
+      const hiddenForUsers = blockedByRecipient ? [recipientId] : [];
+
       // Create shadow chip message
       await firestore().collection('messages').add({
         chatId,
@@ -412,18 +472,21 @@ const ChatScreen = () => {
         deletedForEveryoneAt: null,
         deletedForEveryoneBy: null,
         deletedForUsers: [],
+        hiddenForUsers, // Hide from recipient if they blocked sender
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
-      // Update chat's lastMessage
-      await firestore().collection('chats').doc(chatId).update({
-        lastMessage: {
-          text: chipText,
-          senderId: userId,
-          timestamp: firestore.FieldValue.serverTimestamp(),
-        },
-        lastMessageAt: firestore.FieldValue.serverTimestamp(),
-      });
+      // Update chat's lastMessage ONLY if message is not hidden
+      if (!blockedByRecipient) {
+        await firestore().collection('chats').doc(chatId).update({
+          lastMessage: {
+            text: chipText,
+            senderId: userId,
+            timestamp: firestore.FieldValue.serverTimestamp(),
+          },
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error('Error sending shadow chip:', error);
     } finally {
@@ -458,6 +521,10 @@ const ChatScreen = () => {
       await reference.putFile(photoUri);
       const downloadUrl = await reference.getDownloadURL();
 
+      // Check if recipient has blocked sender (shadow blocking)
+      const blockedByRecipient = await isBlockedBy(userId, recipientId);
+      const hiddenForUsers = blockedByRecipient ? [recipientId] : [];
+
       // Create image message
       await firestore().collection('messages').add({
         chatId,
@@ -469,18 +536,21 @@ const ChatScreen = () => {
         deletedForEveryoneAt: null,
         deletedForEveryoneBy: null,
         deletedForUsers: [],
+        hiddenForUsers, // Hide from recipient if they blocked sender
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
-      // Update chat's lastMessage
-      await firestore().collection('chats').doc(chatId).update({
-        lastMessage: {
-          text: '📷 Photo',
-          senderId: userId,
-          timestamp: firestore.FieldValue.serverTimestamp(),
-        },
-        lastMessageAt: firestore.FieldValue.serverTimestamp(),
-      });
+      // Update chat's lastMessage ONLY if message is not hidden
+      if (!blockedByRecipient) {
+        await firestore().collection('chats').doc(chatId).update({
+          lastMessage: {
+            text: '📷 Photo',
+            senderId: userId,
+            timestamp: firestore.FieldValue.serverTimestamp(),
+          },
+          lastMessageAt: firestore.FieldValue.serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.error('Error sending photo:', error);
     } finally {
@@ -805,18 +875,56 @@ const ChatScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.headerAction}>
+        <TouchableOpacity 
+          style={styles.headerAction}
+          onPress={openBlockReportModal}
+        >
           <Ionicons name="ellipsis-vertical" size={24} color="#1A1A1A" />
         </TouchableOpacity>
       </View>
 
       {/* Restricted Chat Notice */}
-      {!isMutual && (
+      {!isMutual && !hasBlockedRecipient && (
         <View style={styles.restrictedNotice}>
           <Ionicons name="lock-closed" size={16} color="#FF9500" />
           <Text style={styles.restrictedNoticeText}>
             This is a restricted chat. Send a quick message to break the ice!
           </Text>
+        </View>
+      )}
+
+      {/* Blocked User Notice */}
+      {hasBlockedRecipient && (
+        <View style={styles.blockedNotice}>
+          <Ionicons name="ban" size={16} color="#E94057" />
+          <Text style={styles.blockedNoticeText}>
+            You've blocked this user. Unblock to send messages.
+          </Text>
+          <TouchableOpacity 
+            onPress={() => {
+              Alert.alert(
+                'Unblock User',
+                `Are you sure you want to unblock ${recipient?.name || recipientName || 'this user'}?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Unblock',
+                    onPress: async () => {
+                      try {
+                        await handleUnblock();
+                        Alert.alert('Unblocked', `${recipient?.name || recipientName || 'User'} has been unblocked.`);
+                      } catch (error) {
+                        Alert.alert('Error', 'Failed to unblock user. Please try again.');
+                      }
+                    },
+                  },
+                ]
+              );
+            }} 
+            style={styles.unblockButton}
+          >
+            <Text style={styles.unblockButtonText}>Unblock</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -844,7 +952,7 @@ const ChatScreen = () => {
       />
 
       {/* Input Area */}
-      {isMutual ? (
+      {!hasBlockedRecipient && isMutual ? (
         // Full text input for mutual chats with photo button
         <View style={styles.inputContainer}>
           {/* Photo picker button */}
@@ -884,8 +992,8 @@ const ChatScreen = () => {
             )}
           </TouchableOpacity>
         </View>
-      ) : (
-        // Shadow chips for restricted chats
+      ) : !hasBlockedRecipient && !isMutual ? (
+        // Shadow chips for restricted chats (only if not blocked)
         <View style={styles.shadowChipsContainer}>
           <Text style={styles.shadowChipsLabel}>Quick Messages</Text>
           <FlatList
@@ -897,7 +1005,7 @@ const ChatScreen = () => {
             contentContainerStyle={styles.shadowChipsList}
           />
         </View>
-      )}
+      ) : null}
 
       {/* Keyboard spacer for Android */}
       {Platform.OS === 'android' && (
@@ -906,6 +1014,18 @@ const ChatScreen = () => {
 
       {/* Reaction Picker Modal */}
       {renderReactionPicker()}
+
+      {/* Block & Report Modal */}
+      <BlockReportModal
+        visible={showBlockReportModal}
+        onClose={closeBlockReportModal}
+        userId={recipientId}
+        userName={recipient?.name || displayName}
+        isBlocked={isBlocked}
+        onBlock={handleBlock}
+        onUnblock={handleUnblock}
+        onReport={handleReport}
+      />
     </View>
   );
 };
@@ -979,6 +1099,31 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#996600',
+  },
+  blockedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  blockedNoticeText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#C62828',
+    fontWeight: '500',
+  },
+  unblockButton: {
+    backgroundColor: '#E94057',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  unblockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   messageListContainer: {
     flex: 1,

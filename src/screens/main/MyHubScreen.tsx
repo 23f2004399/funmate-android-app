@@ -7,7 +7,7 @@
  * - Conversations list (ordered by lastMessageAt)
  */
 
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -21,13 +21,17 @@ import {
   RefreshControl,
   ScrollView,
   TextInput,
+  Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { useLikers } from '../../hooks/useLikers';
 import { Liker, Chat, User } from '../../types/database';
 import { searchUsers, isAlgoliaConfigured, AlgoliaUserRecord } from '../../config/algolia';
+import { isUserBlocked } from '../../services/blockService';
+import { deleteChat } from '../../services/chatService';
 
 const { width } = Dimensions.get('window');
 const LIKER_CARD_SIZE = 120;
@@ -78,6 +82,27 @@ const MyHubScreen = ({ navigation }: any) => {
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [showGlobalResults, setShowGlobalResults] = useState(false);
 
+  // Delete state
+  const [selectedChatForDelete, setSelectedChatForDelete] = useState<string | null>(null);
+
+  // Refresh trigger for when returning from blocking
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const isInitialMount = useRef(true);
+
+  /**
+   * Refresh conversations when screen comes into focus (after blocking)
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
+      // Trigger refresh by incrementing counter
+      setRefreshTrigger(prev => prev + 1);
+    }, [])
+  );
+
   /**
    * Fetch conversations from Firestore
    */
@@ -95,9 +120,16 @@ const MyHubScreen = ({ navigation }: any) => {
           for (const doc of snapshot.docs) {
             const chatData = doc.data() as Chat;
             
+            // Skip deleted chats
+            if (chatData.deletedAt) continue;
+            
             // Get the other participant's ID
             const recipientId = chatData.participants.find(p => p !== userId);
             if (!recipientId) continue;
+
+            // Skip chats where current user has blocked the recipient
+            const hasBlockedRecipient = await isUserBlocked(userId, recipientId);
+            if (hasBlockedRecipient) continue;
 
             // Fetch recipient user data
             try {
@@ -136,7 +168,7 @@ const MyHubScreen = ({ navigation }: any) => {
       );
 
     return () => unsubscribe();
-  }, [userId]);
+  }, [userId, refreshTrigger]);
 
   /**
    * Filter conversations locally based on search query
@@ -280,6 +312,48 @@ const MyHubScreen = ({ navigation }: any) => {
   }, [navigation]);
 
   /**
+   * Handle long-press on conversation (show delete bubble)
+   */
+  const handleConversationLongPress = useCallback((conv: ConversationItem, event: any) => {
+    setSelectedChatForDelete(conv.chatId);
+    // Position will be set by the item component
+  }, []);
+
+  /**
+   * Handle delete chat action with confirmation
+   */
+  const handleDeleteChat = useCallback(async (chatId: string, recipientName: string) => {
+    Alert.alert(
+      'Delete Chat',
+      'Are you sure you want to delete?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (!userId) return;
+              await deleteChat(chatId, userId);
+              setSelectedChatForDelete(null);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete chat. Please try again.');
+            }
+          },
+        },
+      ]
+    );
+  }, [userId]);
+
+  /**
+   * Deselect chat (tap elsewhere)
+   */
+  const handleDeselectChat = useCallback(() => {
+    setSelectedChatForDelete(null);
+  }, []);
+
+
+  /**
    * Handle tap on a liker card - opens the sub-swiper
    */
   const handleLikerPress = useCallback((liker: Liker, index: number) => {
@@ -335,9 +409,6 @@ const MyHubScreen = ({ navigation }: any) => {
           <Text style={styles.likerName} numberOfLines={1}>
             {item.name}, {item.age}
           </Text>
-          {item.isVerified && (
-            <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-          )}
         </View>
       </TouchableOpacity>
     );
@@ -377,57 +448,66 @@ const MyHubScreen = ({ navigation }: any) => {
   /**
    * Render a conversation item
    */
-  const renderConversationItem = useCallback((conv: ConversationItem) => (
-    <TouchableOpacity
-      key={conv.chatId}
-      style={styles.conversationItem}
-      onPress={() => handleConversationPress(conv)}
-      activeOpacity={0.7}
-    >
-      {/* Profile Photo */}
-      {conv.recipientPhoto ? (
-        <Image
-          source={{ uri: conv.recipientPhoto }}
-          style={styles.conversationPhoto}
-        />
-      ) : (
-        <View style={[styles.conversationPhoto, styles.conversationPhotoPlaceholder]}>
-          <Ionicons name="person" size={28} color="#CCCCCC" />
-        </View>
-      )}
+  const renderConversationItem = useCallback((conv: ConversationItem, index: number) => {
+    const handleLongPress = () => {
+      setSelectedChatForDelete(conv.chatId);
+    };
 
-      {/* Content */}
-      <View style={styles.conversationContent}>
-        <View style={styles.conversationHeader}>
-          <Text style={styles.conversationName} numberOfLines={1}>
-            {conv.recipientName}
-          </Text>
-          <Text style={styles.conversationTime}>
-            {formatConversationTime(conv.lastMessageAt)}
-          </Text>
-        </View>
-        <View style={styles.conversationPreviewRow}>
-          <Text 
-            style={[
-              styles.conversationPreview,
-              !conv.isMutual && styles.conversationPreviewMuted
-            ]} 
-            numberOfLines={1}
-          >
-            {conv.lastMessage}
-          </Text>
-          {!conv.isMutual && (
-            <View style={styles.pendingBadge}>
-              <Ionicons name="time-outline" size={12} color="#FF9800" />
+    return (
+      <View key={conv.chatId} collapsable={false}>
+        <TouchableOpacity
+          style={styles.conversationItem}
+          onPress={() => handleConversationPress(conv)}
+          onLongPress={handleLongPress}
+          delayLongPress={500}
+          activeOpacity={0.7}
+        >
+          {/* Profile Photo */}
+          {conv.recipientPhoto ? (
+            <Image
+              source={{ uri: conv.recipientPhoto }}
+              style={styles.conversationPhoto}
+            />
+          ) : (
+            <View style={[styles.conversationPhoto, styles.conversationPhotoPlaceholder]}>
+              <Ionicons name="person" size={28} color="#CCCCCC" />
             </View>
           )}
-        </View>
-      </View>
 
-      {/* Chevron */}
-      <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
-    </TouchableOpacity>
-  ), [handleConversationPress, formatConversationTime]);
+          {/* Content */}
+          <View style={styles.conversationContent}>
+            <View style={styles.conversationHeader}>
+              <Text style={styles.conversationName} numberOfLines={1}>
+                {conv.recipientName}
+              </Text>
+              <Text style={styles.conversationTime}>
+                {formatConversationTime(conv.lastMessageAt)}
+              </Text>
+            </View>
+            <View style={styles.conversationPreviewRow}>
+              <Text 
+                style={[
+                  styles.conversationPreview,
+                  !conv.isMutual && styles.conversationPreviewMuted
+                ]} 
+                numberOfLines={1}
+              >
+                {conv.lastMessage}
+              </Text>
+              {!conv.isMutual && (
+                <View style={styles.pendingBadge}>
+                  <Ionicons name="time-outline" size={12} color="#FF9800" />
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Chevron */}
+          <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
+        </TouchableOpacity>
+      </View>
+    );
+  }, [handleConversationPress, formatConversationTime, selectedChatForDelete]);
 
   /**
    * Render global search result item
@@ -666,26 +746,59 @@ const MyHubScreen = ({ navigation }: any) => {
           </View>
 
           {/* Conversations List */}
-          {conversationsLoading ? (
-            <View style={styles.conversationsLoading}>
-              <ActivityIndicator size="small" color="#FF4458" />
-            </View>
-          ) : filteredConversations.length > 0 ? (
-            <View style={styles.conversationsList}>
-              {filteredConversations.map(renderConversationItem)}
-            </View>
-          ) : searchQuery ? (
-            <View style={styles.noSearchResults}>
-              <Ionicons name="search-outline" size={40} color="#E0E0E0" />
-              <Text style={styles.noSearchResultsText}>
-                No conversations match "{searchQuery}"
-              </Text>
-            </View>
-          ) : (
-            renderEmptyConversations()
-          )}
+          <TouchableOpacity 
+            style={styles.conversationsList}
+            activeOpacity={1}
+            onPress={handleDeselectChat}
+          >
+            {conversationsLoading ? (
+              <View style={styles.conversationsLoading}>
+                <ActivityIndicator size="small" color="#FF4458" />
+              </View>
+            ) : filteredConversations.length > 0 ? (
+              <>
+                {filteredConversations.map((conv, index) => renderConversationItem(conv, index))}
+              </>
+            ) : searchQuery ? (
+              <View style={styles.noSearchResults}>
+                <Ionicons name="search-outline" size={40} color="#E0E0E0" />
+                <Text style={styles.noSearchResultsText}>
+                  No conversations match "{searchQuery}"
+                </Text>
+              </View>
+            ) : (
+              renderEmptyConversations()
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Delete Bubble Popup */}
+      {selectedChatForDelete && (
+        <>
+          {/* Transparent overlay to detect outside clicks */}
+          <TouchableOpacity
+            style={styles.bubbleBackdrop}
+            activeOpacity={1}
+            onPress={handleDeselectChat}
+          />
+          
+          {/* Floating delete bubble - centered on screen */}
+          <View style={styles.deleteBubble}>
+            <TouchableOpacity
+              style={styles.deleteBubbleButton}
+              onPress={() => {
+                const conv = conversations.find(c => c.chatId === selectedChatForDelete);
+                if (conv) handleDeleteChat(conv.chatId, conv.recipientName);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash" size={20} color="#FFFFFF" />
+              <Text style={styles.deleteBubbleText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 };
@@ -1032,6 +1145,45 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
     gap: 12,
+  },
+  // Delete bubble popup
+  bubbleBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 999,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteBubble: {
+    position: 'absolute',
+    top: '45%',
+    alignSelf: 'center',
+    backgroundColor: '#FF4458',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  deleteBubbleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  deleteBubbleText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
   },
   conversationPhoto: {
     width: 56,

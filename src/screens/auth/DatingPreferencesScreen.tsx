@@ -3,9 +3,12 @@
  * 
  * Final profile setup screen where users set:
  * - Bio (about me)
+ * - Height
+ * - Occupation
  * - Relationship intent (what they're looking for)
  * - Interested in (gender preferences)
  * - Match radius (distance)
+ * - Social handles (Instagram, LinkedIn, Facebook, X)
  */
 
 import React, { useState } from 'react';
@@ -19,6 +22,8 @@ import {
   PermissionsAndroid,
   Platform,
   Alert,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -27,6 +32,7 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Slider from '@react-native-community/slider';
 import Geolocation from '@react-native-community/geolocation';
+import { SocialHandles } from '../../types/database';
 
 interface DatingPreferencesScreenProps {
   navigation: any;
@@ -34,6 +40,39 @@ interface DatingPreferencesScreenProps {
 
 type RelationshipIntent = 'casual' | 'long_term' | 'hookups' | 'friendship' | 'unsure';
 type Gender = 'male' | 'female' | 'trans' | 'non_binary';
+
+// Height options in cm (4'8" to 7'0")
+const HEIGHT_OPTIONS = [
+  { cm: 142, label: "4'8\" (142 cm)" },
+  { cm: 145, label: "4'9\" (145 cm)" },
+  { cm: 147, label: "4'10\" (147 cm)" },
+  { cm: 150, label: "4'11\" (150 cm)" },
+  { cm: 152, label: "5'0\" (152 cm)" },
+  { cm: 155, label: "5'1\" (155 cm)" },
+  { cm: 157, label: "5'2\" (157 cm)" },
+  { cm: 160, label: "5'3\" (160 cm)" },
+  { cm: 163, label: "5'4\" (163 cm)" },
+  { cm: 165, label: "5'5\" (165 cm)" },
+  { cm: 168, label: "5'6\" (168 cm)" },
+  { cm: 170, label: "5'7\" (170 cm)" },
+  { cm: 173, label: "5'8\" (173 cm)" },
+  { cm: 175, label: "5'9\" (175 cm)" },
+  { cm: 178, label: "5'10\" (178 cm)" },
+  { cm: 180, label: "5'11\" (180 cm)" },
+  { cm: 183, label: "6'0\" (183 cm)" },
+  { cm: 185, label: "6'1\" (185 cm)" },
+  { cm: 188, label: "6'2\" (188 cm)" },
+  { cm: 191, label: "6'3\" (191 cm)" },
+  { cm: 193, label: "6'4\" (193 cm)" },
+  { cm: 196, label: "6'5\" (196 cm)" },
+  { cm: 198, label: "6'6\" (198 cm)" },
+  { cm: 201, label: "6'7\" (201 cm)" },
+  { cm: 203, label: "6'8\" (203 cm)" },
+  { cm: 206, label: "6'9\" (206 cm)" },
+  { cm: 208, label: "6'10\" (208 cm)" },
+  { cm: 211, label: "6'11\" (211 cm)" },
+  { cm: 213, label: "7'0\" (213 cm)" },
+];
 
 const RELATIONSHIP_OPTIONS: { value: RelationshipIntent; label: string; icon: string; description: string }[] = [
   { value: 'long_term', label: 'Long-term', icon: 'heart', description: 'Looking for a relationship' },
@@ -50,13 +89,78 @@ const GENDER_OPTIONS: { value: Gender; label: string; icon: string }[] = [
   { value: 'non_binary', label: 'Non-binary', icon: 'male-female' },
 ];
 
+// Common occupations for autocomplete suggestions
+const OCCUPATION_SUGGESTIONS = [
+  'Software Engineer', 'Doctor', 'Nurse', 'Teacher', 'Professor',
+  'Lawyer', 'Accountant', 'Marketing Manager', 'Data Analyst', 'Designer',
+  'Product Manager', 'Consultant', 'Entrepreneur', 'Student', 'Researcher',
+  'Engineer', 'Architect', 'Photographer', 'Writer', 'Artist',
+  'Chef', 'Pilot', 'Flight Attendant', 'HR Manager', 'Sales Manager',
+  'Business Analyst', 'Financial Analyst', 'Investment Banker', 'Trader', 'Real Estate Agent',
+  'Dentist', 'Pharmacist', 'Physiotherapist', 'Psychologist', 'Veterinarian',
+  'Civil Engineer', 'Mechanical Engineer', 'Electrical Engineer', 'Chemical Engineer',
+  'Content Creator', 'Influencer', 'Journalist', 'Editor', 'Filmmaker',
+  'Fashion Designer', 'Interior Designer', 'Graphic Designer', 'UX Designer', 'UI Designer',
+  'Personal Trainer', 'Yoga Instructor', 'Life Coach', 'Counselor',
+  'Police Officer', 'Military', 'Firefighter', 'Government Employee',
+  'Banker', 'Insurance Agent', 'Travel Agent', 'Event Planner',
+  'CA', 'CS', 'MBA', 'PhD Student', 'Medical Student', 'Law Student',
+];
+
 const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navigation }) => {
   const [bio, setBio] = useState('');
+  const [height, setHeight] = useState<number | null>(null);
+  const [heightDisplayUnit, setHeightDisplayUnit] = useState<'cm' | 'ft'>('ft');
+  const [showHeightPicker, setShowHeightPicker] = useState(false);
+  const [occupation, setOccupation] = useState('');
+  const [showOccupationSuggestions, setShowOccupationSuggestions] = useState(false);
+  const [filteredOccupations, setFilteredOccupations] = useState<string[]>([]);
   const [relationshipIntent, setRelationshipIntent] = useState<RelationshipIntent | null>(null);
   const [interestedIn, setInterestedIn] = useState<Gender[]>([]);
   const [matchRadiusKm, setMatchRadiusKm] = useState(25);
+  
+  // Social handles
+  const [instagram, setInstagram] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [facebook, setFacebook] = useState('');
+  const [twitter, setTwitter] = useState('');
+  
   const [saving, setSaving] = useState(false);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+
+  /**
+   * Handle occupation input change with autocomplete
+   */
+  const handleOccupationChange = (text: string) => {
+    setOccupation(text);
+    if (text.length >= 2) {
+      const filtered = OCCUPATION_SUGGESTIONS.filter(occ => 
+        occ.toLowerCase().includes(text.toLowerCase())
+      );
+      setFilteredOccupations(filtered.slice(0, 5));
+      setShowOccupationSuggestions(filtered.length > 0);
+    } else {
+      setShowOccupationSuggestions(false);
+    }
+  };
+
+  /**
+   * Convert cm to feet/inches string
+   */
+  const cmToFeetInches = (cm: number): string => {
+    const totalInches = cm / 2.54;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return `${feet}'${inches}"`;
+  };
+
+  /**
+   * Get height display string
+   */
+  const getHeightDisplay = (): string => {
+    if (!height) return '';
+    return `${height}`;
+  };
 
   /**
    * Request location permission
@@ -86,7 +190,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
   };
 
   /**
-   * Get current location coordinates
+   * Get current location coordinates (with short timeout for better UX)
    */
   const getCurrentLocation = (): Promise<{ latitude: number; longitude: number } | null> => {
     return new Promise((resolve) => {
@@ -98,10 +202,10 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           });
         },
         (error) => {
-          console.error('Location error:', error);
+          console.warn('Location error (non-blocking):', error.message);
           resolve(null);
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 } // Lower accuracy, faster response
       );
     });
   };
@@ -168,8 +272,8 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
   };
 
   const handleComplete = async () => {
-    // Validation
-    if (bio.trim().length < 20) {
+    // Validation - Bio is optional, but if user writes something, enforce minimum
+    if (bio.trim().length > 0 && bio.trim().length < 20) {
       Toast.show({
         type: 'error',
         text1: 'Bio Too Short',
@@ -189,25 +293,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
       return;
     }
 
-    if (!relationshipIntent) {
-      Toast.show({
-        type: 'error',
-        text1: 'Select Relationship Intent',
-        text2: 'Let us know what you\'re looking for',
-        visibilityTime: 3000,
-      });
-      return;
-    }
-
-    if (interestedIn.length === 0) {
-      Toast.show({
-        type: 'error',
-        text1: 'Select Gender Preference',
-        text2: 'Who would you like to meet?',
-        visibilityTime: 3000,
-      });
-      return;
-    }
+    // All other fields are optional - no validation needed
 
     setSaving(true);
 
@@ -217,38 +303,54 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
         throw new Error('User not authenticated');
       }
 
-      // Request location permission and get coordinates
-      const hasPermission = await requestLocationPermission();
-      let location = null;
+      // Build social handles object (null if all empty)
+      const socialHandles: SocialHandles | null = (instagram || linkedin || facebook || twitter) ? {
+        instagram: instagram.trim() || null,
+        linkedin: linkedin.trim() || null,
+        facebook: facebook.trim() || null,
+        twitter: twitter.trim() || null,
+      } : null;
 
-      if (hasPermission) {
-        const coords = await getCurrentLocation();
-        if (coords) {
-          location = {
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          };
-          console.log('📍 Location captured:', location);
-        } else {
-          console.warn('⚠️ Could not get location coordinates');
-        }
-      } else {
-        console.warn('⚠️ Location permission denied');
-      }
+      // Build height object (null if not selected)
+      const heightData = height ? {
+        value: height,
+        displayUnit: heightDisplayUnit,
+      } : null;
 
-      // Save dating preferences to users collection (following database schema)
+      // Save dating preferences immediately (don't wait for location)
       await firestore()
         .collection('users')
         .doc(userId)
         .update({
-          bio: bio.trim(),
-          relationshipIntent,
+          bio: bio.trim() || null,
+          height: heightData,
+          occupation: occupation.trim() || null,
+          socialHandles,
+          relationshipIntent: relationshipIntent || null,
           interestedIn,
           matchRadiusKm,
-          location, // Can be null if permission denied
         });
 
       console.log('✅ Dating preferences saved');
+
+      // Fetch location in background (non-blocking)
+      requestLocationPermission().then(async (hasPermission) => {
+        if (hasPermission) {
+          const coords = await getCurrentLocation();
+          if (coords && userId) {
+            await firestore()
+              .collection('users')
+              .doc(userId)
+              .update({
+                location: {
+                  latitude: coords.latitude,
+                  longitude: coords.longitude,
+                },
+              });
+            console.log('📍 Location updated in background:', coords);
+          }
+        }
+      }).catch(err => console.warn('Background location fetch failed:', err));
 
       Toast.show({
         type: 'success',
@@ -257,13 +359,13 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
         visibilityTime: 2000,
       });
 
-      // Navigate to main app
+      // Navigate to main app immediately
       setTimeout(() => {
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' as never }],
         });
-      }, 1500);
+      }, 1000);
 
     } catch (error: any) {
       console.error('❌ Error saving preferences:', error);
@@ -279,7 +381,10 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
   };
 
   const bioCharCount = bio.length;
-  const bioValid = bioCharCount >= 20 && bioCharCount <= 500;
+  // Bio is valid if empty OR has 20+ characters
+  const bioValid = bioCharCount === 0 || (bioCharCount >= 20 && bioCharCount <= 500);
+  // Show invalid state only when user has started typing but hasn't reached minimum
+  const bioShowInvalid = bioCharCount > 0 && bioCharCount < 20;
 
   return (
     <View style={styles.container}>
@@ -335,10 +440,75 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
             />
             <Text style={[
               styles.charCount,
-              bioValid ? styles.charCountValid : (bioCharCount > 0 ? styles.charCountInvalid : {})
+              bioCharCount >= 20 ? styles.charCountValid : (bioShowInvalid ? styles.charCountInvalid : {})
             ]}>
-              {bioCharCount}/500 {bioCharCount >= 20 ? '✓' : `(min 20)`}
+              {bioCharCount}/500 {bioCharCount === 0 ? '(optional)' : (bioCharCount >= 20 ? '✓' : `(min 20)`)}
             </Text>
+          </View>
+        </View>
+
+        {/* Height */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Height</Text>
+          <Text style={styles.sectionSubtitle}>Optional but helps with matching</Text>
+          
+          <View style={styles.heightInputWrapper}>
+            <Ionicons name="resize-outline" size={22} color="#FF4458" style={styles.heightIcon} />
+            <TextInput
+              style={styles.heightInput}
+              placeholder="Enter height in cm"
+              placeholderTextColor="#999999"
+              value={height ? height.toString() : ''}
+              onChangeText={(text) => {
+                const numValue = parseInt(text);
+                if (text === '') {
+                  setHeight(null);
+                } else if (!isNaN(numValue) && numValue > 0 && numValue <= 300) {
+                  setHeight(numValue);
+                }
+              }}
+              keyboardType="numeric"
+              maxLength={3}
+            />
+            <Text style={styles.heightUnit}>cm</Text>
+          </View>
+        </View>
+
+        {/* Occupation */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Occupation</Text>
+          <Text style={styles.sectionSubtitle}>What do you do?</Text>
+          
+          <View>
+            <View style={styles.occupationInputWrapper}>
+              <Ionicons name="briefcase-outline" size={22} color="#FF4458" style={styles.occupationIcon} />
+              <TextInput
+                style={styles.occupationInput}
+                placeholder="e.g., Software Engineer, Doctor...."
+                placeholderTextColor="#999999"
+                value={occupation}
+                onChangeText={handleOccupationChange}
+                maxLength={50}
+              />
+            </View>
+            
+            {/* Suggestions as inline list below input */}
+            {filteredOccupations.length > 0 && occupation.length >= 2 && (
+              <View style={styles.suggestionsList}>
+                {filteredOccupations.map((occ, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.suggestionItemInline}
+                    onPress={() => {
+                      setOccupation(occ);
+                      setFilteredOccupations([]);
+                    }}
+                  >
+                    <Text style={styles.suggestionTextInline}>{occ}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         </View>
 
@@ -442,6 +612,78 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
             <View style={styles.sliderLabels}>
               <Text style={styles.sliderLabel}>5 km</Text>
               <Text style={styles.sliderLabel}>100 km</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Social Handles */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Social Handles</Text>
+          <Text style={styles.sectionSubtitle}>Help others connect with you (optional)</Text>
+          
+          <View style={styles.socialHandlesContainer}>
+            {/* Instagram */}
+            <View style={styles.socialInputRow}>
+              <View style={[styles.socialIconWrapper, { backgroundColor: '#E4405F' }]}>
+                <Ionicons name="logo-instagram" size={18} color="#FFFFFF" />
+              </View>
+              <TextInput
+                style={styles.socialInput}
+                placeholder="@username"
+                placeholderTextColor="#999999"
+                value={instagram}
+                onChangeText={setInstagram}
+                autoCapitalize="none"
+                maxLength={30}
+              />
+            </View>
+
+            {/* LinkedIn */}
+            <View style={styles.socialInputRow}>
+              <View style={[styles.socialIconWrapper, { backgroundColor: '#0A66C2' }]}>
+                <Ionicons name="logo-linkedin" size={18} color="#FFFFFF" />
+              </View>
+              <TextInput
+                style={styles.socialInput}
+                placeholder="Profile URL or username"
+                placeholderTextColor="#999999"
+                value={linkedin}
+                onChangeText={setLinkedin}
+                autoCapitalize="none"
+                maxLength={100}
+              />
+            </View>
+
+            {/* Facebook */}
+            <View style={styles.socialInputRow}>
+              <View style={[styles.socialIconWrapper, { backgroundColor: '#1877F2' }]}>
+                <Ionicons name="logo-facebook" size={18} color="#FFFFFF" />
+              </View>
+              <TextInput
+                style={styles.socialInput}
+                placeholder="Profile URL or username"
+                placeholderTextColor="#999999"
+                value={facebook}
+                onChangeText={setFacebook}
+                autoCapitalize="none"
+                maxLength={100}
+              />
+            </View>
+
+            {/* X (Twitter) */}
+            <View style={styles.socialInputRow}>
+              <View style={[styles.socialIconWrapper, { backgroundColor: '#000000' }]}>
+                <Text style={styles.xLogo}>𝕏</Text>
+              </View>
+              <TextInput
+                style={styles.socialInput}
+                placeholder="@username"
+                placeholderTextColor="#999999"
+                value={twitter}
+                onChangeText={setTwitter}
+                autoCapitalize="none"
+                maxLength={30}
+              />
             </View>
           </View>
         </View>
@@ -687,6 +929,137 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // Height styles
+  heightInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 14,
+  },
+  heightIcon: {
+    marginRight: 12,
+  },
+  heightInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A1A1A',
+    paddingVertical: 14,
+  },
+  heightUnit: {
+    fontSize: 15,
+    color: '#666666',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+
+  // Occupation styles
+  occupationContainer: {
+    position: 'relative',
+  },
+  occupationInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 14,
+  },
+  occupationIcon: {
+    marginRight: 12,
+  },
+  occupationInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1A1A1A',
+    paddingVertical: 14,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    zIndex: 100,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  suggestionItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    fontSize: 15,
+    color: '#1A1A1A',
+  },
+  // Inline suggestions list (not absolute positioned - always clickable)
+  suggestionsList: {
+    marginTop: 8,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    overflow: 'hidden',
+  },
+  suggestionItemInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8E8E8',
+    backgroundColor: '#FFFFFF',
+  },
+  suggestionTextInline: {
+    fontSize: 15,
+    color: '#1A1A1A',
+  },
+
+  // Social handles styles
+  socialHandlesContainer: {
+    gap: 12,
+  },
+  socialInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  socialIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  socialInput: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#1A1A1A',
+  },
+  xLogo: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
 });
 

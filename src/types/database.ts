@@ -41,6 +41,21 @@ export interface PremiumFeatures {
   priorityListing: boolean;
 }
 
+// ==========================================
+// HEIGHT & SOCIAL HANDLES
+// ==========================================
+export interface UserHeight {
+  value: number;           // stored in cm
+  displayUnit: 'cm' | 'ft'; // user's preferred display unit
+}
+
+export interface SocialHandles {
+  instagram: string | null;  // @username only
+  linkedin: string | null;   // profile URL or username
+  facebook: string | null;   // profile URL or username
+  twitter: string | null;    // @username only (X)
+}
+
 export interface User {
   id?: string;
   accountId: string;
@@ -49,6 +64,9 @@ export interface User {
   age: number;
   gender: string;
   bio: string;
+  height: UserHeight | null;           // NEW
+  occupation: string | null;           // NEW
+  socialHandles: SocialHandles | null; // NEW
   relationshipIntent: 'casual' | 'long_term' | 'hookups' | 'friendship' | 'unsure' | null;
   interestedIn: string[];
   matchRadiusKm: number;
@@ -71,6 +89,7 @@ export interface Match {
   userA: string;
   userB: string;
   isActive: boolean;
+  blockedBy: string | null; // userId who has active block (null = no block)
   createdAt: any;
 }
 
@@ -100,6 +119,9 @@ export interface Chat {
   deletionPolicy: DeletionPolicy;
   allowDeleteForEveryone: boolean;
   deleteForEveryoneWindowDays: number | null;
+  deletedAt: any | null; // When chat was deleted (soft delete)
+  deletedBy: string | null; // User who triggered deletion
+  permanentlyDeleteAt: any | null; // When to permanently delete (deletedAt + 30 days)
   createdAt: any;
   lastMessageAt: any;
 }
@@ -119,7 +141,8 @@ export interface Message {
   deletedForEveryone: boolean;
   deletedForEveryoneAt: any | null;
   deletedForEveryoneBy: string | null;
-  deletedForUsers: string[];
+  deletedForUsers: string[]; // Temporary deletion (can be restored)
+  hiddenForUsers: string[]; // Permanent hiding (messages sent while blocked - never shown again)
   createdAt: any;
 }
 
@@ -143,4 +166,56 @@ export interface Liker {
   distance: number | null;
   lastActiveAt: any;
   likedAt: any; // When they liked the current user
+  height: UserHeight | null;
+  occupation: string | null;
+  socialHandles: SocialHandles | null;
+}
+
+// ==========================================
+// BLOCKED USERS COLLECTION
+// ==========================================
+export interface BlockedUser {
+  id?: string;
+  userId: string; // who blocked
+  blockedUserId: string; // who got blocked
+  reason: string | null;
+  createdAt: any;
+}
+
+// ==========================================
+// REPORTS COLLECTION
+// ==========================================
+export type ReportReason = 'harassment' | 'fake_profile' | 'inappropriate_content' | 'scam' | 'other';
+export type ReportStatus = 'pending' | 'reviewed' | 'actioned' | 'dismissed';
+
+export interface Report {
+  id?: string;
+  reporterId: string;
+  reportedId: string;
+  reportedType: 'user' | 'event';
+  reason: ReportReason;
+  description: string;
+  evidence: string[] | null; // optional screenshot URLs
+  status: ReportStatus;
+  reviewedBy: string | null;
+  reviewedAt: any | null;
+  createdAt: any;
+}
+
+// ==========================================
+// ACCOUNT SUSPENSIONS COLLECTION
+// ==========================================
+export type SuspensionReason = 'auto_suspend_reports' | 'admin_action';
+export type SuspensionStatus = 'active' | 'lifted';
+
+export interface AccountSuspension {
+  id?: string;
+  userId: string;
+  reason: SuspensionReason;
+  reportCount: number;
+  status: SuspensionStatus;
+  suspendedAt: any;
+  liftedAt: any | null;
+  liftedBy: string | null; // admin accountId
+  createdAt: any;
 }

@@ -2,12 +2,17 @@
  * PROFILE COMPLETENESS CALCULATOR
  * 
  * Calculates profile completion percentage based on:
- * - Mandatory Section: 30% (phone, email, name, age, gender, photos, selfie)
+ * - Mandatory Section: 25% (phone, email, name, age, gender, photos, selfie)
  * - Bio: 10%
- * - Interests: 15%
- * - Dating Preferences: 20% (intent + gender preference)
- * - Location: 25%
+ * - Interests: 12%
+ * - Dating Preferences: 18% (intent + gender preference, 9% each)
+ * - Location: 20%
+ * - Height: 5% (NEW)
+ * - Occupation: 5% (NEW)
+ * - Social Handles: 5% (NEW - any 1+ handle)
  */
+
+import { SocialHandles, UserHeight } from '../types/database';
 
 interface UserData {
   name?: string;
@@ -23,12 +28,15 @@ interface UserData {
     latitude: number;
     longitude: number;
   } | null;
+  height?: UserHeight | null;
+  occupation?: string | null;
+  socialHandles?: SocialHandles | null;
 }
 
 export const calculateProfileCompleteness = (userData: UserData): number => {
   let completeness = 0;
 
-  // Mandatory Section: 30%
+  // Mandatory Section: 25%
   // If user has name, age, gender, and photos, assume they completed signup
   // (phone verification and selfie check are required during signup)
   const hasMandatory = 
@@ -38,7 +46,7 @@ export const calculateProfileCompleteness = (userData: UserData): number => {
     userData.photos && userData.photos.length >= 4;
   
   if (hasMandatory) {
-    completeness += 30;
+    completeness += 25;
   }
 
   // Bio: 10%
@@ -46,22 +54,44 @@ export const calculateProfileCompleteness = (userData: UserData): number => {
     completeness += 10;
   }
 
-  // Interests: 15%
+  // Interests: 12%
   if (userData.interests && userData.interests.length > 0) {
-    completeness += 15;
+    completeness += 12;
   }
 
-  // Dating Preferences: 20% (10% each for intent and gender)
+  // Dating Preferences: 18% (9% each for intent and gender)
   if (userData.relationshipIntent) {
-    completeness += 10;
+    completeness += 9;
   }
   if (userData.interestedIn && userData.interestedIn.length > 0) {
-    completeness += 10;
+    completeness += 9;
   }
 
-  // Location: 25%
+  // Location: 20%
   if (userData.location && userData.location.latitude && userData.location.longitude) {
-    completeness += 25;
+    completeness += 20;
+  }
+
+  // Height: 5% (NEW)
+  if (userData.height && userData.height.value > 0) {
+    completeness += 5;
+  }
+
+  // Occupation: 5% (NEW)
+  if (userData.occupation && userData.occupation.trim().length > 0) {
+    completeness += 5;
+  }
+
+  // Social Handles: 5% (NEW - any 1+ handle)
+  if (userData.socialHandles) {
+    const hasAnySocial = 
+      userData.socialHandles.instagram ||
+      userData.socialHandles.linkedin ||
+      userData.socialHandles.facebook ||
+      userData.socialHandles.twitter;
+    if (hasAnySocial) {
+      completeness += 5;
+    }
   }
 
   return Math.round(completeness);
@@ -84,6 +114,23 @@ export const getMissingFields = (userData: UserData): string[] => {
   }
   if (!userData.location) {
     missing.push('Location');
+  }
+  if (!userData.height) {
+    missing.push('Height');
+  }
+  if (!userData.occupation) {
+    missing.push('Occupation');
+  }
+  
+  // Check social handles
+  const hasAnySocial = userData.socialHandles && (
+    userData.socialHandles.instagram ||
+    userData.socialHandles.linkedin ||
+    userData.socialHandles.facebook ||
+    userData.socialHandles.twitter
+  );
+  if (!hasAnySocial) {
+    missing.push('Social Handles');
   }
 
   return missing;
