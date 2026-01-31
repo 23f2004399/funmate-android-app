@@ -26,7 +26,7 @@ import { Platform } from 'react-native';
  * - Windows: ipconfig (look for IPv4 Address)
  * - Mac/Linux: ifconfig (look for inet)
  */
-const LOCAL_WIFI_IP = '10.42.243.80';
+const LOCAL_WIFI_IP = '10.44.50.114';
 
 /**
  * Production backend URL (update when deployed)
@@ -35,7 +35,7 @@ const LOCAL_WIFI_IP = '10.42.243.80';
  * - Render: https://your-app.onrender.com
  * - Heroku: https://your-app.herokuapp.com
  */
-const PRODUCTION_API_URL = 'https://your-backend.railway.app';
+const PRODUCTION_API_URL = 'https://funmate-backend-production.up.railway.app';
 
 /**
  * Set this to true if you're testing on Android Emulator

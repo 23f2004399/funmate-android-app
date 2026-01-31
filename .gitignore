@@ -82,3 +82,16 @@ face_detection_sys_HF.ipynb
 live_selfie_check_HF.ipynb
 ./backend/env/
 API_CONFIG_GUIDE.md
+
+
+android/app/funmate-release-key.jks
+
+android/app/release/
+BLOCK_REPORT_GUIDE.md
+BLOCK_REPORT_QUICKSTART.md
+BLOCK_REPORT_TESTING.md
+BLOCKING_UX_FINAL.
+INTEGRATION_COMPLETE.md
+DELETE_CHAT_FEATURE.md
+CHAT_CLEANUP_CLOUD_FUNCTION.md
+BLOCKING_UX_FINAL.md

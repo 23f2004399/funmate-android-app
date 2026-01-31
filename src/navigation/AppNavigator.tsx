@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState, useEffect, forwardRef } from 'react';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import auth from '@react-native-firebase/auth';
@@ -22,6 +22,10 @@ import DatingPreferencesScreen from '../screens/auth/DatingPreferencesScreen';
 import CreatorEmailVerificationScreen from '../screens/auth/CreatorEmailVerificationScreen';
 import CreatorTypeSelectionScreen from '../screens/auth/CreatorTypeSelectionScreen';
 import IndividualVerificationScreen from '../screens/auth/IndividualVerificationScreen';
+import LikesSwiperScreen from '../screens/main/LikesSwiperScreen';
+import ChatScreen from '../screens/main/ChatScreen';
+import { BlockedUsersScreen } from '../screens/settings/BlockedUsersScreen';
+import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -59,12 +63,21 @@ export type RootStackParamList = {
   LivenessVerification: undefined;
   InterestsSelection: undefined;
   DatingPreferences: undefined;
+  LikesSwiper: { clickedUserId: string };
+  Chat: {
+    chatId: string | null;
+    recipientId: string;
+    recipientName?: string;
+    recipientPhoto?: string;
+  };
+  BlockedUsers: undefined;
+  NotificationSettings: undefined;
   // TODO: Add more screens later
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const AppNavigator = () => {
+const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>((props, ref) => {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState<any>(null);
 
@@ -87,16 +100,16 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={ref}>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
         }}
         initialRouteName={user ? 'MainTabs' : 'Login'}
       >
+        {/* Auth screens - always available for signup flow */}
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="EmailLogin" component={EmailLoginScreen} />
-        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
         <Stack.Screen name="AccountType" component={AccountTypeScreen} />
         <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
@@ -113,10 +126,25 @@ const AppNavigator = () => {
         <Stack.Screen name="LivenessVerification" component={LivenessVerificationScreen} />
         <Stack.Screen name="InterestsSelection" component={InterestsSelectionScreen} />
         <Stack.Screen name="DatingPreferences" component={DatingPreferencesScreen} />
+        <Stack.Screen name="LikesSwiper" component={LikesSwiperScreen} />
+        <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen 
+          name="BlockedUsers" 
+          component={BlockedUsersScreen}
+          options={{ 
+            headerShown: true,
+            title: 'Blocked Users',
+            headerStyle: { backgroundColor: '#FFFFFF' },
+            headerTintColor: '#1A1A1A',
+          }}
+        />
+        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+        {/* Main app - after auth */}
+        <Stack.Screen name="MainTabs" component={MainTabNavigator} />
       </Stack.Navigator>
     </NavigationContainer>
   );
-};
+});
 
 const styles = StyleSheet.create({
   loadingContainer: {
