@@ -242,22 +242,22 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           matchRadiusKm: 25, // Default value
         });
 
-      console.log('✅ Dating preferences skipped - empty fields saved');
+      // Update signupStep to complete
+      await firestore()
+        .collection('accounts')
+        .doc(userId)
+        .update({
+          signupStep: 'complete',
+          status: 'active',
+        });
 
-      Toast.show({
-        type: 'success',
-        text1: 'Profile Setup Complete! 🎉',
-        text2: 'Welcome to Funmate',
-        visibilityTime: 2000,
-      });
+      console.log('✅ Dating preferences skipped - signup complete');
 
       // Navigate to main app
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
-        });
-      }, 1500);
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' as never }],
+      });
 
     } catch (error: any) {
       console.error('❌ Error skipping preferences:', error);
@@ -334,45 +334,20 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
 
       console.log('✅ Dating preferences saved');
 
-      // Initialize push notifications (user document now exists)
-      // This will request permission and save FCM token
-      notificationService.initialize().catch(err => 
-        console.warn('Notification initialization failed:', err)
-      );
-
-      // Fetch location in background (non-blocking)
-      requestLocationPermission().then(async (hasPermission) => {
-        if (hasPermission) {
-          const coords = await getCurrentLocation();
-          if (coords && userId) {
-            await firestore()
-              .collection('users')
-              .doc(userId)
-              .update({
-                location: {
-                  latitude: coords.latitude,
-                  longitude: coords.longitude,
-                },
-              });
-            console.log('📍 Location updated in background:', coords);
-          }
-        }
-      }).catch(err => console.warn('Background location fetch failed:', err));
-
-      Toast.show({
-        type: 'success',
-        text1: 'Profile Complete! 🎉',
-        text2: 'Welcome to Funmate',
-        visibilityTime: 2000,
-      });
-
-      // Navigate to main app immediately
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' as never }],
+      // Update signupStep to complete
+      await firestore()
+        .collection('accounts')
+        .doc(userId)
+        .update({
+          signupStep: 'complete',
+          status: 'active',
         });
-      }, 1000);
+
+      // Navigate to main app
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' as never }],
+      });
 
     } catch (error: any) {
       console.error('❌ Error saving preferences:', error);

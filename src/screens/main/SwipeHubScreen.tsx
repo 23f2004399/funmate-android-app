@@ -36,6 +36,7 @@ import Geolocation from '@react-native-community/geolocation';
 import { getBlockedUserIds } from '../../utils/blockCache';
 import { calculateMatchScore, calculateDistance, passesFilters } from '../../utils/RecomendationEngine';
 import { calculateProfileCompleteness } from '../../utils/profileCompleteness';
+import notificationService from '../../services/NotificationService';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.9;
@@ -233,12 +234,14 @@ const SwipeHubScreen = () => {
   };
 
   /**
-   * Initial load - request permission once and fetch matches
+   * Initial load - request permissions and fetch matches
    */
   useEffect(() => {
     const init = async () => {
       if (!userId) return;
       await requestLocationPermission();
+      // Initialize notification service (requests permission if needed)
+      await notificationService.initialize();
       await fetchMatches();
     };
     init();

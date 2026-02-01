@@ -150,17 +150,67 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       
       // Handle SIGNUP flow
       if (isExistingUser) {
-        // User already registered - sign out and show error
+        // User already has account - check their signup progress
+        const accountData = (await firestore().collection('accounts').doc(userId).get()).data();
+        const signupStep = accountData?.signupStep;
+        
+        if (signupStep && signupStep !== 'complete') {
+          // User has incomplete signup - let them continue
+          setLoading(false);
+          Toast.show({
+            type: 'info',
+            text1: 'Welcome Back!',
+            text2: 'Let\'s continue setting up your profile',
+            visibilityTime: 2000,
+          });
+          
+          // Navigate based on signupStep
+          const screenMap: Record<string, string> = {
+            'basic_info': 'ProfileSetup',
+            'photos': 'PhotoUpload',
+            'liveness': 'LivenessVerification',
+            'preferences': 'DatingPreferences',
+            'interests': 'InterestsSelection',
+            'permissions': 'Permissions',
+          };
+          
+          const targetScreen = screenMap[signupStep] || 'ProfileSetup';
+          navigation.navigate(targetScreen as never, accountType === 'creator' ? undefined : { phoneNumber });
+          return;
+        }
+        
+        // Signup is complete - this is a duplicate signup attempt
         await auth().signOut();
         setLoading(false);
         Toast.show({
           type: 'error',
           text1: 'Phone Number Already Registered',
-          text2: 'This phone number is already linked to an account',
+          text2: 'This phone number is already linked to an account. Please log in.',
           visibilityTime: 4000,
         });
         navigation.goBack();
         return;
+      }
+      
+      // NEW USER: Create account document with signupStep
+      try {
+        await firestore().collection('accounts').doc(userId).set({
+          authUid: userId,
+          phoneNumber: phoneNumber, // Store phone number for resume
+          role: accountType === 'creator' ? 'event_creator' : 'user',
+          creatorType: null,
+          status: 'pending_verification',
+          phoneVerified: true,
+          emailVerified: false,
+          identityVerified: false,
+          bankVerified: false,
+          signupStep: 'basic_info',
+          createdAt: firestore.FieldValue.serverTimestamp(),
+        });
+        console.log('Account document created with signupStep: basic_info');
+      } catch (createError) {
+        console.error('Error creating account document:', createError);
+        // Continue anyway - the signup screens will handle this
       }
       
       setLoading(false);

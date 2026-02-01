@@ -363,6 +363,11 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       }
       // ═══════════════════════════════════════════════════════════════════
 
+      // Update signupStep to liveness
+      await firestore().collection('accounts').doc(userId).update({
+        signupStep: 'liveness',
+      });
+
       setUploading(false);
 
       Toast.show({

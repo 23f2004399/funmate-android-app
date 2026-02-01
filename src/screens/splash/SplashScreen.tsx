@@ -6,8 +6,8 @@ import {
   StatusBar,
   Animated,
   Easing,
+  Image,
 } from 'react-native';
-import HeartArrowLogo from '../../components/icons/HeartArrowLogo';
 
 interface SplashScreenProps {
   onFinish: () => void;
@@ -113,9 +113,10 @@ const SplashScreen = ({ onFinish }: SplashScreenProps) => {
       <StatusBar barStyle="light-content" backgroundColor="#FF4458" />
 
       {/* Animated Logo */}
-      <Animated.View
+      <Animated.Image
+        source={require('../../assets/logo.png')}
         style={[
-          styles.logoContainer,
+          styles.logo,
           {
             opacity: logoOpacity,
             transform: [
@@ -124,9 +125,8 @@ const SplashScreen = ({ onFinish }: SplashScreenProps) => {
             ],
           },
         ]}
-      >
-        <HeartArrowLogo size={140} color="#FFFFFF" />
-      </Animated.View>
+        resizeMode="contain"
+      />
 
       {/* Animated Text */}
       <Animated.View
@@ -153,6 +153,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoContainer: {
+    marginBottom: 40,
+  },
+  logo: {
+    width: 140,
+    height: 140,
     marginBottom: 40,
   },
   textContainer: {

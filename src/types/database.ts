@@ -5,6 +5,35 @@
  */
 
 // ==========================================
+// SIGNUP STEP TYPE
+// ==========================================
+export type SignupStep = 
+  | 'account_type'    // Just verified phone, need to select account type
+  | 'basic_info'      // Need to fill basic info (name, email, etc.)
+  | 'photos'          // Need to upload photos
+  | 'liveness'        // Need to complete liveness verification
+  | 'preferences'     // Need to fill dating preferences (skippable)
+  | 'interests'       // Need to select interests (skippable)
+  | 'complete';       // Signup complete, can access app
+
+// ==========================================
+// ACCOUNTS COLLECTION
+// ==========================================
+export interface Account {
+  id?: string;
+  authUid: string;
+  role: 'user' | 'event_creator';
+  creatorType: 'individual' | 'merchant' | null;
+  status: 'active' | 'pending_verification' | 'suspended';
+  phoneVerified: boolean;
+  emailVerified: boolean;
+  identityVerified: boolean;
+  bankVerified: boolean;
+  signupStep: SignupStep;
+  createdAt: any;
+}
+
+// ==========================================
 // SWIPES COLLECTION
 // ==========================================
 export interface Swipe {

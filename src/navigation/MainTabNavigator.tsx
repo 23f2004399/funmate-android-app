@@ -10,6 +10,7 @@
 import React, { useEffect, useRef } from 'react';
 import { PermissionsAndroid, Platform, AppState } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Geolocation from '@react-native-community/geolocation';
 import firestore from '@react-native-firebase/firestore';
@@ -183,6 +184,9 @@ const MainTabNavigator = () => {
     };
   }, []);
 
+  // Get safe area insets for dynamic bottom padding
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -215,10 +219,9 @@ const MainTabNavigator = () => {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E0E0E0',
-          height: 60,
-          paddingBottom: 10,
+          height: 60 + insets.bottom, // Dynamic height based on device
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10, // Use inset or fallback
           paddingTop: 8,
-          marginBottom: 5,
         },
         tabBarLabelStyle: {
           fontSize: 12,

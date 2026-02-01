@@ -8,6 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Modal,
+  Alert,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,7 +27,7 @@ interface ProfileSetupScreenProps {
 }
 
 const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
-  const { phoneNumber } = route.params;
+  const [phoneNumber, setPhoneNumber] = useState(route.params?.phoneNumber || '');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -41,6 +42,30 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Fetch phoneNumber from Firestore if not in route params (resume scenario)
+  useEffect(() => {
+    const fetchPhoneNumber = async () => {
+      if (!phoneNumber) {
+        try {
+          const userId = auth().currentUser?.uid;
+          if (userId) {
+            const accountDoc = await firestore().collection('accounts').doc(userId).get();
+            if (accountDoc.exists) {
+              const storedPhone = accountDoc.data()?.phoneNumber;
+              if (storedPhone) {
+                setPhoneNumber(storedPhone);
+                console.log('Fetched phoneNumber from Firestore:', storedPhone);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching phoneNumber:', error);
+        }
+      }
+    };
+    fetchPhoneNumber();
+  }, []);
 
   /**
    * Calculate password strength
@@ -359,13 +384,42 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => {
+                Alert.alert(
+                  'Use Different Number?',
+                  'You\'ll need to verify your phone number again.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Log Out', 
+                      style: 'destructive',
+                      onPress: async () => {
+                        await auth().signOut();
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: 'Login' }],
+                        });
+                      }
+                    },
+                  ]
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={26} color="#1A1A1A" />
+            </TouchableOpacity>
+          )}
           <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Let's get to know you better</Text>
         </View>

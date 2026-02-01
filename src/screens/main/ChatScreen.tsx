@@ -26,17 +26,16 @@ import {
   TextInput,
   FlatList,
   Image,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Keyboard,
-  Animated,
   TouchableWithoutFeedback,
   Modal,
   Pressable,
   Dimensions,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
@@ -89,6 +88,7 @@ interface MessageWithId extends Message {
 const ChatScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<ChatRouteParams, 'Chat'>>();
+  const insets = useSafeAreaInsets();
   const { chatId: initialChatId, recipientId, recipientName, recipientPhoto } = route.params;
 
   const userId = auth().currentUser?.uid;
@@ -132,36 +132,26 @@ const ChatScreen = () => {
     },
   });
 
-  // Keyboard height animation for Android
-  const keyboardHeight = useRef(new Animated.Value(0)).current;
+  // Track keyboard height for proper bottom positioning
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  /**
-   * Handle keyboard show/hide for Android
-   */
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
-    const keyboardShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
-      Animated.timing(keyboardHeight, {
-        toValue: e.endCoordinates.height,
-        duration: 250,
-        useNativeDriver: false,
-      }).start();
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      // Add buffer only for phones with navbar (insets.bottom > 0)
+      const navbarBuffer = insets.bottom > 0 ? 30 : 0;
+      setKeyboardHeight(e.endCoordinates.height + navbarBuffer);
     });
-
-    const keyboardHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      Animated.timing(keyboardHeight, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: false,
-      }).start();
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
     });
 
     return () => {
-      keyboardShowListener.remove();
-      keyboardHideListener.remove();
+      showSub.remove();
+      hideSub.remove();
     };
-  }, [keyboardHeight]);
+  }, [insets.bottom]);
 
   /**
    * Fetch recipient profile
@@ -954,7 +944,10 @@ const ChatScreen = () => {
       {/* Input Area */}
       {!hasBlockedRecipient && isMutual ? (
         // Full text input for mutual chats with photo button
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { 
+          marginBottom: keyboardHeight, 
+          paddingBottom: keyboardHeight > 0 ? 12 : 12 + insets.bottom 
+        }]}>
           {/* Photo picker button */}
           <TouchableOpacity
             style={styles.photoButton}
@@ -994,7 +987,10 @@ const ChatScreen = () => {
         </View>
       ) : !hasBlockedRecipient && !isMutual ? (
         // Shadow chips for restricted chats (only if not blocked)
-        <View style={styles.shadowChipsContainer}>
+        <View style={[styles.shadowChipsContainer, { 
+          marginBottom: keyboardHeight, 
+          paddingBottom: keyboardHeight > 0 ? 16 : 16 + insets.bottom 
+        }]}>
           <Text style={styles.shadowChipsLabel}>Quick Messages</Text>
           <FlatList
             data={SHADOW_CHIPS}
@@ -1006,11 +1002,6 @@ const ChatScreen = () => {
           />
         </View>
       ) : null}
-
-      {/* Keyboard spacer for Android */}
-      {Platform.OS === 'android' && (
-        <Animated.View style={{ height: keyboardHeight }} />
-      )}
 
       {/* Reaction Picker Modal */}
       {renderReactionPicker()}

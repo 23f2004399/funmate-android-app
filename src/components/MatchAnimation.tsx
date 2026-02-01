@@ -23,6 +23,7 @@ import {
   Modal,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
@@ -48,6 +49,7 @@ const MatchAnimation: React.FC<MatchAnimationProps> = ({
   onSendMessage,
   onKeepSwiping,
 }) => {
+  const insets = useSafeAreaInsets();
   // Animation values
   const leftAvatarX = useRef(new Animated.Value(-200)).current;
   const rightAvatarX = useRef(new Animated.Value(width + 200)).current;
@@ -346,6 +348,7 @@ const MatchAnimation: React.FC<MatchAnimationProps> = ({
             styles.contentContainer,
             {
               transform: [{ translateY: contentY }],
+              bottom: 40 + insets.bottom, // Dynamic bottom positioning above navbar
             },
           ]}
         >
@@ -445,7 +448,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     position: 'absolute',
-    top: CENTER_Y + HEART_SIZE,
+    bottom: 40,
     alignItems: 'center',
     paddingHorizontal: 40,
   },

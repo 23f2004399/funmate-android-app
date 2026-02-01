@@ -3,6 +3,7 @@ import { NavigationContainer, NavigationContainerRef } from '@react-navigation/n
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import MainTabNavigator from './MainTabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import EmailLoginScreen from '../screens/auth/EmailLoginScreen';
@@ -26,6 +27,7 @@ import LikesSwiperScreen from '../screens/main/LikesSwiperScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import { BlockedUsersScreen } from '../screens/settings/BlockedUsersScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
+import { SignupStep } from '../types/database';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -34,7 +36,7 @@ export type RootStackParamList = {
   AccountType: undefined;
   PhoneNumber: { accountType?: 'user' | 'creator'; isLogin?: boolean };
   OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator'; isLogin?: boolean };
-  ProfileSetup: { phoneNumber: string };
+  ProfileSetup: { phoneNumber?: string };
   CreatorBasicInfo: { phoneNumber: string };
   CreatorGoogleProfileSetup: { googleUser: any };
   CreatorEmailVerification: {
@@ -75,16 +77,76 @@ export type RootStackParamList = {
   // TODO: Add more screens later
 };
 
+// Map signupStep to screen name
+const getScreenForSignupStep = (signupStep: SignupStep): keyof RootStackParamList => {
+  switch (signupStep) {
+    case 'account_type':
+      return 'AccountType';
+    case 'basic_info':
+      return 'ProfileSetup';
+    case 'photos':
+      return 'PhotoUpload';
+    case 'liveness':
+      return 'LivenessVerification';
+    case 'preferences':
+      return 'DatingPreferences';
+    case 'interests':
+      return 'InterestsSelection';
+    case 'complete':
+    default:
+      return 'MainTabs';
+  }
+};
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>((props, ref) => {
   const [initializing, setInitializing] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList>('Login');
 
-  // Handle user state changes
+  // Handle user state changes and check signup progress
   useEffect(() => {
-    const subscriber = auth().onAuthStateChanged((userState) => {
+    const subscriber = auth().onAuthStateChanged(async (userState) => {
       setUser(userState);
+      
+      if (userState) {
+        // User is authenticated - check their signup progress
+        try {
+          const accountDoc = await firestore()
+            .collection('accounts')
+            .doc(userState.uid)
+            .get();
+
+          if (accountDoc.exists()) {
+            const accountData = accountDoc.data();
+            const signupStep = accountData?.signupStep as SignupStep;
+            
+            if (signupStep && signupStep !== 'complete') {
+              // User hasn't completed signup - route to appropriate screen
+              const targetScreen = getScreenForSignupStep(signupStep);
+              console.log('Incomplete signup, routing to:', targetScreen);
+              setInitialRoute(targetScreen);
+            } else {
+              // Signup complete or no signupStep field (legacy user) - go to main
+              setInitialRoute('MainTabs');
+            }
+          } else {
+            // No account doc - this is a new user who just verified phone
+            // They should be routed by the OTP screen, but fallback to AccountType
+            console.log('No account doc found, routing to AccountType');
+            setInitialRoute('AccountType');
+          }
+        } catch (error) {
+          console.error('Error checking signup progress:', error);
+          // On error, default to main if user exists
+          setInitialRoute('MainTabs');
+        }
+      } else {
+        // Not authenticated - go to login
+        setInitialRoute('Login');
+      }
+      
       if (initializing) setInitializing(false);
     });
     return subscriber; // Unsubscribe on unmount
@@ -105,7 +167,7 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         screenOptions={{
           headerShown: false,
         }}
-        initialRouteName={user ? 'MainTabs' : 'Login'}
+        initialRouteName={initialRoute}
       >
         {/* Auth screens - always available for signup flow */}
         <Stack.Screen name="Login" component={LoginScreen} />

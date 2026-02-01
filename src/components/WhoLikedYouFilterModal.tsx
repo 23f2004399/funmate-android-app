@@ -16,6 +16,7 @@ import {
   TextInput,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Slider from '@react-native-community/slider';
 import { WhoLikedYouFilters, DEFAULT_FILTERS, RELATIONSHIP_INTENT_OPTIONS } from '../types/filters';
@@ -37,6 +38,8 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
   onApplyFilters,
   availableOccupations,
 }) => {
+  const insets = useSafeAreaInsets();
+
   // Local state for editing filters
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(60);
@@ -389,7 +392,7 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
           </ScrollView>
 
           {/* Footer Actions */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: 16 + insets.bottom }]}>
             <TouchableOpacity style={styles.clearButton} onPress={handleClearAll}>
               <Text style={styles.clearButtonText}>Clear All</Text>
             </TouchableOpacity>

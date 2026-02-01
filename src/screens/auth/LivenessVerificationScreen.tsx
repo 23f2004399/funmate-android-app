@@ -328,6 +328,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
       identityVerified: true,
       verificationMethod: 'active_liveness',
       verifiedAt: new Date(),
+      signupStep: 'interests', // Next step is interests selection
     });
 
     // 3. Update users collection

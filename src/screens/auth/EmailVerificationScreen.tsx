@@ -100,7 +100,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
 
     // Email/password already linked in ProfileSetupScreen, no need to link again
 
-    // Create account document (following schema exactly)
+    // Update account document with email verified and signupStep
     await firestore().collection('accounts').doc(accountId).set({
       authUid: user.uid,
       role: 'user',
@@ -110,8 +110,9 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       emailVerified: user.emailVerified, // From Firebase Auth
       identityVerified: false,
       bankVerified: false,
+      signupStep: 'photos', // Next step is photo upload
       createdAt: firestore.FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     // Create user document (following schema exactly)
     await firestore().collection('users').doc(accountId).set({

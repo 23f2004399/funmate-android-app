@@ -172,6 +172,14 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
           interests: [],
         });
 
+      // Update signupStep to preferences
+      await firestore()
+        .collection('accounts')
+        .doc(userId)
+        .update({
+          signupStep: 'preferences',
+        });
+
       console.log('✅ Interests skipped - empty array saved');
       
       // Navigate to Dating Preferences screen
@@ -215,6 +223,14 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
         .doc(userId)
         .update({
           interests: selectedInterests,
+        });
+
+      // Update signupStep to preferences
+      await firestore()
+        .collection('accounts')
+        .doc(userId)
+        .update({
+          signupStep: 'preferences',
         });
 
       console.log('✅ Interests saved:', selectedInterests);
