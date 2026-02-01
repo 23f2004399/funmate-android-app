@@ -8,7 +8,7 @@
  * - Swipe actions: like (right), pass (left)
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -246,6 +246,35 @@ const SwipeHubScreen = () => {
     };
     init();
   }, [userId]);
+
+  /**
+   * Re-fetch matches when screen gains focus (fixes swiped cards reappearing)
+   * This ensures we always have fresh data when returning from other screens
+   */
+  useEffect(() => {
+    if (isFocused && !loading && userId) {
+      // Don't fetch if we're showing match animation
+      if (!showMatchAnimationRef.current) {
+        fetchMatches();
+      }
+    }
+  }, [isFocused]);
+
+  /**
+   * Ensure ref is synced when matches becomes empty
+   */
+  useEffect(() => {
+    if (matches.length === 0 && !showMatchAnimation) {
+      showMatchAnimationRef.current = false;
+      // Force component update when matches become empty
+      console.log('📭 No more matches - showing empty state');
+    }
+  }, [matches.length, showMatchAnimation]);
+
+  // Debug: Log when matches changes
+  useEffect(() => {
+    console.log(`🃏 Matches count: ${matches.length}`);
+  }, [matches.length]);
 
   /**
    * Fetch current user's photo for match animation
@@ -699,10 +728,13 @@ const SwipeHubScreen = () => {
         console.log(`✅ Liked: ${match.name}`);
       }
       
-      // Remove the swiped card from matches array for immediate UI update
-      setMatches(prev => prev.filter((_, idx) => idx !== cardIndex));
-      
-      // Reset photo index and scroll position for next card
+      // Update state immediately (CardSwiper's useEffect will handle the animation reset)
+      console.log(`🔄 Filtering out card ${cardIndex}, current count: ${matches.length}, will be: ${matches.length - 1}`);
+      setMatches(prev => {
+        const newMatches = prev.filter((_, idx) => idx !== cardIndex);
+        console.log(`📊 New matches count: ${newMatches.length}`);
+        return newMatches;
+      });
       setCurrentPhotoIndex(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     } catch (error) {
@@ -729,10 +761,8 @@ const SwipeHubScreen = () => {
 
       console.log(`❌ Passed: ${match.name}`);
       
-      // Remove the swiped card from matches array for immediate UI update
+      // Update state immediately (CardSwiper's useEffect will handle the animation reset)
       setMatches(prev => prev.filter((_, idx) => idx !== cardIndex));
-      
-      // Reset photo index and scroll position for next card
       setCurrentPhotoIndex(0);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
     } catch (error) {
@@ -770,9 +800,9 @@ const SwipeHubScreen = () => {
   }, []);
 
   /**
-   * Navigate photos in current card
+   * Navigate photos in current card (optimized with useCallback)
    */
-  const handleCardTap = (side: 'left' | 'right') => {
+  const handleCardTap = useCallback((side: 'left' | 'right') => {
     const currentMatch = matches[0]; // Always first card since we filter out swiped
     if (!currentMatch || !currentMatch.photos.length) return;
 
@@ -785,12 +815,12 @@ const SwipeHubScreen = () => {
         prev > 0 ? prev - 1 : currentMatch.photos.length - 1
       );
     }
-  };
+  }, [matches]);
 
   /**
-   * Render individual card
+   * Render individual card (memoized for performance)
    */
-  const renderCard = (match: Match, index: number) => {
+  const renderCard = useCallback((match: Match, index: number) => {
     const currentPhoto = match.photos[currentPhotoIndex]?.url || 'https://via.placeholder.com/400';
     const matchPercentage = Math.round(match.matchScore);
     
@@ -799,8 +829,26 @@ const SwipeHubScreen = () => {
 
     return (
       <View style={styles.card}>
-        {/* Photo */}
-        <Image source={{ uri: currentPhoto }} style={styles.cardImage} />
+        {/* Photo with cache control for faster loading */}
+        <Image 
+          source={{ uri: currentPhoto, cache: 'force-cache' }} 
+          style={styles.cardImage}
+          resizeMode="cover"
+          // Prefetch next photos in background
+          onLoad={() => {
+            // Preload next 2 photos for smoother transitions
+            if (match.photos.length > 1) {
+              const nextIndex = (currentPhotoIndex + 1) % match.photos.length;
+              const nextNextIndex = (currentPhotoIndex + 2) % match.photos.length;
+              if (match.photos[nextIndex]) {
+                Image.prefetch(match.photos[nextIndex].url);
+              }
+              if (match.photos[nextNextIndex]) {
+                Image.prefetch(match.photos[nextNextIndex].url);
+              }
+            }
+          }}
+        />
 
         {/* Photo navigation areas */}
         <TouchableOpacity
@@ -880,7 +928,7 @@ const SwipeHubScreen = () => {
         </View>
       </View>
     );
-  };
+  }, [currentPhotoIndex, handleCardTap]); // Include handleCardTap dependency
 
   if (loading) {
     return (
@@ -892,8 +940,11 @@ const SwipeHubScreen = () => {
     );
   }
 
-  // Don't show empty state if match animation is about to show
-  if (matches.length === 0 && !showMatchAnimationRef.current) {
+  // DEBUG: Log render conditions
+  console.log(`🎨 RENDER CHECK: matches.length=${matches.length}, showMatchAnimation=${showMatchAnimation}`);
+
+  // Show empty state when no matches (unless showing match animation)
+  if (matches.length === 0 && !showMatchAnimation) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -932,7 +983,7 @@ const SwipeHubScreen = () => {
 
         {/* No matches content with pull-to-refresh */}
         <ScrollView
-          contentContainerStyle={styles.emptyScrollContent}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -941,15 +992,14 @@ const SwipeHubScreen = () => {
               tintColor="#FF4458"
             />
           }
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.emptyContainer}>
-            <Ionicons name="people-outline" size={80} color="#E0E0E0" />
-            <Text style={styles.emptyTitle}>No Matches Yet</Text>
-            <Text style={styles.emptyText}>
-              Check back later for new profiles!{'\n'}Try adjusting your preferences or radius.
-            </Text>
-            <Text style={styles.pullToRefreshHint}>Pull down to refresh</Text>
-          </View>
+          <Ionicons name="people-outline" size={80} color="#E0E0E0" />
+          <Text style={styles.emptyTitle}>No Matches Yet</Text>
+          <Text style={styles.emptyText}>
+            Check back later for new profiles!{'\n'}Try adjusting your preferences or radius.
+          </Text>
+          <Text style={styles.pullToRefreshHint}>Pull down to refresh</Text>
         </ScrollView>
       </View>
     );
@@ -1005,6 +1055,8 @@ const SwipeHubScreen = () => {
         }
         showsVerticalScrollIndicator={false}
         bounces={true}
+        removeClippedSubviews={true} // Optimize memory by removing off-screen views
+        scrollEventThrottle={16} // Smooth scroll performance
       >
         {/* Card Swiper Section */}
         <View style={styles.swiperContainer}>
@@ -1487,6 +1539,12 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  pullToRefreshHint: {
+    marginTop: 20,
+    fontSize: 14,
+    color: '#999999',
+    fontStyle: 'italic',
   },
   // Location Request Styles
   locationRequestContainer: {

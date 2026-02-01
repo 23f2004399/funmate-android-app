@@ -8,7 +8,7 @@
  * This component always shows data[0] as the top card.
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,7 +20,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
-const SWIPE_OUT_DURATION = 250;
+const SWIPE_OUT_DURATION = 300; // Slightly slower for smoother feel
 
 interface CardSwiperProps {
   data: any[];
@@ -43,18 +43,37 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
 }) => {
   // Use refs to avoid stale closures in PanResponder
   const position = useRef(new Animated.ValueXY()).current;
+  const opacity = useRef(new Animated.Value(1)).current;
   const isSwipingRef = useRef(false);
   const callbacksRef = useRef({ onSwipeRight, onSwipeLeft, onSwipedAll });
   const dataRef = useRef(data);
+  const currentCardIdRef = useRef(data[0]?.id); // Track current top card
 
   // Keep refs updated on every render
   callbacksRef.current = { onSwipeRight, onSwipeLeft, onSwipedAll };
   dataRef.current = data;
 
+  /**
+   * KEY FIX: Reset position/opacity when the TOP CARD CHANGES
+   * This ensures we only reset AFTER React has re-rendered with new data
+   */
+  useEffect(() => {
+    const newCardId = data[0]?.id;
+    
+    // Only reset if the card actually changed (not on initial render)
+    if (newCardId !== currentCardIdRef.current) {
+      // New card is now on top - reset position immediately
+      position.setValue({ x: 0, y: 0 });
+      opacity.setValue(1);
+      isSwipingRef.current = false;
+      currentCardIdRef.current = newCardId;
+    }
+  }, [data, position, opacity]);
+
   const resetPosition = () => {
     Animated.spring(position, {
       toValue: { x: 0, y: 0 },
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   };
 
@@ -62,21 +81,24 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
     const { onSwipeRight, onSwipeLeft, onSwipedAll } = callbacksRef.current;
     const currentData = dataRef.current;
 
-    // Always index 0 - parent will filter the array
+    // Check if this was the last card BEFORE calling callbacks
+    const wasLastCard = currentData.length <= 1;
+
+    // Call parent callbacks to update state
+    // The useEffect watching data[0]?.id will handle resetting position
     if (direction === 'right' && onSwipeRight) {
       onSwipeRight(0);
     } else if (direction === 'left' && onSwipeLeft) {
       onSwipeLeft(0);
     }
 
-    // Check if this was the last card
-    if (currentData.length <= 1 && onSwipedAll) {
+    // Call onSwipedAll if this was the last card
+    if (wasLastCard && onSwipedAll) {
       onSwipedAll();
     }
 
-    // Reset for next card
-    position.setValue({ x: 0, y: 0 });
-    isSwipingRef.current = false;
+    // DON'T reset position here - let useEffect handle it when data changes
+    // This prevents the flash because we wait for React to re-render first
   };
 
   const forceSwipe = (direction: 'right' | 'left') => {
@@ -84,11 +106,21 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
     isSwipingRef.current = true;
 
     const x = direction === 'right' ? width + 100 : -width - 100;
-    Animated.timing(position, {
-      toValue: { x, y: 0 },
-      duration: SWIPE_OUT_DURATION,
-      useNativeDriver: false,
-    }).start(() => handleSwipeComplete(direction));
+    
+    // Animate position off-screen while fading out
+    // Card fades completely before swipe finishes for cleaner exit
+    Animated.parallel([
+      Animated.timing(position, {
+        toValue: { x, y: 0 },
+        duration: SWIPE_OUT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: SWIPE_OUT_DURATION * 0.5, // Fade out in first half
+        useNativeDriver: true,
+      }),
+    ]).start(() => handleSwipeComplete(direction));
   };
 
   // Create PanResponder once, use refs for current values
@@ -123,6 +155,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
     });
 
     return {
+      opacity, // Add opacity for smooth fade
       transform: [
         { translateX: position.x },
         { translateY: position.y },
