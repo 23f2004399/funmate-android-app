@@ -9,7 +9,10 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -42,6 +45,8 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
 
   // Fetch phoneNumber from Firestore if not in route params (resume scenario)
   useEffect(() => {
@@ -369,9 +374,16 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
-      <KeyboardAwareScrollView 
+      <TouchableWithoutFeedback 
+        onPress={() => {
+          Keyboard.dismiss();
+          setFocusedInput(null);
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <KeyboardAwareScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -390,34 +402,15 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
             >
-              <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
               style={styles.backButton}
-              onPress={() => {
-                Alert.alert(
-                  'Use Different Number?',
-                  'You\'ll need to verify your phone number again.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { 
-                      text: 'Log Out', 
-                      style: 'destructive',
-                      onPress: async () => {
-                        await auth().signOut();
-                        navigation.reset({
-                          index: 0,
-                          routes: [{ name: 'Login' }],
-                        });
-                      }
-                    },
-                  ]
-                );
-              }}
+              onPress={() => setShowLogoutAlert(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="log-out-outline" size={26} color="#1A1A1A" />
+              <Ionicons name="log-out-outline" size={26} color="#FFFFFF" />
             </TouchableOpacity>
           )}
           <Text style={styles.title}>Complete Your Profile</Text>
@@ -427,37 +420,43 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
         {/* Form Fields */}
         <View style={styles.form}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
             value={fullName}
             onChangeText={setFullName}
             placeholder="Full Name"
-            placeholderTextColor="#999999"
+            placeholderTextColor="#7F93AA"
             autoCapitalize="words"
+            onFocus={() => setFocusedInput('fullName')}
+            onBlur={() => setFocusedInput(null)}
           />
 
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
             value={email}
             onChangeText={setEmail}
             placeholder="Email Address"
-            placeholderTextColor="#999999"
+            placeholderTextColor="#7F93AA"
             keyboardType="email-address"
             autoCapitalize="none"
+            onFocus={() => setFocusedInput('email')}
+            onBlur={() => setFocusedInput(null)}
           />
 
           <View style={styles.usernameContainer}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
               value={username}
               onChangeText={setUsername}
               placeholder="Username"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               autoCapitalize="none"
+              onFocus={() => setFocusedInput('username')}
+              onBlur={() => setFocusedInput(null)}
             />
             {username.length >= 3 && (
               <View style={styles.usernameStatus}>
                 {checkingUsername ? (
-                  <ActivityIndicator size="small" color="#FF4458" />
+                  <ActivityIndicator size="small" color="#378BBB" />
                 ) : usernameAvailable === true ? (
                   <Text style={styles.availableText}>✓ Available</Text>
                 ) : usernameAvailable === false ? (
@@ -503,13 +502,15 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 
           <View style={styles.passwordContainer}>
             <TextInput
-              style={styles.passwordInput}
+              style={[styles.passwordInput, focusedInput === 'password' && styles.inputFocused]}
               value={password}
               onChangeText={setPassword}
               placeholder="Password"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              onFocus={() => setFocusedInput('password')}
+              onBlur={() => setFocusedInput(null)}
             />
             <TouchableOpacity
               style={styles.eyeIcon}
@@ -518,7 +519,7 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
               <Ionicons 
                 name={showPassword ? 'eye-outline' : 'eye-off-outline'} 
                 size={22} 
-                color="#666666" 
+                color="#7F93AA" 
               />
             </TouchableOpacity>
           </View>
@@ -545,13 +546,15 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 
           <View style={styles.passwordContainer}>
             <TextInput
-              style={styles.passwordInput}
+              style={[styles.passwordInput, focusedInput === 'confirmPassword' && styles.inputFocused]}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Confirm Password"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
+              onFocus={() => setFocusedInput('confirmPassword')}
+              onBlur={() => setFocusedInput(null)}
             />
             <TouchableOpacity
               style={styles.eyeIcon}
@@ -560,7 +563,7 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
               <Ionicons 
                 name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} 
                 size={22} 
-                color="#666666" 
+                color="#7F93AA" 
               />
             </TouchableOpacity>
           </View>
@@ -585,18 +588,26 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={styles.continueButton}
           onPress={handleContinue}
           disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.continueButtonText}>Continue</Text>
-          )}
+          <LinearGradient
+            colors={['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.continueButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continueButtonText}>Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
+        </View>
+      </TouchableWithoutFeedback>
 
       {/* Gender Picker Modal */}
       <Modal
@@ -628,6 +639,46 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutAlert}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutAlert(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Use Different Number?</Text>
+            <Text style={styles.alertMessage}>
+              You'll need to verify your phone number again.
+            </Text>
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={styles.alertCancelButton}
+                onPress={() => setShowLogoutAlert(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.alertLogoutButton}
+                onPress={async () => {
+                  setShowLogoutAlert(false);
+                  await auth().signOut();
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertLogoutText}>Log Out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -635,7 +686,7 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   scrollView: {
     flex: 1,
@@ -659,34 +710,49 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
+    fontFamily: 'Inter_24pt-Regular',
   },
   form: {
     paddingHorizontal: 32,
     gap: 16,
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     height: 56,
     justifyContent: 'center',
+    fontFamily: 'Inter_24pt-Regular',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inputFocused: {
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   inputText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
   },
   placeholderText: {
     fontSize: 16,
-    color: '#999999',
+    color: '#7F93AA',
+    fontFamily: 'Inter_24pt-Regular',
   },
   usernameContainer: {
     position: 'relative',
@@ -699,27 +765,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availableText: {
-    color: '#4CAF50',
+    color: '#2ECC71',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   unavailableText: {
-    color: '#FF4458',
+    color: '#FF4D6D',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   passwordContainer: {
     position: 'relative',
   },
   passwordInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingRight: 50,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     height: 56,
+    fontFamily: 'Inter_24pt-Regular',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   eyeIcon: {
     position: 'absolute',
@@ -740,7 +811,7 @@ const styles = StyleSheet.create({
   strengthBarBackground: {
     flex: 1,
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#233B57',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -752,14 +823,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     minWidth: 50,
+    fontFamily: 'Inter_24pt-Bold',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 24,
@@ -769,9 +841,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 20,
     textAlign: 'center',
+    fontFamily: 'Inter_24pt-Bold',
   },
   genderOption: {
     flexDirection: 'row',
@@ -779,19 +852,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#233B57',
   },
   genderOptionText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
   },
   checkmark: {
     fontSize: 20,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: 'bold',
   },
   googleButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -800,30 +874,95 @@ const styles = StyleSheet.create({
     marginHorizontal: 32,
     marginTop: 24,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#378BBB',
   },
   googleButtonText: {
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginHorizontal: 32,
     marginTop: 16,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
   },
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertBox: {
+    backgroundColor: '#16283D',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#233B57',
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  alertMessage: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontFamily: 'Inter_24pt-Regular',
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  alertCancelButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#233B57',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  alertCancelText: {
+    color: '#B8C7D9',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  alertLogoutButton: {
+    flex: 1,
+    backgroundColor: '#FF4D6D',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  alertLogoutText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
 });
 

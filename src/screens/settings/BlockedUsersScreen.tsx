@@ -15,7 +15,10 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  SafeAreaView,
+  Modal,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { BlockedUser, User } from '../../types/database';
@@ -25,10 +28,16 @@ interface BlockedUserWithDetails extends BlockedUser {
   userDetails?: User;
 }
 
-export const BlockedUsersScreen: React.FC = () => {
+export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unblockModal, setUnblockModal] = useState<{ visible: boolean; userId: string; userName: string }>({
+    visible: false,
+    userId: '',
+    userName: '',
+  });
+  const [isUnblocking, setIsUnblocking] = useState(false);
 
   const currentUserId = auth().currentUser?.uid;
 
@@ -82,32 +91,28 @@ export const BlockedUsersScreen: React.FC = () => {
 
   const handleUnblock = (blockedUserId: string, userName: string) => {
     if (!currentUserId) return;
+    setUnblockModal({ visible: true, userId: blockedUserId, userName });
+  };
 
-    Alert.alert(
-      'Unblock User',
-      `Are you sure you want to unblock ${userName}? You'll be able to see each other's profiles again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            try {
-              await unblockUser(currentUserId, blockedUserId);
-              
-              // Remove from local state
-              setBlockedUsers(prev =>
-                prev.filter(user => user.blockedUserId !== blockedUserId)
-              );
-              
-              Alert.alert('Unblocked', `${userName} has been unblocked.`);
-            } catch (error) {
-              console.error('Error unblocking user:', error);
-              Alert.alert('Error', 'Failed to unblock user. Please try again.');
-            }
-          },
-        },
-      ]
-    );
+  const confirmUnblock = async () => {
+    if (!currentUserId || !unblockModal.userId) return;
+
+    setIsUnblocking(true);
+    try {
+      await unblockUser(currentUserId, unblockModal.userId);
+      
+      // Remove from local state
+      setBlockedUsers(prev =>
+        prev.filter(user => user.blockedUserId !== unblockModal.userId)
+      );
+      
+      setUnblockModal({ visible: false, userId: '', userName: '' });
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      Alert.alert('Error', 'Failed to unblock user. Please try again.');
+    } finally {
+      setIsUnblocking(false);
+    }
   };
 
   const renderBlockedUser = ({ item }: { item: BlockedUserWithDetails }) => {
@@ -157,7 +162,9 @@ export const BlockedUsersScreen: React.FC = () => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🚫</Text>
+      <View style={styles.emptyIconContainer}>
+        <Ionicons name="ban" size={64} color="#378BBB" />
+      </View>
       <Text style={styles.emptyTitle}>No Blocked Users</Text>
       <Text style={styles.emptySubtitle}>
         Users you block will appear here
@@ -168,13 +175,26 @@ export const BlockedUsersScreen: React.FC = () => {
   if (isLoading && blockedUsers.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E94057" />
+        <ActivityIndicator size="large" color="#378BBB" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation?.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Blocked Users</Text>
+        <View style={styles.headerRight} />
+      </View>
+
       <FlatList
         data={blockedUsers}
         renderItem={renderBlockedUser}
@@ -186,7 +206,47 @@ export const BlockedUsersScreen: React.FC = () => {
         onRefresh={handleRefresh}
         refreshing={refreshing}
       />
-    </View>
+
+      {/* Custom Unblock Confirmation Modal */}
+      <Modal
+        transparent
+        visible={unblockModal.visible}
+        animationType="fade"
+        onRequestClose={() => setUnblockModal({ visible: false, userId: '', userName: '' })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="person-remove" size={32} color="#FF4D6D" />
+            </View>
+            <Text style={styles.modalTitle}>Unblock User</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to unblock {unblockModal.userName}? You'll be able to see each other's profiles again.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setUnblockModal({ visible: false, userId: '', userName: '' })}
+                disabled={isUnblocking}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalUnblockButton}
+                onPress={confirmUnblock}
+                disabled={isUnblocking}
+              >
+                {isUnblocking ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalUnblockButtonText}>Unblock</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
@@ -209,13 +269,38 @@ const formatDate = (timestamp: any): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 50,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  headerRight: {
+    width: 40,
   },
   listContainer: {
     padding: 16,
@@ -229,10 +314,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#F6F6F6',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: '#16283D',
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#378BBB',
   },
   userInfo: {
     flexDirection: 'row',
@@ -246,14 +333,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userPhotoPlaceholder: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
   },
   userPhotoPlaceholderText: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#666',
+    color: '#B8C7D9',
   },
   userTextInfo: {
     flex: 1,
@@ -261,26 +348,28 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 2,
   },
   blockReason: {
     fontSize: 13,
-    color: '#666',
+    color: '#B8C7D9',
     marginBottom: 2,
   },
   blockedDate: {
     fontSize: 12,
-    color: '#999',
+    color: '#7F93AA',
   },
   unblockButton: {
-    backgroundColor: '#E94057',
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#FF4D6D',
   },
   unblockButtonText: {
-    color: '#FFFFFF',
+    color: '#FF4D6D',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -289,19 +378,99 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#16283D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#378BBB',
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#B8C7D9',
     textAlign: 'center',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: '#16283D',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#378BBB',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalUnblockButton: {
+    flex: 1,
+    backgroundColor: '#FF4D6D',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalUnblockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

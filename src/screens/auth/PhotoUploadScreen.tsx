@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { launchImageLibrary, ImagePickerResponse, Asset } from 'react-native-image-picker';
@@ -397,7 +398,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -406,7 +407,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.title}>Add Your Photos</Text>
         <Text style={styles.subtitle}>
@@ -427,7 +428,10 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
           {photos.map((photo, index) => (
             <TouchableOpacity
               key={index}
-              style={styles.photoSlot}
+              style={[
+                styles.photoSlot,
+                photo.localUri && styles.photoSlotWithGlow,
+              ]}
               onPress={() => handleSelectPhoto(index)}
               activeOpacity={0.7}
             >
@@ -472,21 +476,24 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       {/* Upload Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[
-            styles.uploadButton,
-            (uploadedCount < 4 || uploading) && styles.uploadButtonDisabled,
-          ]}
           onPress={handleUpload}
           disabled={uploadedCount < 4 || uploading}
           activeOpacity={0.8}
         >
-          {uploading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.uploadButtonText}>
-              Upload Photos ({uploadedCount}/6)
-            </Text>
-          )}
+          <LinearGradient
+            colors={uploadedCount < 4 || uploading ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.uploadButton}
+          >
+            {uploading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.uploadButtonText}>
+                Upload Photos ({uploadedCount}/6)
+              </Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -496,7 +503,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   header: {
     padding: 24,
@@ -512,18 +519,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 12,
+    fontFamily: 'Inter_24pt-Regular',
   },
   countText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
+    fontFamily: 'Inter_24pt-Bold',
   },
   scrollView: {
     flex: 1,
@@ -543,11 +553,20 @@ const styles = StyleSheet.create({
     aspectRatio: 0.75,
     marginBottom: 16,
     borderRadius: 12,
+  },
+  photoSlotWithGlow: {
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
     overflow: 'hidden',
   },
   mandatorySlot: {
     borderWidth: 2,
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
   },
   photoContainer: {
     width: '100%',
@@ -560,22 +579,24 @@ const styles = StyleSheet.create({
   emptySlot: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#16283D',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#233B57',
     borderStyle: 'dashed',
+    borderRadius: 12,
   },
   plusIcon: {
     fontSize: 40,
-    color: '#CCCCCC',
+    color: '#378BBB',
     marginBottom: 8,
   },
   slotText: {
     fontSize: 12,
-    color: '#999999',
+    color: '#7F93AA',
     fontWeight: '500',
+    fontFamily: 'Inter_24pt-Regular',
   },
   removeButton: {
     position: 'absolute',
@@ -597,7 +618,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -606,44 +627,56 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+    fontFamily: 'Inter_24pt-Bold',
   },
   infoBox: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#16283D',
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
   },
   infoTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   infoText: {
     fontSize: 13,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 4,
     lineHeight: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   footer: {
     padding: 24,
     paddingBottom: 32,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#233B57',
   },
   uploadButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-  },
-  uploadButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   uploadButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Inter_24pt-Bold',
   },
 });
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, forwardRef } from 'react';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, TouchableOpacity } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import MainTabNavigator from './MainTabNavigator';
@@ -87,7 +88,7 @@ const getScreenForSignupStep = (signupStep: SignupStep): keyof RootStackParamLis
     case 'photos':
       return 'PhotoUpload';
     case 'liveness':
-      return 'LivenessVerification';
+      return 'IdentityVerification'; // Route to intro screen, not camera
     case 'preferences':
       return 'DatingPreferences';
     case 'interests':
@@ -156,7 +157,7 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
   if (initializing) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF4458" />
+        <ActivityIndicator size="large" color="#378BBB" />
       </View>
     );
   }
@@ -193,14 +194,13 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         <Stack.Screen 
           name="BlockedUsers" 
           component={BlockedUsersScreen}
-          options={{ 
-            headerShown: true,
-            title: 'Blocked Users',
-            headerStyle: { backgroundColor: '#FFFFFF' },
-            headerTintColor: '#1A1A1A',
-          }}
+          options={{ headerShown: false }}
         />
-        <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+        <Stack.Screen 
+          name="NotificationSettings" 
+          component={NotificationSettingsScreen}
+          options={{ headerShown: false }}
+        />
         {/* Main app - after auth */}
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
       </Stack.Navigator>
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
 });
 

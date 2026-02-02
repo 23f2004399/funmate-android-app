@@ -193,20 +193,11 @@ const INTEREST_CATEGORIES = [
   {
     id: 'lifestyle',
     name: 'Lifestyle',
-    icon: 'leaf-outline',
+    icon: 'heart-outline',
     tags: [
-      'Meditation', 'Spirituality', 'Sustainability', 'Volunteering',
-      'Activism', 'Minimalism', 'Wellness', 'Self-improvement',
-      'Podcasts', 'Learning Languages', 'Entrepreneurship',
-    ],
-  },
-  {
-    id: 'tech',
-    name: 'Technology',
-    icon: 'phone-portrait-outline',
-    tags: [
-      'Coding', 'AI & ML', 'Cryptocurrency', 'Virtual Reality',
-      'Gadgets', 'Robotics', 'Space Exploration', 'Science',
+      'Meditation', 'Mindfulness', 'Sustainability', 'Volunteering',
+      'Animal Lover', 'Dogs', 'Cats', 'Plant Parent', 'Minimalism',
+      'Festivals', 'Spirituality', 'Self-improvement', 'Podcasts',
     ],
   },
   {
@@ -214,8 +205,19 @@ const INTEREST_CATEGORIES = [
     name: 'Social & Nightlife',
     icon: 'people-outline',
     tags: [
-      'Partying', 'Clubbing', 'Karaoke', 'Brunch', 'Happy Hour',
-      'Festivals', 'Social Events', 'Networking', 'Comedy Shows',
+      'Clubbing', 'Karaoke', 'Pub Quiz', 'Game Nights', 'Brunch',
+      'House Parties', 'Rooftop Bars', 'Comedy Shows', 'Trivia',
+      'Socializing', 'Networking', 'Making Friends',
+    ],
+  },
+  {
+    id: 'tech',
+    name: 'Tech & Innovation',
+    icon: 'laptop-outline',
+    tags: [
+      'Coding', 'AI', 'Startups', 'Crypto', 'Tech Gadgets',
+      'Video Editing', 'Content Creation', 'Social Media',
+      'Blogging', 'YouTube', 'E-sports', 'VR/AR',
     ],
   },
 ];
@@ -250,6 +252,7 @@ const ProfileScreen = ({ navigation }: any) => {
   const [editMode, setEditMode] = useState<string | null>(null); // 'bio', 'interests', etc.
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [tempInterests, setTempInterests] = useState<string[]>([]);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
 
   const userId = auth().currentUser?.uid;
 
@@ -709,8 +712,8 @@ const ProfileScreen = ({ navigation }: any) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ActivityIndicator size="large" color="#FF4458" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+        <ActivityIndicator size="large" color="#378BBB" />
       </View>
     );
   }
@@ -731,7 +734,7 @@ const ProfileScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       <KeyboardAwareScrollView
         style={styles.scrollView}
@@ -746,34 +749,45 @@ const ProfileScreen = ({ navigation }: any) => {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color="#FF4458" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Settings Section */}
-        <View style={styles.settingsSection}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          <TouchableOpacity 
-            style={styles.settingsItem}
-            onPress={() => (navigation as any).navigate('NotificationSettings')}
-          >
-            <View style={styles.settingsItemLeft}>
-              <Ionicons name="notifications-outline" size={22} color="#666" />
-              <Text style={styles.settingsItemText}>Notification Settings</Text>
+          <View style={styles.headerActions}>
+            <View style={styles.settingsIconContainer}>
+              <TouchableOpacity 
+                style={styles.gearIcon}
+                onPress={() => setShowSettingsDropdown(!showSettingsDropdown)}
+              >
+                <Ionicons name="settings-outline" size={24} color="#378BBB" />
+              </TouchableOpacity>
+              
+              {showSettingsDropdown && (
+                <View style={styles.settingsDropdown}>
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setShowSettingsDropdown(false);
+                      (navigation as any).navigate('NotificationSettings');
+                    }}
+                  >
+                    <Ionicons name="notifications-outline" size={20} color="#378BBB" />
+                    <Text style={styles.dropdownItemText}>Notification Settings</Text>
+                  </TouchableOpacity>
+                  <View style={styles.dropdownDivider} />
+                  <TouchableOpacity 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setShowSettingsDropdown(false);
+                      (navigation as any).navigate('BlockedUsers');
+                    }}
+                  >
+                    <Ionicons name="ban-outline" size={20} color="#378BBB" />
+                    <Text style={styles.dropdownItemText}>Blocked Users</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.settingsItem}
-            onPress={() => (navigation as any).navigate('BlockedUsers')}
-          >
-            <View style={styles.settingsItemLeft}>
-              <Ionicons name="ban-outline" size={22} color="#666" />
-              <Text style={styles.settingsItemText}>Blocked Users</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+              <Ionicons name="log-out-outline" size={24} color="#FF4D6D" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Profile Photo with Completion Ring */}
@@ -792,7 +806,7 @@ const ProfileScreen = ({ navigation }: any) => {
                 cx="70"
                 cy="70"
                 r="65"
-                stroke="#FF4458"
+                stroke="#378BBB"
                 strokeWidth="6"
                 fill="none"
                 strokeDasharray={`${2 * Math.PI * 65}`}
@@ -804,126 +818,264 @@ const ProfileScreen = ({ navigation }: any) => {
             </Svg>
             <Image source={{ uri: primaryPhoto }} style={styles.profilePhoto} />
           </View>
-          <Text style={styles.completenessText}>{completeness}% Complete</Text>
-          {missingFields.length > 0 && (
-            <Text style={styles.missingText}>
-              Add: {missingFields.join(', ')}
-            </Text>
-          )}
-        </View>
-
-        {/* Non-Editable Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Basic Info</Text>
-          
-          <View style={styles.infoRow}>
-            <Ionicons name="person-outline" size={20} color="#666666" />
-            <View style={styles.infoContent}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.infoLabel}>Full Name</Text>
-                {editMode === 'name' ? (
-                  <TouchableOpacity onPress={handleSave} disabled={saving}>
-                    <Text style={styles.saveButton}>Save</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={() => setEditMode('name')}>
-                    <Ionicons name="create-outline" size={20} color="#FF4458" />
-                  </TouchableOpacity>
-                )}
-              </View>
-              {editMode === 'name' ? (
+          <View style={styles.completenessChip}>
+            <Text style={styles.completenessText}>{completeness}% Complete</Text>
+          </View>
+          <View style={styles.usernameContainer}>
+            <View style={styles.usernameWrapper}>
+              {editMode === 'username' ? (
                 <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter your full name"
+                  style={styles.usernameInput}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Enter username"
+                  placeholderTextColor="#7F93AA"
                   autoFocus
                 />
               ) : (
-                <Text style={styles.infoValue}>{userData.name}</Text>
+                <Text style={styles.usernameText}>@{username || 'Not set'}</Text>
               )}
             </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={20} color="#666666" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Age</Text>
-              <Text style={styles.infoValue}>{userData.age} years old</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Ionicons name={userData.gender === 'male' ? 'male' : 'female'} size={20} color="#666666" />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Gender</Text>
-              <Text style={styles.infoValue}>{userData.gender}</Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.usernameEditButton}
+              onPress={() => editMode === 'username' ? handleSave() : setEditMode('username')}
+            >
+              {editMode === 'username' ? (
+                <Text style={styles.usernameSaveText}>Save</Text>
+              ) : (
+                <Ionicons name="pencil" size={22} color="#378BBB" />
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Username (Editable) */}
+        {/* About Me Section */}
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Username</Text>
-            {editMode === 'username' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('username')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'username' ? (
-            <TextInput
-              style={styles.input}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Enter username"
-              autoFocus
-            />
-          ) : (
-            <Text style={styles.displayValue}>@{username || 'Not set'}</Text>
-          )}
-        </View>
+          <Text style={styles.aboutMeHeader}>About Me</Text>
 
-        {/* Bio (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bio</Text>
+          {/* Bio */}
+          <View style={styles.fieldRow}>
+            <View style={styles.fieldLeft}>
+              <Ionicons name="document-text" size={20} color="#378BBB" style={styles.fieldIcon} />
+              <Text style={styles.fieldLabel}>Bio</Text>
+              {!bio && <Ionicons name="alert-circle" size={16} color="#F4B400" style={styles.fieldWarningIcon} />}
+            </View>
             {editMode === 'bio' ? (
               <TouchableOpacity onPress={handleSave} disabled={saving}>
                 <Text style={styles.saveButton}>Save</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity onPress={() => setEditMode('bio')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
+                <Ionicons name="pencil" size={22} color="#378BBB" />
               </TouchableOpacity>
             )}
           </View>
-          
           {editMode === 'bio' ? (
             <TextInput
-              style={[styles.input, styles.bioInput]}
+              style={[styles.fieldInput, styles.bioFieldInput]}
               value={bio}
               onChangeText={setBio}
               placeholder="Tell us about yourself (min 20 characters)"
+              placeholderTextColor="#7F93AA"
               multiline
               maxLength={500}
               autoFocus
             />
           ) : (
-            <Text style={styles.displayValue}>{bio || 'No bio yet'}</Text>
+            <View style={styles.bioDisplayBox}>
+              <Text style={styles.bioDisplayText}>{bio || 'No bio yet'}</Text>
+            </View>
+          )}
+
+          <View style={styles.fieldDivider} />
+
+          {/* Full Name and Age Row */}
+          <View style={styles.twoColumnRow}>
+            {/* Full Name - Left */}
+            <View style={styles.columnLeft}>
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldLeft}>
+                  <Ionicons name="person" size={20} color="#378BBB" style={styles.fieldIcon} />
+                  <Text style={styles.fieldLabel}>Full Name</Text>
+                </View>
+                {editMode === 'name' ? (
+                  <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    <Text style={styles.saveButton}>Save</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setEditMode('name')}>
+                    <Ionicons name="pencil" size={22} color="#378BBB" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {editMode === 'name' ? (
+                <TextInput
+                  style={styles.fieldInput}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#7F93AA"
+                  autoFocus
+                />
+              ) : (
+                <View style={styles.fieldValueBox}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <Text style={styles.fieldValueBoxText}>{userData.name}</Text>
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+
+            {/* Age - Right */}
+            <View style={styles.columnRight}>
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldLeft}>
+                  <Ionicons name="calendar" size={20} color="#378BBB" style={styles.fieldIcon} />
+                  <Text style={styles.fieldLabel}>Age</Text>
+                </View>
+              </View>
+              <View style={styles.fieldValueBox}>
+                <Text style={styles.fieldValueBoxText}>{userData.age} years old</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.fieldDivider} />
+
+          {/* Gender and Height Row */}
+          <View style={styles.twoColumnRow}>
+            {/* Gender - Left */}
+            <View style={styles.columnLeft}>
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldLeft}>
+                  <Ionicons name={userData.gender === 'male' ? 'male' : 'female'} size={20} color="#378BBB" style={styles.fieldIcon} />
+                  <Text style={styles.fieldLabel}>Gender</Text>
+                </View>
+              </View>
+              <View style={styles.fieldValueBox}>
+                <Text style={styles.fieldValueBoxText}>{userData.gender}</Text>
+              </View>
+            </View>
+
+            {/* Height - Right */}
+            <View style={styles.columnRight}>
+              <View style={styles.fieldRow}>
+                <View style={styles.fieldLeft}>
+                  <Ionicons name="body" size={20} color="#378BBB" style={styles.fieldIcon} />
+                  <Text style={styles.fieldLabel}>Height</Text>
+                  {!height && <Ionicons name="alert-circle" size={16} color="#F4B400" style={styles.fieldWarningIcon} />}
+                </View>
+                {editMode === 'height' ? (
+                  <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    <Text style={styles.saveButton}>Save</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setEditMode('height')}>
+                    <Ionicons name="pencil" size={22} color="#378BBB" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              {editMode === 'height' ? (
+                <TextInput
+                  style={styles.fieldInput}
+                  placeholder="Enter height in cm"
+                  placeholderTextColor="#7F93AA"
+                  value={height ? height.toString() : ''}
+                  onChangeText={(text) => {
+                    const numValue = parseInt(text);
+                    if (text === '') {
+                      setHeight(null);
+                    } else if (!isNaN(numValue) && numValue > 0 && numValue <= 300) {
+                      setHeight(numValue);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  maxLength={3}
+                  autoFocus
+                />
+              ) : (
+                <View style={styles.fieldValueBox}>
+                  <Text style={styles.fieldValueBoxText}>{height ? `${height} cm` : 'Not set'}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.fieldDivider} />
+
+          {/* Occupation */}
+          <View style={styles.fieldRow}>
+            <View style={styles.fieldLeft}>
+              <Ionicons name="briefcase" size={20} color="#378BBB" style={styles.fieldIcon} />
+              <Text style={styles.fieldLabel}>Occupation</Text>
+              {!occupation && <Ionicons name="alert-circle" size={16} color="#F4B400" style={styles.fieldWarningIcon} />}
+            </View>
+            {editMode === 'occupation' ? (
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setEditMode('occupation')}>
+                <Ionicons name="pencil" size={22} color="#378BBB" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {editMode === 'occupation' ? (
+            <View>
+              <TextInput
+                style={styles.fieldInput}
+                value={occupation}
+                onChangeText={(text) => {
+                  setOccupation(text);
+                  if (text.length >= 2) {
+                    const filtered = OCCUPATION_SUGGESTIONS.filter(occ =>
+                      occ.toLowerCase().includes(text.toLowerCase())
+                    ).slice(0, 5);
+                    setFilteredOccupations(filtered);
+                  } else {
+                    setFilteredOccupations([]);
+                  }
+                }}
+                placeholder="e.g., Software Engineer, Doctor, Student..."
+                placeholderTextColor="#7F93AA"
+                maxLength={50}
+                autoFocus
+              />
+              {filteredOccupations.length > 0 && occupation.length >= 2 && (
+                <View style={styles.suggestionsList}>
+                  {filteredOccupations.map((occ, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestionItemInline}
+                      onPress={() => {
+                        setOccupation(occ);
+                        setFilteredOccupations([]);
+                      }}
+                    >
+                      <Text style={styles.suggestionTextInline}>{occ}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.fieldValueBox}>
+              <Text style={styles.fieldValueBoxText}>{occupation || 'Not set'}</Text>
+            </View>
           )}
         </View>
 
-        {/* Interests (Editable - Full Section Like Signup) */}
+        {/* My Preferences Section */}
         <View style={styles.section}>
+          <Text style={styles.aboutMeHeader}>My Preferences</Text>
+
+        {/* Interests (Editable - Full Section Like Signup) */}
+        <View style={styles.preferenceSubSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Interests</Text>
+            <View style={styles.titleWithIcon}>
+              {interests.length === 0 && <Ionicons name="alert-circle" size={18} color="#F4B400" style={styles.warningIcon} />}
+              <Text style={styles.sectionTitle}>Interests</Text>
+            </View>
             {editMode === 'interests' ? (
               <TouchableOpacity onPress={handleSave} disabled={saving}>
                 <Text style={styles.saveButton}>Save</Text>
@@ -935,7 +1087,7 @@ const ProfileScreen = ({ navigation }: any) => {
                   setEditMode('interests');
                 }}
               >
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
+                <Ionicons name="pencil" size={22} color="#378BBB" />
               </TouchableOpacity>
             )}
           </View>
@@ -970,65 +1122,95 @@ const ProfileScreen = ({ navigation }: any) => {
                       onPress={() => toggleInterest(interest)}
                     >
                       <Text style={styles.selectedChipText}>{interest}</Text>
-                      <Ionicons name="close-circle" size={16} color="#FFFFFF" />
+                      <Ionicons name="close-circle" size={18} color="#FFFFFF" />
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
               )}
 
-              {/* Categories */}
-              {INTEREST_CATEGORIES.map((category) => (
-                <View key={category.id} style={styles.categoryContainer}>
-                  <TouchableOpacity
-                    style={styles.categoryHeader}
-                    onPress={() => setExpandedCategory(
-                      expandedCategory === category.id ? null : category.id
-                    )}
-                  >
-                    <View style={styles.categoryTitleRow}>
-                      <Ionicons name={category.icon as any} size={22} color="#FF4458" />
-                      <Text style={styles.categoryTitle}>{category.name}</Text>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryBadgeText}>
-                          {category.tags.filter(tag => tempInterests.includes(tag)).length}
-                        </Text>
-                      </View>
+              {/* Categories - Horizontal Icon Scroll (matching signup screen) */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesScrollContent}
+                style={styles.categoriesScroll}
+              >
+                {INTEREST_CATEGORIES.map((category) => {
+                  const selectedCount = category.tags.filter(tag => tempInterests.includes(tag)).length;
+                  const isExpanded = expandedCategory === category.id;
+                  
+                  return (
+                    <View key={category.id} style={styles.categoryWrapper}>
+                      <TouchableOpacity
+                        style={[styles.categoryIconButton, isExpanded && styles.categoryIconButtonActive]}
+                        onPress={() => setExpandedCategory(isExpanded ? null : category.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name={category.icon as any} size={32} color={isExpanded ? "#FFFFFF" : "#378BBB"} />
+                        {selectedCount > 0 && (
+                          <View style={styles.iconBadge}>
+                            <Text style={styles.iconBadgeText}>{selectedCount}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
                     </View>
-                    <Ionicons
-                      name={expandedCategory === category.id ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color="#666666"
-                    />
-                  </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-                  {expandedCategory === category.id && (
-                    <View style={styles.tagsContainer}>
-                      {category.tags.map((tag) => (
-                        <TouchableOpacity
-                          key={tag}
-                          style={[
-                            styles.interestTag,
-                            tempInterests.includes(tag) && styles.interestTagSelected,
-                          ]}
-                          onPress={() => toggleInterest(tag)}
-                        >
-                          <Text
-                            style={[
-                              styles.interestTagText,
-                              tempInterests.includes(tag) && styles.interestTagTextSelected,
-                            ]}
+              {/* Expanded Category Content */}
+              {expandedCategory && (
+                <View style={styles.expandedSection}>
+                  {(() => {
+                    const category = INTEREST_CATEGORIES.find(c => c.id === expandedCategory);
+                    if (!category) return null;
+                    
+                    return (
+                      <>
+                        <View style={styles.expandedHeader}>
+                          <Text style={styles.expandedTitle}>{category.name}</Text>
+                          <TouchableOpacity
+                            onPress={() => setExpandedCategory(null)}
+                            activeOpacity={0.7}
+                            style={styles.closeButton}
                           >
-                            {tag}
-                          </Text>
-                          {tempInterests.includes(tag) && (
-                            <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                            <Ionicons name="close" size={24} color="#7F93AA" />
+                          </TouchableOpacity>
+                        </View>
+                        
+                        <View style={styles.tagsContainer}>
+                          {category.tags.map((tag) => {
+                            const isSelected = tempInterests.includes(tag);
+                            return (
+                              <TouchableOpacity
+                                key={tag}
+                                style={[
+                                  styles.interestTag,
+                                  isSelected && styles.interestTagSelected,
+                                ]}
+                                onPress={() => toggleInterest(tag)}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.interestTagText,
+                                    isSelected && styles.interestTagTextSelected,
+                                  ]}
+                                >
+                                  {tag}
+                                </Text>
+                                {isSelected && (
+                                  <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                                )}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </>
+                    );
+                  })()}
                 </View>
-              ))}
+              )}
             </>
           ) : (
             <View style={styles.interestsDisplay}>
@@ -1045,298 +1227,118 @@ const ProfileScreen = ({ navigation }: any) => {
           )}
         </View>
 
-        {/* Relationship Intent (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Looking For</Text>
-            {editMode === 'intent' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('intent')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'intent' ? (
-            <View style={styles.optionsGrid}>
-              {RELATIONSHIP_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    relationshipIntent === option.value && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => setRelationshipIntent(option.value)}
-                >
-                  <Ionicons
-                    name={option.icon as any}
-                    size={20}
-                    color={relationshipIntent === option.value ? '#FFFFFF' : '#666666'}
-                  />
-                  <Text
-                    style={[
-                      styles.optionText,
-                      relationshipIntent === option.value && styles.optionTextSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.displayValue}>
-              {RELATIONSHIP_OPTIONS.find(o => o.value === relationshipIntent)?.label || 'Not set'}
-            </Text>
-          )}
-        </View>
+        <View style={styles.preferenceDivider} />
 
-        {/* Gender Preference (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Interested In</Text>
-            {editMode === 'gender' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('gender')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'gender' ? (
-            <View style={styles.optionsGrid}>
-              {GENDER_OPTIONS.map((option) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    interestedIn.includes(option.value) && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => toggleGenderPreference(option.value)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      interestedIn.includes(option.value) && styles.optionTextSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <Text style={styles.displayValue}>
-              {interestedIn.length > 0 ? GENDER_OPTIONS.filter(o => interestedIn.includes(o.value)).map(o => o.label).join(', ') : 'Not set'}
-            </Text>
-          )}
-        </View>
-
-        {/* Height (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Height</Text>
-            {editMode === 'height' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('height')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'height' ? (
-            <View style={styles.heightInputWrapper}>
-              <Ionicons name="resize-outline" size={22} color="#FF4458" style={styles.heightIcon} />
-              <TextInput
-                style={styles.heightInput}
-                placeholder="Enter height in cm"
-                value={height ? height.toString() : ''}
-                onChangeText={(text) => {
-                  const numValue = parseInt(text);
-                  if (text === '') {
-                    setHeight(null);
-                  } else if (!isNaN(numValue) && numValue > 0 && numValue <= 300) {
-                    setHeight(numValue);
-                  }
-                }}
-                keyboardType="numeric"
-                maxLength={3}
-                autoFocus
-              />
-              <Text style={styles.heightUnit}>cm</Text>
-            </View>
-          ) : (
-            <Text style={styles.displayValue}>
-              {height ? `${height} cm` : 'Not set'}
-            </Text>
-          )}
-        </View>
-
-        {/* Occupation (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Occupation</Text>
-            {editMode === 'occupation' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('occupation')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'occupation' ? (
-            <View>
-              <TextInput
-                style={styles.input}
-                value={occupation}
-                onChangeText={(text) => {
-                  setOccupation(text);
-                  if (text.length >= 2) {
-                    const filtered = OCCUPATION_SUGGESTIONS.filter(occ =>
-                      occ.toLowerCase().includes(text.toLowerCase())
-                    );
-                    setFilteredOccupations(filtered.slice(0, 5));
-                  } else {
-                    setFilteredOccupations([]);
-                  }
-                }}
-                placeholder="e.g., Software Engineer, Doctor, Student..."
-                maxLength={50}
-                autoFocus
-              />
+        {/* Looking For and Interested In Row */}
+        <View style={styles.twoColumnRow}>
+          {/* Interested In - Left */}
+          <View style={styles.columnLeft}>
+            <View style={styles.preferenceSubSection}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.titleWithIcon}>
+                  {interestedIn.length === 0 && <Ionicons name="alert-circle" size={18} color="#F4B400" style={styles.warningIcon} />}
+                  <Text style={styles.sectionTitle}>Interested In</Text>
+                </View>
+                {editMode === 'gender' ? (
+                  <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    <Text style={styles.saveButton}>Save</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setEditMode('gender')}>
+                    <Ionicons name="pencil" size={22} color="#378BBB" />
+                  </TouchableOpacity>
+                )}
+              </View>
               
-              {/* Suggestions as simple list below input */}
-              {filteredOccupations.length > 0 && occupation.length >= 2 && (
-                <View style={styles.suggestionsList}>
-                  {filteredOccupations.map((occ, index) => (
+              {editMode === 'gender' ? (
+                <View style={styles.optionsGrid}>
+                  {GENDER_OPTIONS.map((option) => (
                     <TouchableOpacity
-                      key={index}
-                      style={styles.suggestionItemInline}
-                      onPress={() => {
-                        setOccupation(occ);
-                        setFilteredOccupations([]);
-                      }}
+                      key={option.value}
+                      style={[
+                        styles.optionButton,
+                        interestedIn.includes(option.value) && styles.optionButtonSelected,
+                      ]}
+                      onPress={() => toggleGenderPreference(option.value)}
                     >
-                      <Text style={styles.suggestionTextInline}>{occ}</Text>
+                      <Text
+                        style={[
+                          styles.optionText,
+                          interestedIn.includes(option.value) && styles.optionTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
+              ) : (
+                <Text style={styles.displayValue}>
+                  {interestedIn.length > 0 ? GENDER_OPTIONS.filter(o => interestedIn.includes(o.value)).map(o => o.label).join(', ') : 'Not set'}
+                </Text>
               )}
             </View>
-          ) : (
-            <Text style={styles.displayValue}>{occupation || 'Not set'}</Text>
-          )}
+          </View>
+
+          {/* Looking For - Right */}
+          <View style={styles.columnRight}>
+            <View style={styles.preferenceSubSection}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.titleWithIcon}>
+                  {!relationshipIntent && <Ionicons name="alert-circle" size={18} color="#F4B400" style={styles.warningIcon} />}
+                  <Text style={styles.sectionTitle}>Looking For</Text>
+                </View>
+                {editMode === 'intent' ? (
+                  <TouchableOpacity onPress={handleSave} disabled={saving}>
+                    <Text style={styles.saveButton}>Save</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setEditMode('intent')}>
+                    <Ionicons name="pencil" size={22} color="#378BBB" />
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              {editMode === 'intent' ? (
+                <View style={styles.optionsGrid}>
+                  {RELATIONSHIP_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.optionButton,
+                        relationshipIntent === option.value && styles.optionButtonSelected,
+                      ]}
+                      onPress={() => setRelationshipIntent(option.value)}
+                    >
+                      <Ionicons
+                        name={option.icon as any}
+                        size={20}
+                        color={relationshipIntent === option.value ? '#FFFFFF' : '#666666'}
+                      />
+                      <Text
+                        style={[
+                          styles.optionText,
+                          relationshipIntent === option.value && styles.optionTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.displayValue}>
+                  {RELATIONSHIP_OPTIONS.find(o => o.value === relationshipIntent)?.label || 'Not set'}
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
 
-        {/* Social Handles (Editable) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Social Handles</Text>
-            {editMode === 'social' ? (
-              <TouchableOpacity onPress={handleSave} disabled={saving}>
-                <Text style={styles.saveButton}>Save</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity onPress={() => setEditMode('social')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
-              </TouchableOpacity>
-            )}
-          </View>
-          
-          {editMode === 'social' ? (
-            <View style={styles.socialEditContainer}>
-              <View style={styles.socialInputRow}>
-                <Ionicons name="logo-instagram" size={22} color="#E4405F" />
-                <TextInput
-                  style={styles.socialInput}
-                  value={instagram}
-                  onChangeText={setInstagram}
-                  placeholder="@username"
-                  autoCapitalize="none"
-                  maxLength={30}
-                />
-              </View>
-              <View style={styles.socialInputRow}>
-                <Ionicons name="logo-linkedin" size={22} color="#0A66C2" />
-                <TextInput
-                  style={styles.socialInput}
-                  value={linkedin}
-                  onChangeText={setLinkedin}
-                  placeholder="Profile URL or username"
-                  autoCapitalize="none"
-                  maxLength={100}
-                />
-              </View>
-              <View style={styles.socialInputRow}>
-                <Ionicons name="logo-facebook" size={22} color="#1877F2" />
-                <TextInput
-                  style={styles.socialInput}
-                  value={facebook}
-                  onChangeText={setFacebook}
-                  placeholder="Profile URL or username"
-                  autoCapitalize="none"
-                  maxLength={100}
-                />
-              </View>
-              <View style={styles.socialInputRow}>
-                <Text style={styles.xLogoSmall}>𝕏</Text>
-                <TextInput
-                  style={styles.socialInput}
-                  value={twitter}
-                  onChangeText={setTwitter}
-                  placeholder="@username"
-                  autoCapitalize="none"
-                  maxLength={30}
-                />
-              </View>
-            </View>
-          ) : (
-            <View style={styles.socialDisplayContainer}>
-              {instagram && (
-                <View style={styles.socialDisplayRow}>
-                  <Ionicons name="logo-instagram" size={18} color="#E4405F" />
-                  <Text style={styles.socialDisplayText}>@{instagram.replace('@', '')}</Text>
-                </View>
-              )}
-              {linkedin && (
-                <View style={styles.socialDisplayRow}>
-                  <Ionicons name="logo-linkedin" size={18} color="#0A66C2" />
-                  <Text style={styles.socialDisplayText}>{linkedin}</Text>
-                </View>
-              )}
-              {facebook && (
-                <View style={styles.socialDisplayRow}>
-                  <Ionicons name="logo-facebook" size={18} color="#1877F2" />
-                  <Text style={styles.socialDisplayText}>{facebook}</Text>
-                </View>
-              )}
-              {twitter && (
-                <View style={styles.socialDisplayRow}>
-                  <Text style={styles.xLogoDisplay}>𝕏</Text>
-                  <Text style={styles.socialDisplayText}>@{twitter.replace('@', '')}</Text>
-                </View>
-              )}
-              {!instagram && !linkedin && !facebook && !twitter && (
-                <Text style={styles.displayValue}>Not set</Text>
-              )}
-            </View>
-          )}
-        </View>
+        <View style={styles.preferenceDivider} />
 
         {/* Match Radius (Editable) */}
-        <View style={styles.section}>
+        <View style={styles.preferenceSubSectionLast}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Match Radius: {matchRadiusKm} km</Text>
             {editMode === 'radius' ? (
@@ -1345,7 +1347,7 @@ const ProfileScreen = ({ navigation }: any) => {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity onPress={() => setEditMode('radius')}>
-                <Ionicons name="create-outline" size={20} color="#FF4458" />
+                <Ionicons name="pencil" size={22} color="#378BBB" />
               </TouchableOpacity>
             )}
           </View>
@@ -1353,15 +1355,181 @@ const ProfileScreen = ({ navigation }: any) => {
           {editMode === 'radius' && (
             <Slider
               style={styles.slider}
-              minimumValue={5}
+              minimumValue={1}
               maximumValue={100}
-              step={5}
+              step={1}
               value={matchRadiusKm}
               onValueChange={setMatchRadiusKm}
-              minimumTrackTintColor="#FF4458"
-              maximumTrackTintColor="#E0E0E0"
-              thumbTintColor="#FF4458"
+              minimumTrackTintColor="#378BBB"
+              maximumTrackTintColor="#233B57"
+              thumbTintColor="#378BBB"
             />
+          )}
+        </View>
+        </View>
+
+        {/* Social Handles (Editable) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.titleWithIcon}>
+              {!instagram && !linkedin && !facebook && !twitter && <Ionicons name="alert-circle" size={18} color="#F4B400" style={styles.warningIcon} />}
+              <Text style={styles.sectionTitle}>Social Handles</Text>
+            </View>
+            {editMode === 'social' ? (
+              <TouchableOpacity onPress={handleSave} disabled={saving}>
+                <Text style={styles.saveButton}>Save</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setEditMode('social')}>
+                <Ionicons name="pencil" size={22} color="#378BBB" />
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {editMode === 'social' ? (
+            <View style={styles.socialEditContainer}>
+              {/* Row 1: Instagram and Facebook */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.columnLeft}>
+                  <View style={styles.socialInputRow}>
+                    <Ionicons name="logo-instagram" size={22} color="#E4405F" />
+                    <TextInput
+                      style={styles.socialInput}
+                      value={instagram}
+                      onChangeText={setInstagram}
+                      placeholder="@username"
+                      placeholderTextColor="#7F93AA"
+                      autoCapitalize="none"
+                      maxLength={30}
+                    />
+                  </View>
+                </View>
+                <View style={styles.columnRight}>
+                  <View style={styles.socialInputRow}>
+                    <Ionicons name="logo-facebook" size={22} color="#1877F2" />
+                    <TextInput
+                      style={styles.socialInput}
+                      value={facebook}
+                      onChangeText={setFacebook}
+                      placeholder="username"
+                      placeholderTextColor="#7F93AA"
+                      autoCapitalize="none"
+                      maxLength={100}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Row 2: LinkedIn and X */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.columnLeft}>
+                  <View style={styles.socialInputRow}>
+                    <Ionicons name="logo-linkedin" size={22} color="#0A66C2" />
+                    <TextInput
+                      style={styles.socialInput}
+                      value={linkedin}
+                      onChangeText={setLinkedin}
+                      placeholder="username"
+                      placeholderTextColor="#7F93AA"
+                      autoCapitalize="none"
+                      maxLength={100}
+                    />
+                  </View>
+                </View>
+                <View style={styles.columnRight}>
+                  <View style={styles.socialInputRow}>
+                    <Text style={styles.xLogoSmall}>𝕏</Text>
+                    <TextInput
+                      style={styles.socialInput}
+                      value={twitter}
+                      onChangeText={setTwitter}
+                      placeholder="@username"
+                      placeholderTextColor="#7F93AA"
+                      autoCapitalize="none"
+                      maxLength={30}
+                    />
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.socialDisplayContainer}>
+              {/* Row 1: Instagram and Facebook */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.columnLeft}>
+                  {instagram ? (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-instagram" size={18} color="#E4405F" />
+                        <Text style={styles.socialDisplayText}>@{instagram.replace('@', '')}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-instagram" size={18} color="#7F93AA" />
+                        <Text style={styles.socialDisplayTextEmpty}>Not set</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.columnRight}>
+                  {facebook ? (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+                        <Text style={styles.socialDisplayText}>{facebook}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-facebook" size={18} color="#7F93AA" />
+                        <Text style={styles.socialDisplayTextEmpty}>Not set</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Row 2: LinkedIn and X */}
+              <View style={styles.twoColumnRow}>
+                <View style={styles.columnLeft}>
+                  {linkedin ? (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-linkedin" size={18} color="#0A66C2" />
+                        <Text style={styles.socialDisplayText}>{linkedin}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Ionicons name="logo-linkedin" size={18} color="#7F93AA" />
+                        <Text style={styles.socialDisplayTextEmpty}>Not set</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.columnRight}>
+                  {twitter ? (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Text style={styles.xLogoDisplay}>𝕏</Text>
+                        <Text style={styles.socialDisplayText}>@{twitter.replace('@', '')}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.socialDisplayBox}>
+                      <View style={styles.socialDisplayRow}>
+                        <Text style={styles.xLogoDisplayGray}>𝕏</Text>
+                        <Text style={styles.socialDisplayTextEmpty}>Not set</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
           )}
         </View>
 
@@ -1372,20 +1540,21 @@ const ProfileScreen = ({ navigation }: any) => {
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0E1621',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   errorText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#7F93AA',
   },
   scrollView: {
     flex: 1,
@@ -1397,22 +1566,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#0E1621',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   logoutButton: {
     padding: 8,
   },
   photoSection: {
     alignItems: 'center',
-    paddingVertical: 30,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
   },
   photoContainer: {
     position: 'relative',
@@ -1433,23 +1607,211 @@ const styles = StyleSheet.create({
     top: 10,
     left: 10,
   },
+  completenessChip: {
+    backgroundColor: '#1B2F48',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
   completenessText: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#FF4458',
-    marginBottom: 4,
+    color: '#378BBB',
+  },
+  usernameContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 8,
+    position: 'relative',
+  },
+  usernameWrapper: {
+    alignItems: 'center',
+  },
+  usernameText: {
+    fontSize: 20,
+    color: '#B8C7D9',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  usernameInput: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minWidth: 120,
+    textAlign: 'center',
+  },
+  usernameEditButton: {
+    position: 'absolute',
+    right: 80,
+    top: 0,
+    paddingVertical: 4,
+  },
+  usernameSaveText: {
+    fontSize: 14,
+    color: '#378BBB',
+    fontWeight: '600',
   },
   missingText: {
     fontSize: 12,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  fieldRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  fieldLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fieldIcon: {
+    marginTop: 1,
+  },
+  fieldWarningIcon: {
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  fieldValue: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    marginBottom: 12,
+    marginLeft: 20,
+  },
+  fieldValueBox: {
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+    marginLeft: 20,
+  },
+  fieldValueBoxText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+  },
+  twoColumnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  columnLeft: {
+    flex: 1,
+  },
+  columnRight: {
+    flex: 1,
+  },
+  fieldInput: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    paddingBottom: 8,
+    marginBottom: 12,
+    marginLeft: 26,
+  },
+  bioFieldInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  bioDisplayBox: {
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 12,
+    marginLeft: 20,
+    minHeight: 80,
+  },
+  bioDisplayText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    lineHeight: 22,
+  },
+  fieldDivider: {
+    height: 1,
+    backgroundColor: '#233B57',
+    marginVertical: 12,
+  },
+  settingsIconContainer: {
+    position: 'relative',
+  },
+  gearIcon: {
+    padding: 8,
+  },
+  settingsDropdown: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    backgroundColor: '#16283D',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    minWidth: 200,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: '#233B57',
+  },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     marginTop: 12,
+    marginHorizontal: 16,
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
+    borderRadius: 16,
+  },
+  preferenceSubSection: {
+    marginBottom: 20,
+  },
+  preferenceSubSectionLast: {
+    marginBottom: 0,
+  },
+  preferenceDivider: {
+    height: 1,
+    backgroundColor: '#233B57',
+    marginVertical: 20,
+  },
+  aboutMeHeader: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1457,22 +1819,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  warningIcon: {
+    marginTop: 2,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   saveButton: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    marginBottom: 8,
   },
   infoContent: {
     marginLeft: 12,
@@ -1480,22 +1849,22 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#999999',
+    color: '#7F93AA',
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     textTransform: 'capitalize',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 2,
+    borderColor: '#233B57',
+    borderRadius: 12,
+    padding: 14,
     fontSize: 16,
-    color: '#1A1A1A',
-    backgroundColor: '#FFFFFF',
+    color: '#FFFFFF',
+    backgroundColor: '#1B2F48',
   },
   bioInput: {
     height: 100,
@@ -1503,7 +1872,7 @@ const styles = StyleSheet.create({
   },
   displayValue: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#B8C7D9',
     lineHeight: 24,
   },
   // Interests Section - Matching Signup Design
@@ -1513,21 +1882,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
+    backgroundColor: '#1B2F48',
+    borderRadius: 12,
     marginBottom: 12,
   },
   countText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   minText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
   },
   minTextSuccess: {
-    color: '#4CAF50',
+    color: '#2ECC71',
   },
   selectedChipsScroll: {
     marginBottom: 12,
@@ -1543,17 +1912,96 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
   },
   selectedChipText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  categoriesScroll: {
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  categoriesScrollContent: {
+    gap: 16,
+  },
+  categoryWrapper: {
+    width: 100,
+    height: 100,
+  },
+  categoryIconButton: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#16283D',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+    position: 'relative',
+  },
+  categoryIconButtonActive: {
+    backgroundColor: '#378BBB',
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  iconBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FF4D6D',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  expandedSection: {
+    backgroundColor: '#16283D',
+    marginTop: 8,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  expandedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  expandedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   categoryContainer: {
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#233B57',
   },
   categoryHeader: {
     flexDirection: 'row',
@@ -1570,11 +2018,11 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     flex: 1,
   },
   categoryBadge: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     borderRadius: 12,
     minWidth: 24,
     height: 24,
@@ -1600,17 +2048,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
+    borderWidth: 2,
+    borderColor: '#233B57',
   },
   interestTagSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
+    backgroundColor: '#378BBB',
+    borderColor: '#378BBB',
   },
   interestTagText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
   },
   interestTagTextSelected: {
     color: '#FFFFFF',
@@ -1625,11 +2073,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#1B2F48',
+    borderWidth: 1,
+    borderColor: '#378BBB',
   },
   interestDisplayTagText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
   },
   interestsGrid: {
     flexDirection: 'row',
@@ -1668,17 +2118,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
+    borderWidth: 2,
+    borderColor: '#233B57',
   },
   optionButtonSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
+    backgroundColor: '#378BBB',
+    borderColor: '#378BBB',
   },
   optionText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
   },
   optionTextSelected: {
     color: '#FFFFFF',
@@ -1733,42 +2183,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  // Settings Section
-  settingsSection: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  settingsItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  settingsItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  settingsItemText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-  },
+
   // Height Edit Styles
   heightInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderWidth: 2,
+    borderColor: '#233B57',
     paddingHorizontal: 14,
   },
   heightIcon: {
@@ -1777,12 +2200,12 @@ const styles = StyleSheet.create({
   heightInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     paddingVertical: 14,
   },
   heightUnit: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
     fontWeight: '500',
     marginLeft: 8,
   },
@@ -1806,12 +2229,12 @@ const styles = StyleSheet.create({
   socialInput: {
     flex: 1,
     padding: 14,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderWidth: 2,
+    borderColor: '#233B57',
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   xLogoSmall: {
     fontSize: 18,
@@ -1820,29 +2243,49 @@ const styles = StyleSheet.create({
   },
   socialDisplayContainer: {
     marginTop: 4,
+    gap: 12,
+  },
+  socialDisplayBox: {
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    padding: 14,
+    minHeight: 52,
+    justifyContent: 'center',
   },
   socialDisplayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
     gap: 12,
   },
   socialDisplayText: {
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#B8C7D9',
+    flex: 1,
+  },
+  socialDisplayTextEmpty: {
+    fontSize: 15,
+    color: '#7F93AA',
+    flex: 1,
   },
   xLogoDisplay: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#000',
   },
+  xLogoDisplayGray: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#7F93AA',
+  },
   // Occupation autocomplete styles - inline list (not absolute positioned)
   suggestionsList: {
     marginTop: 8,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#16283D',
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderWidth: 2,
+    borderColor: '#233B57',
     overflow: 'hidden',
   },
   suggestionItemInline: {
@@ -1852,12 +2295,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: '#233B57',
+    backgroundColor: '#16283D',
   },
   suggestionTextInline: {
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
 });
 

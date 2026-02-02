@@ -11,7 +11,10 @@ import {
   Alert,
   Modal,
   Image,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import DatePicker from 'react-native-date-picker';
@@ -36,6 +39,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
   const [gender, setGender] = useState('');
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   // Check username availability with debounce
   useEffect(() => {
@@ -212,9 +216,16 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
-      <ScrollView 
+      <TouchableWithoutFeedback 
+        onPress={() => {
+          Keyboard.dismiss();
+          setFocusedInput(null);
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
@@ -225,7 +236,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Just a few more details</Text>
@@ -250,12 +261,14 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
           <View>
             <Text style={styles.label}>Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
               value={fullName}
               onChangeText={setFullName}
               placeholder="Your Name"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               autoCapitalize="words"
+              onFocus={() => setFocusedInput('fullName')}
+              onBlur={() => setFocusedInput(null)}
             />
           </View>
 
@@ -263,17 +276,19 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
             <Text style={styles.label}>Username</Text>
             <View style={styles.usernameContainer}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
                 value={username}
                 onChangeText={setUsername}
                 placeholder="@username"
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 autoCapitalize="none"
+                onFocus={() => setFocusedInput('username')}
+                onBlur={() => setFocusedInput(null)}
               />
               {username.length >= 3 && (
                 <View style={styles.usernameStatus}>
                   {checkingUsername ? (
-                    <ActivityIndicator size="small" color="#FF4458" />
+                    <ActivityIndicator size="small" color="#378BBB" />
                   ) : usernameAvailable === true ? (
                     <Text style={styles.availableText}>✓ Available</Text>
                   ) : usernameAvailable === false ? (
@@ -327,20 +342,28 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={styles.continueButton}
           onPress={handleContinue}
           disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.continueButtonText}>Continue</Text>
-          )}
+          <LinearGradient
+            colors={['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.continueButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continueButtonText}>Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
 
       {/* Gender Picker Modal */}
       <Modal
@@ -379,7 +402,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   scrollView: {
     flex: 1,
@@ -399,20 +422,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   googleInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#16283D',
     borderRadius: 12,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#233B57',
   },
   googleAvatar: {
     width: 48,
@@ -425,13 +452,15 @@ const styles = StyleSheet.create({
   },
   googleLabel: {
     fontSize: 12,
-    color: '#666666',
+    color: '#7F93AA',
     marginBottom: 2,
+    fontFamily: 'Inter_24pt-Regular',
   },
   googleEmail: {
     fontSize: 14,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     fontWeight: '500',
+    fontFamily: 'Inter_24pt-Bold',
   },
   form: {
     paddingHorizontal: 32,
@@ -440,18 +469,30 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#B8C7D9',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     height: 56,
     justifyContent: 'center',
+    fontFamily: 'Inter_24pt-Regular',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inputFocused: {
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
   },
   bioInput: {
     height: 100,
@@ -459,11 +500,13 @@ const styles = StyleSheet.create({
   },
   inputText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
   },
   placeholderText: {
     fontSize: 16,
-    color: '#999999',
+    color: '#7F93AA',
+    fontFamily: 'Inter_24pt-Regular',
   },
   usernameContainer: {
     position: 'relative',
@@ -476,22 +519,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availableText: {
-    color: '#4CAF50',
+    color: '#2ECC71',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   unavailableText: {
-    color: '#FF4458',
+    color: '#FF4D6D',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 24,
@@ -501,9 +546,10 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 20,
     textAlign: 'center',
+    fontFamily: 'Inter_24pt-Bold',
   },
   genderOption: {
     flexDirection: 'row',
@@ -511,34 +557,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    borderBottomColor: '#233B57',
   },
   genderOptionText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
   },
   checkmark: {
     fontSize: 20,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: 'bold',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginHorizontal: 32,
     marginTop: 24,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
   },
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   bottomSpacer: {
     height: 40,

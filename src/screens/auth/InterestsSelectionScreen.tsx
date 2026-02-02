@@ -15,6 +15,7 @@ import {
   ScrollView,
   FlatList,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
 import firestore from '@react-native-firebase/firestore';
@@ -262,17 +263,19 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-        </TouchableOpacity>
+        {navigation.canGoBack() && (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
         <View style={styles.headerContent}>
           <Text style={styles.title}>Your Interests</Text>
           <Text style={styles.subtitle}>Select 5-15 interests to help us find your match</Text>
@@ -311,77 +314,111 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
             {selectedInterests.map((interest) => (
               <TouchableOpacity
                 key={interest}
-                style={styles.selectedChip}
                 onPress={() => handleToggleInterest(interest)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.selectedChipText}>{interest}</Text>
-                <Ionicons name="close-circle" size={18} color="#FFFFFF" />
+                <LinearGradient
+                  colors={['#378BBB', '#4FC3F7']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.selectedChip}
+                >
+                  <Text style={styles.selectedChipText}>{interest}</Text>
+                  <Ionicons name="close-circle" size={18} color="#FFFFFF" />
+                </LinearGradient>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
       )}
 
-      {/* Categories */}
+      {/* Categories Grid */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {INTEREST_CATEGORIES.map((category) => (
-          <View key={category.id} style={styles.categoryContainer}>
-            <TouchableOpacity
-              style={styles.categoryHeader}
-              onPress={() => setExpandedCategory(
-                expandedCategory === category.id ? null : category.id
-              )}
-              activeOpacity={0.7}
-            >
-              <View style={styles.categoryTitleRow}>
-                <Ionicons name={category.icon as any} size={24} color="#FF4458" />
-                <Text style={styles.categoryTitle}>{category.name}</Text>
-                <View style={styles.categoryBadge}>
-                  <Text style={styles.categoryBadgeText}>
-                    {category.tags.filter(tag => selectedInterests.includes(tag)).length}
-                  </Text>
-                </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesScrollContent}
+          style={styles.categoriesScroll}
+        >
+          {INTEREST_CATEGORIES.map((category) => {
+            const selectedCount = category.tags.filter(tag => selectedInterests.includes(tag)).length;
+            const isExpanded = expandedCategory === category.id;
+            
+            return (
+              <View key={category.id} style={styles.categoryWrapper}>
+                <TouchableOpacity
+                  style={[styles.categoryIconButton, isExpanded && styles.categoryIconButtonActive]}
+                  onPress={() => setExpandedCategory(isExpanded ? null : category.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={category.icon as any} size={32} color={isExpanded ? "#FFFFFF" : "#378BBB"} />
+                  {selectedCount > 0 && (
+                    <View style={styles.iconBadge}>
+                      <Text style={styles.iconBadgeText}>{selectedCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               </View>
-              <Ionicons
-                name={expandedCategory === category.id ? 'chevron-up' : 'chevron-down'}
-                size={24}
-                color="#666666"
-              />
-            </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-            {expandedCategory === category.id && (
-              <View style={styles.tagsContainer}>
-                {category.tags.map((tag) => (
-                  <TouchableOpacity
-                    key={tag}
-                    style={[
-                      styles.tag,
-                      selectedInterests.includes(tag) && styles.tagSelected,
-                    ]}
-                    onPress={() => handleToggleInterest(tag)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.tagText,
-                        selectedInterests.includes(tag) && styles.tagTextSelected,
-                      ]}
+        {/* Expanded Category Content */}
+        {expandedCategory && (
+          <View style={styles.expandedSection}>
+            {(() => {
+              const category = INTEREST_CATEGORIES.find(c => c.id === expandedCategory);
+              if (!category) return null;
+              
+              return (
+                <>
+                  <View style={styles.expandedHeader}>
+                    <Text style={styles.expandedTitle}>{category.name}</Text>
+                    <TouchableOpacity
+                      onPress={() => setExpandedCategory(null)}
+                      activeOpacity={0.7}
+                      style={styles.closeButton}
                     >
-                      {tag}
-                    </Text>
-                    {selectedInterests.includes(tag) && (
-                      <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                      <Ionicons name="close" size={24} color="#7F93AA" />
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <View style={styles.tagsContainer}>
+                    {category.tags.map((tag) => {
+                      const isSelected = selectedInterests.includes(tag);
+                      return (
+                        <TouchableOpacity
+                          key={tag}
+                          onPress={() => handleToggleInterest(tag)}
+                          activeOpacity={0.7}
+                        >
+                          {isSelected ? (
+                            <LinearGradient
+                              colors={['#378BBB', '#4FC3F7']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.tag}
+                            >
+                              <Text style={styles.tagTextSelected}>{tag}</Text>
+                              <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                            </LinearGradient>
+                          ) : (
+                            <View style={styles.tag}>
+                              <Text style={styles.tagText}>{tag}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              );
+            })()}
           </View>
-        ))}
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -389,14 +426,20 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
       {/* Continue Button */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.continueButton}
           onPress={handleContinue}
           disabled={saving}
           activeOpacity={0.8}
         >
-          <Text style={styles.continueButtonText}>
-            {saving ? 'Saving...' : `Continue ${selectedInterests.length > 0 ? `(${selectedInterests.length})` : ''}`}
-          </Text>
+          <LinearGradient
+            colors={selectedInterests.length >= 5 ? ['#378BBB', '#4FC3F7'] : ['#1B2F48', '#1B2F48']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.continueButton}
+          >
+            <Text style={[styles.continueButtonText, selectedInterests.length < 5 && styles.continueButtonTextDisabled]}>
+              {saving ? 'Saving...' : `Continue ${selectedInterests.length > 0 ? `(${selectedInterests.length})` : ''}`}
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -406,11 +449,11 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 60,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -433,17 +476,17 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     lineHeight: 20,
   },
   countContainer: {
@@ -452,27 +495,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#16283D',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#233B57',
   },
   countText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   minText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     fontWeight: '500',
   },
   minTextSuccess: {
-    color: '#4CAF50',
+    color: '#2ECC71',
   },
   selectedContainer: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#16283D',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#233B57',
     paddingVertical: 12,
   },
   selectedChipsContainer: {
@@ -482,11 +525,17 @@ const styles = StyleSheet.create({
   selectedChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF4458',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 6,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
   },
   selectedChipText: {
     color: '#FFFFFF',
@@ -496,9 +545,89 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  categoriesScroll: {
+    paddingVertical: 20,
+  },
+  categoriesScrollContent: {
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  categoryWrapper: {
+    width: 100,
+    height: 100,
+  },
+  categoryIconButton: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#16283D',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+    position: 'relative',
+  },
+  categoryIconButtonActive: {
+    backgroundColor: '#378BBB',
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  iconBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FF4D6D',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  expandedSection: {
+    backgroundColor: '#16283D',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  expandedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  expandedTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   categoryContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#233B57',
   },
   categoryHeader: {
     flexDirection: 'row',
@@ -506,7 +635,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
   },
   categoryTitleRow: {
     flexDirection: 'row',
@@ -517,11 +646,11 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     flex: 1,
   },
   categoryBadge: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -539,26 +668,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 10,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#0E1621',
   },
   tag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    borderWidth: 2,
+    borderColor: '#378BBB',
     gap: 6,
-  },
-  tagSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
   },
   tagText: {
     fontSize: 14,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   tagTextSelected: {
@@ -570,30 +700,29 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#233B57',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 30,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  continueButtonDisabled: {
-    backgroundColor: '#CCCCCC',
-    elevation: 0,
-    shadowOpacity: 0,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 6,
   },
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  continueButtonTextDisabled: {
+    color: '#7F93AA',
   },
 });
 

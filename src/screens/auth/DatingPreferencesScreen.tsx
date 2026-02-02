@@ -24,16 +24,19 @@ import {
   Alert,
   Modal,
   FlatList,
+  ScrollView,
+  PanResponder,
+  Animated,
 } from 'react-native';
+import Svg, { Circle, Line } from 'react-native-svg';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import Slider from '@react-native-community/slider';
-import Geolocation from '@react-native-community/geolocation';
 import { SocialHandles } from '../../types/database';
 import notificationService from '../../services/NotificationService';
+import Geolocation from '@react-native-community/geolocation';
 
 interface DatingPreferencesScreenProps {
   navigation: any;
@@ -107,6 +110,281 @@ const OCCUPATION_SUGGESTIONS = [
   'Banker', 'Insurance Agent', 'Travel Agent', 'Event Planner',
   'CA', 'CS', 'MBA', 'PhD Student', 'Medical Student', 'Law Student',
 ];
+
+// Circular Slider Component
+const CircularSlider: React.FC<{
+  value: number;
+  onValueChange: (value: number) => void;
+  minimumValue: number;
+  maximumValue: number;
+  step: number;
+}> = ({ value, onValueChange, minimumValue, maximumValue, step }) => {
+  const [inputText, setInputText] = useState(value.toString());
+  const circleSize = 260;
+  const circleRadius = 110;
+  const centerX = circleSize / 2;
+  const centerY = circleSize / 2;
+  const strokeWidth = 12;
+  const minTouchRadius = 50; // Ignore touches closer than this to center
+
+  // Update inputText when value changes from slider drag
+  React.useEffect(() => {
+    setInputText(value.toString());
+  }, [value]);
+
+  const handleInputChange = (text: string) => {
+    // Allow empty or numbers only
+    const cleaned = text.replace(/[^0-9]/g, '');
+    setInputText(cleaned);
+    
+    // Update slider if valid number
+    if (cleaned !== '') {
+      const numValue = parseInt(cleaned);
+      if (!isNaN(numValue) && numValue >= minimumValue && numValue <= maximumValue) {
+        onValueChange(numValue);
+      }
+    }
+  };
+
+  const handleInputBlur = () => {
+    // On blur, ensure we have a valid value
+    if (inputText === '' || parseInt(inputText) < minimumValue) {
+      setInputText(minimumValue.toString());
+      onValueChange(minimumValue);
+    } else if (parseInt(inputText) > maximumValue) {
+      setInputText(maximumValue.toString());
+      onValueChange(maximumValue);
+    } else {
+      const numValue = parseInt(inputText);
+      setInputText(numValue.toString());
+      onValueChange(numValue);
+    }
+  };
+
+  const circumference = 2 * Math.PI * circleRadius;
+  const arcAngle = 270; // 3/4 circle
+  const arcLength = (arcAngle / 360) * circumference;
+  const startAngle = 135; // Start from bottom-left, go clockwise
+
+  // Calculate progress (0 to 1)
+  const progress = (value - minimumValue) / (maximumValue - minimumValue);
+  const progressArcLength = arcLength * progress;
+
+  // Calculate handle position
+  // startAngle is 135 degrees, we move clockwise by progress * 270 degrees
+  const handleAngle = startAngle + (progress * arcAngle);
+  const handleAngleRad = (handleAngle * Math.PI) / 180;
+  const handleX = centerX + circleRadius * Math.cos(handleAngleRad);
+  const handleY = centerY + circleRadius * Math.sin(handleAngleRad);
+
+  // PanResponder for dragging
+  const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (evt) => {
+      const { locationX, locationY } = evt.nativeEvent;
+      const dx = locationX - centerX;
+      const dy = locationY - centerY;
+      
+      // Ignore touches too close to center
+      const distanceFromCenter = Math.sqrt(dx * dx + dy * dy);
+      if (distanceFromCenter < minTouchRadius) {
+        return;
+      }
+      
+      // Calculate angle in degrees (0 = right, 90 = down, etc.)
+      let touchAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+      if (touchAngle < 0) touchAngle += 360; // Normalize to 0-360
+      
+      // Convert touch angle to progress
+      // Our arc goes from 135 to 405 (135 + 270), which wraps to 45
+      let relativeAngle = touchAngle - startAngle;
+      if (relativeAngle < 0) relativeAngle += 360;
+      
+      // Check if touch is within the arc range (0 to 270 degrees from start)
+      if (relativeAngle <= arcAngle) {
+        const newProgress = relativeAngle / arcAngle;
+        const range = maximumValue - minimumValue;
+        const rawValue = minimumValue + (newProgress * range);
+        const clampedValue = Math.max(minimumValue, Math.min(maximumValue, Math.round(rawValue)));
+        onValueChange(clampedValue);
+      } else if (relativeAngle > arcAngle && relativeAngle < arcAngle + 45) {
+        // Past the end - snap to max
+        onValueChange(maximumValue);
+      } else if (relativeAngle > 315) {
+        // Before the start - snap to min
+        onValueChange(minimumValue);
+      }
+    },
+  });
+
+  return (
+    <View style={styles.circularSliderContainer}>
+      <View {...panResponder.panHandlers} style={styles.circularSliderTouchArea}>
+        <Svg width={circleSize} height={circleSize}>
+          {/* Background arc (gray track) */}
+          <Circle
+            cx={centerX}
+            cy={centerY}
+            r={circleRadius}
+            stroke="#233B57"
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeLinecap="round"
+            rotation={startAngle}
+            origin={`${centerX}, ${centerY}`}
+          />
+          
+          {/* Progress arc (blue fill) */}
+          {progressArcLength > 0 && (
+            <Circle
+              cx={centerX}
+              cy={centerY}
+              r={circleRadius}
+              stroke="#378BBB"
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={`${progressArcLength} ${circumference}`}
+              strokeLinecap="round"
+              rotation={startAngle}
+              origin={`${centerX}, ${centerY}`}
+            />
+          )}
+          
+          {/* Handle */}
+          <Circle
+            cx={handleX}
+            cy={handleY}
+            r={14}
+            fill="#378BBB"
+            stroke="#FFFFFF"
+            strokeWidth={3}
+          />
+        </Svg>
+        
+        {/* Center text - editable */}
+        <View style={styles.circularSliderCenter}>
+          <TextInput
+            style={styles.circularSliderValueInput}
+            value={inputText}
+            onChangeText={handleInputChange}
+            onBlur={handleInputBlur}
+            keyboardType="numeric"
+            maxLength={3}
+            selectTextOnFocus
+          />
+          <Text style={styles.circularSliderUnit}>km</Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Glowing TextArea component - manages its own focus state
+const GlowingTextArea: React.FC<{
+  style: any;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  maxLength?: number;
+}> = ({ style, value, onChangeText, placeholder, maxLength }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TextInput
+      style={[
+        style,
+        focused && {
+          borderColor: '#378BBB',
+          shadowColor: '#378BBB',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.6,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+      ]}
+      placeholder={placeholder}
+      placeholderTextColor="#7F93AA"
+      value={value}
+      onChangeText={onChangeText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      multiline
+      maxLength={maxLength}
+      textAlignVertical="top"
+    />
+  );
+};
+
+// Glowing Input Wrapper - wraps an input row with icon
+const GlowingInputRow: React.FC<{
+  wrapperStyle: any;
+  icon: string;
+  iconColor?: string;
+  children: React.ReactNode;
+}> = ({ wrapperStyle, icon, iconColor = '#378BBB', children }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View
+      style={[
+        wrapperStyle,
+        focused && {
+          borderColor: '#378BBB',
+          shadowColor: '#378BBB',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.6,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+      ]}
+      onTouchStart={() => setFocused(true)}
+    >
+      <Ionicons name={icon as any} size={22} color={iconColor} style={{ marginRight: 12 }} />
+      {React.Children.map(children, child =>
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<any>, {
+              onFocus: () => setFocused(true),
+              onBlur: () => setFocused(false),
+            })
+          : child
+      )}
+    </View>
+  );
+};
+
+// Simple glowing input for social handles
+const GlowingSocialInput: React.FC<{
+  style: any;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  maxLength?: number;
+}> = ({ style, value, onChangeText, placeholder, maxLength }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <TextInput
+      style={[
+        style,
+        focused && {
+          borderColor: '#378BBB',
+          shadowColor: '#378BBB',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.6,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+      ]}
+      placeholder={placeholder}
+      placeholderTextColor="#7F93AA"
+      value={value}
+      onChangeText={onChangeText}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      autoCapitalize="none"
+      maxLength={maxLength}
+    />
+  );
+};
 
 const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navigation }) => {
   const [bio, setBio] = useState('');
@@ -370,7 +648,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       <KeyboardAwareScrollView
         style={styles.scrollView}
@@ -383,13 +661,15 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
+          {navigation.canGoBack() && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <View style={styles.headerContent}>
             <Text style={styles.title}>Almost Done!</Text>
             <Text style={styles.subtitle}>Complete your dating profile</Text>
@@ -410,15 +690,12 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           <Text style={styles.sectionSubtitle}>Tell others what makes you unique</Text>
           
           <View style={styles.textAreaContainer}>
-            <TextInput
+            <GlowingTextArea
               style={styles.textArea}
               placeholder="I love hiking, trying new restaurants, and binge-watching sci-fi shows..."
-              placeholderTextColor="#999999"
               value={bio}
               onChangeText={setBio}
-              multiline
               maxLength={500}
-              textAlignVertical="top"
             />
             <Text style={[
               styles.charCount,
@@ -434,12 +711,11 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           <Text style={styles.sectionTitle}>Height</Text>
           <Text style={styles.sectionSubtitle}>Optional but helps with matching</Text>
           
-          <View style={styles.heightInputWrapper}>
-            <Ionicons name="resize-outline" size={22} color="#FF4458" style={styles.heightIcon} />
+          <GlowingInputRow wrapperStyle={styles.heightInputWrapper} icon="body-outline">
             <TextInput
               style={styles.heightInput}
               placeholder="Enter height in cm"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               value={height ? height.toString() : ''}
               onChangeText={(text) => {
                 const numValue = parseInt(text);
@@ -453,7 +729,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
               maxLength={3}
             />
             <Text style={styles.heightUnit}>cm</Text>
-          </View>
+          </GlowingInputRow>
         </View>
 
         {/* Occupation */}
@@ -462,17 +738,16 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           <Text style={styles.sectionSubtitle}>What do you do?</Text>
           
           <View>
-            <View style={styles.occupationInputWrapper}>
-              <Ionicons name="briefcase-outline" size={22} color="#FF4458" style={styles.occupationIcon} />
+            <GlowingInputRow wrapperStyle={styles.occupationInputWrapper} icon="briefcase-outline">
               <TextInput
                 style={styles.occupationInput}
                 placeholder="e.g., Software Engineer, Doctor...."
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 value={occupation}
                 onChangeText={handleOccupationChange}
                 maxLength={50}
               />
-            </View>
+            </GlowingInputRow>
             
             {/* Suggestions as inline list below input */}
             {filteredOccupations.length > 0 && occupation.length >= 2 && (
@@ -513,18 +788,24 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
                 <Ionicons
                   name={option.icon as any}
                   size={28}
-                  color={relationshipIntent === option.value ? '#FFFFFF' : '#FF4458'}
+                  color={relationshipIntent === option.value ? '#378BBB' : '#FF4D6D'}
                 />
-                <Text style={[
-                  styles.relationshipLabel,
-                  relationshipIntent === option.value && styles.relationshipLabelSelected,
-                ]}>
+                <Text
+                  style={[
+                    styles.relationshipLabel,
+                    relationshipIntent === option.value && styles.relationshipLabelSelected,
+                  ]}
+                  numberOfLines={1}
+                >
                   {option.label}
                 </Text>
-                <Text style={[
-                  styles.relationshipDescription,
-                  relationshipIntent === option.value && styles.relationshipDescriptionSelected,
-                ]}>
+                <Text
+                  style={[
+                    styles.relationshipDescription,
+                    relationshipIntent === option.value && styles.relationshipDescriptionSelected,
+                  ]}
+                  numberOfLines={2}
+                >
                   {option.description}
                 </Text>
               </TouchableOpacity>
@@ -537,7 +818,12 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           <Text style={styles.sectionTitle}>Interested In</Text>
           <Text style={styles.sectionSubtitle}>Select all that apply</Text>
           
-          <View style={styles.genderContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.genderContainer}
+            style={styles.genderScrollView}
+          >
             {GENDER_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option.value}
@@ -551,12 +837,15 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
                 <Ionicons
                   name={option.icon as any}
                   size={22}
-                  color={interestedIn.includes(option.value) ? '#FFFFFF' : '#FF4458'}
+                  color={interestedIn.includes(option.value) ? '#FFFFFF' : '#378BBB'}
                 />
-                <Text style={[
-                  styles.genderLabel,
-                  interestedIn.includes(option.value) && styles.genderLabelSelected,
-                ]}>
+                <Text
+                  style={[
+                    styles.genderLabel,
+                    interestedIn.includes(option.value) && styles.genderLabelSelected,
+                  ]}
+                  numberOfLines={1}
+                >
                   {option.label}
                 </Text>
                 {interestedIn.includes(option.value) && (
@@ -564,37 +853,25 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
                 )}
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* Match Radius */}
         <View style={styles.section}>
-          <View style={styles.radiusHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Match Radius</Text>
-              <Text style={styles.sectionSubtitle}>How far should we look?</Text>
-            </View>
-            <View style={styles.radiusBadge}>
-              <Text style={styles.radiusBadgeText}>{matchRadiusKm} km</Text>
-            </View>
-          </View>
+          <Text style={styles.sectionTitle}>Match Radius</Text>
+          <Text style={styles.sectionSubtitle}>How far should we look?</Text>
           
-          <View style={styles.sliderContainer}>
-            <Slider
-              style={styles.slider}
-              minimumValue={5}
-              maximumValue={100}
-              step={5}
-              value={matchRadiusKm}
-              onValueChange={setMatchRadiusKm}
-              minimumTrackTintColor="#FF4458"
-              maximumTrackTintColor="#E0E0E0"
-              thumbTintColor="#FF4458"
-            />
-            <View style={styles.sliderLabels}>
-              <Text style={styles.sliderLabel}>5 km</Text>
-              <Text style={styles.sliderLabel}>100 km</Text>
-            </View>
+          <CircularSlider
+            value={matchRadiusKm}
+            onValueChange={setMatchRadiusKm}
+            minimumValue={1}
+            maximumValue={100}
+            step={1}
+          />
+          
+          <View style={styles.radiusRangeLabels}>
+            <Text style={styles.radiusRangeLabel}>1 km</Text>
+            <Text style={styles.radiusRangeLabel}>100 km</Text>
           </View>
         </View>
 
@@ -609,13 +886,11 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
               <View style={[styles.socialIconWrapper, { backgroundColor: '#E4405F' }]}>
                 <Ionicons name="logo-instagram" size={18} color="#FFFFFF" />
               </View>
-              <TextInput
+              <GlowingSocialInput
                 style={styles.socialInput}
                 placeholder="@username"
-                placeholderTextColor="#999999"
                 value={instagram}
                 onChangeText={setInstagram}
-                autoCapitalize="none"
                 maxLength={30}
               />
             </View>
@@ -625,13 +900,11 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
               <View style={[styles.socialIconWrapper, { backgroundColor: '#0A66C2' }]}>
                 <Ionicons name="logo-linkedin" size={18} color="#FFFFFF" />
               </View>
-              <TextInput
+              <GlowingSocialInput
                 style={styles.socialInput}
                 placeholder="Profile URL or username"
-                placeholderTextColor="#999999"
                 value={linkedin}
                 onChangeText={setLinkedin}
-                autoCapitalize="none"
                 maxLength={100}
               />
             </View>
@@ -641,13 +914,11 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
               <View style={[styles.socialIconWrapper, { backgroundColor: '#1877F2' }]}>
                 <Ionicons name="logo-facebook" size={18} color="#FFFFFF" />
               </View>
-              <TextInput
+              <GlowingSocialInput
                 style={styles.socialInput}
                 placeholder="Profile URL or username"
-                placeholderTextColor="#999999"
                 value={facebook}
                 onChangeText={setFacebook}
-                autoCapitalize="none"
                 maxLength={100}
               />
             </View>
@@ -657,13 +928,11 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
               <View style={[styles.socialIconWrapper, { backgroundColor: '#000000' }]}>
                 <Text style={styles.xLogo}>𝕏</Text>
               </View>
-              <TextInput
+              <GlowingSocialInput
                 style={styles.socialInput}
                 placeholder="@username"
-                placeholderTextColor="#999999"
                 value={twitter}
                 onChangeText={setTwitter}
-                autoCapitalize="none"
                 maxLength={30}
               />
             </View>
@@ -693,7 +962,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   scrollView: {
     flex: 1,
@@ -703,7 +972,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 60,
     paddingBottom: 24,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -726,17 +995,17 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     lineHeight: 20,
   },
   section: {
@@ -746,140 +1015,167 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 16,
   },
   textAreaContainer: {
     position: 'relative',
   },
   textArea: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
     padding: 16,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     minHeight: 120,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderWidth: 2,
+    borderColor: '#233B57',
   },
   charCount: {
     position: 'absolute',
     bottom: 12,
     right: 16,
     fontSize: 12,
-    color: '#999999',
+    color: '#7F93AA',
     fontWeight: '600',
   },
   charCountValid: {
-    color: '#4CAF50',
+    color: '#2ECC71',
   },
   charCountInvalid: {
-    color: '#FF6B6B',
+    color: '#FF4D6D',
   },
   optionsContainer: {
-    gap: 12,
-  },
-  relationshipCard: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  relationshipCardSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
-  },
-  relationshipLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    flex: 1,
-  },
-  relationshipLabelSelected: {
-    color: '#FFFFFF',
-  },
-  relationshipDescription: {
-    fontSize: 13,
-    color: '#666666',
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-  },
-  relationshipDescriptionSelected: {
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  genderContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
   },
+  relationshipCard: {
+    backgroundColor: '#16283D',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#233B57',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    width: '30%',
+    minHeight: 110,
+  },
+  relationshipCardSelected: {
+    backgroundColor: '#16283D',
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  relationshipLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  relationshipLabelSelected: {
+    color: '#378BBB',
+  },
+  relationshipDescription: {
+    fontSize: 12,
+    color: '#7F93AA',
+    textAlign: 'center',
+  },
+  relationshipDescriptionSelected: {
+    color: '#B8C7D9',
+    opacity: 1,
+  },
+  genderScrollView: {
+    marginHorizontal: -20, // Extend to screen edges
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingRight: 80, // Add padding to show partial 4th chip
+  },
   genderChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
+    backgroundColor: '#16283D',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
-    gap: 8,
-    minWidth: 110,
+    borderColor: '#233B57',
+    gap: 6,
   },
   genderChipSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
+    backgroundColor: '#16283D',
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
   },
   genderLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A',
-    flex: 1,
+    color: '#FFFFFF',
   },
   genderLabelSelected: {
     color: '#FFFFFF',
   },
-  radiusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+  circularSliderContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
   },
-  radiusBadge: {
-    backgroundColor: '#FF4458',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  circularSliderTouchArea: {
+    position: 'relative',
   },
-  radiusBadgeText: {
+  circularSliderCenter: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circularSliderValueInput: {
+    fontSize: 42,
+    fontWeight: 'bold',
     color: '#FFFFFF',
+    textAlign: 'center',
+    minWidth: 80,
+    padding: 0,
+  },
+  circularSliderValue: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  circularSliderUnit: {
     fontSize: 16,
-    fontWeight: '700',
-  },
-  sliderContainer: {
-    paddingHorizontal: 8,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  sliderLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    color: '#B8C7D9',
+    fontWeight: '600',
     marginTop: 4,
   },
-  sliderLabel: {
+  radiusRangeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  radiusRangeLabel: {
     fontSize: 13,
-    color: '#999999',
+    color: '#7F93AA',
     fontWeight: '500',
   },
   bottomSpacer: {
@@ -887,20 +1183,20 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#233B57',
   },
   completeButton: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    elevation: 4,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
   },
   completeButtonDisabled: {
     backgroundColor: '#CCCCCC',
@@ -917,10 +1213,10 @@ const styles = StyleSheet.create({
   heightInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#233B57',
     paddingHorizontal: 14,
   },
   heightIcon: {
@@ -929,12 +1225,12 @@ const styles = StyleSheet.create({
   heightInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     paddingVertical: 14,
   },
   heightUnit: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
     fontWeight: '500',
     marginLeft: 8,
   },
@@ -946,10 +1242,10 @@ const styles = StyleSheet.create({
   occupationInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#233B57',
     paddingHorizontal: 14,
   },
   occupationIcon: {
@@ -958,7 +1254,7 @@ const styles = StyleSheet.create({
   occupationInput: {
     flex: 1,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     paddingVertical: 14,
   },
   suggestionsContainer: {
@@ -990,10 +1286,10 @@ const styles = StyleSheet.create({
   // Inline suggestions list (not absolute positioned - always clickable)
   suggestionsList: {
     marginTop: 8,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    backgroundColor: '#16283D',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#233B57',
     overflow: 'hidden',
   },
   suggestionItemInline: {
@@ -1003,12 +1299,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: '#233B57',
+    backgroundColor: '#16283D',
   },
   suggestionTextInline: {
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
 
   // Social handles styles
@@ -1029,14 +1325,14 @@ const styles = StyleSheet.create({
   },
   socialInput: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#233B57',
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   xLogo: {
     fontSize: 16,

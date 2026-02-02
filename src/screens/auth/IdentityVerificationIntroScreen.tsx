@@ -14,6 +14,7 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 interface IdentityVerificationIntroScreenProps {
@@ -21,29 +22,37 @@ interface IdentityVerificationIntroScreenProps {
 }
 
 const IdentityVerificationIntroScreen: React.FC<IdentityVerificationIntroScreenProps> = ({ navigation }) => {
+  // Check if user can go back (not the initial route after app restart)
+  const canGoBack = navigation.canGoBack();
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-        </TouchableOpacity>
-      </View>
+      {/* Header - only show back button if user navigated here from another screen */}
+      {canGoBack && (
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Content */}
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          !canGoBack && styles.scrollContentNoHeader
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name="shield-checkmark" size={80} color="#FF4458" />
+          <Ionicons name="shield-checkmark" size={80} color="#378BBB" />
         </View>
 
         <Text style={styles.title}>Verify Yourself</Text>
@@ -54,16 +63,16 @@ const IdentityVerificationIntroScreen: React.FC<IdentityVerificationIntroScreenP
         {/* Why Verification */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Why do we need this?</Text>
-          <View style={styles.reasonRow}>
-            <Ionicons name="shield-checkmark-outline" size={24} color="#4CAF50" />
+          <View style={styles.reasonCard}>
+            <Ionicons name="shield-checkmark-outline" size={24} color="#378BBB" />
             <Text style={styles.reasonText}>Prevent fake profiles and catfishing</Text>
           </View>
-          <View style={styles.reasonRow}>
-            <Ionicons name="people-outline" size={24} color="#4CAF50" />
+          <View style={styles.reasonCard}>
+            <Ionicons name="people-outline" size={24} color="#378BBB" />
             <Text style={styles.reasonText}>Build a trusted community</Text>
           </View>
-          <View style={styles.reasonRow}>
-            <Ionicons name="heart-outline" size={24} color="#4CAF50" />
+          <View style={styles.reasonCard}>
+            <Ionicons name="heart-outline" size={24} color="#378BBB" />
             <Text style={styles.reasonText}>Ensure authentic connections</Text>
           </View>
         </View>
@@ -128,12 +137,18 @@ const IdentityVerificationIntroScreen: React.FC<IdentityVerificationIntroScreenP
 
         {/* Start Button */}
         <TouchableOpacity
-          style={styles.startButton}
           onPress={() => navigation.navigate('LivenessVerification')}
           activeOpacity={0.8}
         >
-          <Ionicons name="camera" size={24} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.startButtonText}>Start Verification</Text>
+          <LinearGradient
+            colors={['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.startButton}
+          >
+            <Ionicons name="camera" size={24} color="#FFFFFF" style={{ marginRight: 8 }} />
+            <Text style={styles.startButtonText}>Start Verification</Text>
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Skip Note */}
@@ -148,7 +163,7 @@ const IdentityVerificationIntroScreen: React.FC<IdentityVerificationIntroScreenP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   header: {
     paddingHorizontal: 20,
@@ -169,23 +184,38 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 40,
   },
+  scrollContentNoHeader: {
+    paddingTop: 60, // Extra top padding when header is hidden
+  },
   iconContainer: {
     alignItems: 'center',
     marginBottom: 24,
+    padding: 20,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+    alignSelf: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 8,
+    color: '#FFFFFF',
+    marginBottom: 12,
     textAlign: 'center',
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
+    fontFamily: 'Inter_24pt-Regular',
   },
   sectionContainer: {
     marginBottom: 32,
@@ -193,19 +223,31 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 16,
+    fontFamily: 'Inter_24pt-Bold',
   },
-  reasonRow: {
+  reasonCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#16283D',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 12,
     gap: 12,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
   },
   reasonText: {
     fontSize: 15,
-    color: '#333333',
+    color: '#FFFFFF',
     flex: 1,
+    fontFamily: 'Inter_24pt-Regular',
   },
   stepContainer: {
     flexDirection: 'row',
@@ -216,7 +258,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -224,6 +266,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Inter_24pt-Bold',
   },
   stepContent: {
     flex: 1,
@@ -231,31 +274,42 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 4,
+    fontFamily: 'Inter_24pt-Bold',
   },
   stepDescription: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     lineHeight: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   tipsContainer: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#16283D',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
   },
   tipsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 12,
+    fontFamily: 'Inter_24pt-Bold',
   },
   tipText: {
     fontSize: 14,
-    color: '#333333',
+    color: '#B8C7D9',
     marginBottom: 6,
     lineHeight: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   privacyContainer: {
     flexDirection: 'row',
@@ -266,29 +320,37 @@ const styles = StyleSheet.create({
   },
   privacyText: {
     fontSize: 13,
-    color: '#666666',
+    color: '#7F93AA',
     flex: 1,
     lineHeight: 18,
+    fontFamily: 'Inter_24pt-Regular',
   },
   startButton: {
     flexDirection: 'row',
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 30,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    height: 52,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   startButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+    fontFamily: 'Inter_24pt-Bold',
   },
   skipNote: {
     fontSize: 13,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
+    fontFamily: 'Inter_24pt-Regular',
   },
 });
 

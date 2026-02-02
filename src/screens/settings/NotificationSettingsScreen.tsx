@@ -20,6 +20,7 @@ import {
   ScrollView,
   SafeAreaView,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import notificationService from '../../services/NotificationService';
 
 interface NotificationSettings {
@@ -87,11 +88,12 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
     description: string;
     value: boolean;
     settingKey: keyof NotificationSettings;
-    icon: string;
-  }> = ({title, description, value, settingKey, icon}) => (
+    iconName: string;
+    iconColor: string;
+  }> = ({title, description, value, settingKey, iconName, iconColor}) => (
     <View style={styles.settingRow}>
       <View style={styles.settingIcon}>
-        <Text style={styles.iconText}>{icon}</Text>
+        <Ionicons name={iconName as any} size={24} color={iconColor} />
       </View>
       <View style={styles.settingInfo}>
         <Text style={styles.settingTitle}>{title}</Text>
@@ -100,9 +102,9 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
       <Switch
         value={value}
         onValueChange={(newValue) => handleToggle(settingKey, newValue)}
-        trackColor={{false: '#3e3e3e', true: '#FF4458'}}
+        trackColor={{false: '#1B2F48', true: '#378BBB'}}
         thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
-        ios_backgroundColor="#3e3e3e"
+        ios_backgroundColor="#1B2F48"
         disabled={saving}
       />
     </View>
@@ -112,7 +114,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF4458" />
+          <ActivityIndicator size="large" color="#378BBB" />
           <Text style={styles.loadingText}>Loading settings...</Text>
         </View>
       </SafeAreaView>
@@ -125,8 +127,10 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>←</Text>
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.headerRight} />
@@ -134,7 +138,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Section Header */}
-        <Text style={styles.sectionHeader}>Push Notifications</Text>
+        <Text style={styles.sectionHeader}>Manage Preferences</Text>
         <Text style={styles.sectionSubheader}>
           Choose which notifications you want to receive
         </Text>
@@ -146,7 +150,8 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
             description="When someone likes your profile"
             value={settings.likes}
             settingKey="likes"
-            icon="❤️"
+            iconName="heart"
+            iconColor="#FF4D6D"
           />
 
           <View style={styles.divider} />
@@ -156,7 +161,8 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
             description="When you match with someone"
             value={settings.matches}
             settingKey="matches"
-            icon="💘"
+            iconName="heart-circle"
+            iconColor="#FF4D6D"
           />
 
           <View style={styles.divider} />
@@ -166,7 +172,8 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
             description="When you receive a new message"
             value={settings.messages}
             settingKey="messages"
-            icon="💬"
+            iconName="chatbubbles"
+            iconColor="#378BBB"
           />
 
           <View style={styles.divider} />
@@ -176,13 +183,14 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
             description="Event reminders and updates"
             value={settings.events}
             settingKey="events"
-            icon="🎉"
+            iconName="calendar"
+            iconColor="#378BBB"
           />
         </View>
 
         {/* Info Section */}
         <View style={styles.infoSection}>
-          <Text style={styles.infoIcon}>ℹ️</Text>
+          <Ionicons name="information-circle" size={20} color="#378BBB" style={styles.infoIconStyle} />
           <Text style={styles.infoText}>
             You can also manage notification settings in your device's system
             settings. Some notifications like security alerts cannot be
@@ -205,7 +213,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#0A0F15',
   },
   loadingContainer: {
     flex: 1,
@@ -222,16 +230,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    paddingTop: 50,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
   },
   backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 24,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -252,15 +261,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionSubheader: {
-    color: '#8E8E93',
+    color: '#B8C7D9',
     fontSize: 14,
     marginBottom: 20,
   },
   settingsCard: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#0F1A26',
     borderRadius: 16,
     padding: 4,
     marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#378BBB',
   },
   settingRow: {
     flexDirection: 'row',
@@ -270,14 +281,11 @@ const styles = StyleSheet.create({
   settingIcon: {
     width: 44,
     height: 44,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#131F2E',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  iconText: {
-    fontSize: 20,
   },
   settingInfo: {
     flex: 1,
@@ -290,28 +298,29 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   settingDescription: {
-    color: '#8E8E93',
+    color: '#B8C7D9',
     fontSize: 13,
   },
   divider: {
     height: 1,
-    backgroundColor: '#2A2A2A',
+    backgroundColor: '#233B57',
     marginLeft: 72,
   },
   infoSection: {
     flexDirection: 'row',
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#0F1A26',
     borderRadius: 12,
     padding: 16,
     alignItems: 'flex-start',
+    borderWidth: 2,
+    borderColor: '#378BBB',
   },
-  infoIcon: {
-    fontSize: 16,
+  infoIconStyle: {
     marginRight: 12,
     marginTop: 2,
   },
   infoText: {
-    color: '#8E8E93',
+    color: '#B8C7D9',
     fontSize: 13,
     lineHeight: 18,
     flex: 1,
@@ -323,7 +332,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   savingText: {
-    color: '#8E8E93',
+    color: '#7F93AA',
     fontSize: 14,
     marginLeft: 8,
   },

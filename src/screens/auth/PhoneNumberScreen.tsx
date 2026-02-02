@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import auth, { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import CountryPicker, { Country, CountryCode } from 'react-native-country-picker-modal';
@@ -27,6 +29,44 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble6Y = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createBubbleAnimation = (animatedValue: Animated.Value, duration: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.timing(animatedValue, {
+            toValue: -30,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 0,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const animations = [
+      createBubbleAnimation(bubble1Y, 4000),
+      createBubbleAnimation(bubble2Y, 3500),
+      createBubbleAnimation(bubble3Y, 4500),
+      createBubbleAnimation(bubble4Y, 3800),
+      createBubbleAnimation(bubble5Y, 4200),
+      createBubbleAnimation(bubble6Y, 4600),
+    ];
+
+    animations.forEach(anim => anim.start());
+  }, []);
 
   const onSelectCountry = (country: Country) => {
     setCountryCode(country.cca2);
@@ -81,7 +121,15 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+
+      {/* Floating Bubbles */}
+      <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble2, { transform: [{ translateY: bubble2Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble3, { transform: [{ translateY: bubble3Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble4, { transform: [{ translateY: bubble4Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble5, { transform: [{ translateY: bubble5Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble6, { transform: [{ translateY: bubble6Y }] }]} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -90,7 +138,7 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -117,6 +165,21 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
               onSelect={onSelectCountry}
               visible={showCountryPicker}
               onClose={() => setShowCountryPicker(false)}
+              theme={{
+                backgroundColor: '#16283D',
+                onBackgroundTextColor: '#FFFFFF',
+                fontSize: 16,
+                filterPlaceholderTextColor: '#7F93AA',
+                activeOpacity: 0.7,
+                itemHeight: 50,
+              }}
+              modalProps={{
+                animationType: 'slide',
+              }}
+              containerButtonStyle={{
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             />
             <Text style={styles.countryCodeText}>{callingCode}</Text>
           </TouchableOpacity>
@@ -137,19 +200,22 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[
-            styles.continueButton,
-            phoneNumber.length < 10 && styles.continueButtonDisabled,
-          ]}
           onPress={handleContinue}
           disabled={phoneNumber.length < 10 || loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.continueButtonText}>Get Code</Text>
-          )}
+          <LinearGradient
+            colors={phoneNumber.length < 10 ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.continueButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continueButtonText}>Get Code</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -159,7 +225,7 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   header: {
     paddingHorizontal: 20,
@@ -180,13 +246,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 40,
+    fontFamily: 'Inter_24pt-Regular',
   },
   phoneInputContainer: {
     flexDirection: 'row',
@@ -196,7 +264,7 @@ const styles = StyleSheet.create({
   },
   countryCodeContainer: {
     width: 100,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -206,41 +274,80 @@ const styles = StyleSheet.create({
   },
   countryCodeText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   phoneNumberContainer: {
     flex: 1,
   },
   phoneNumberInput: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     height: 56,
+    fontFamily: 'Inter_24pt-Regular',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-  },
-  continueButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 4,
   },
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  bubble: {
+    position: 'absolute',
+    backgroundColor: '#378BBB',
+    opacity: 0.08,
+    borderRadius: 100,
+  },
+  bubble1: {
+    width: 120,
+    height: 120,
+    top: '8%',
+    left: '10%',
+  },
+  bubble2: {
+    width: 80,
+    height: 80,
+    top: '25%',
+    right: '15%',
+  },
+  bubble3: {
+    width: 100,
+    height: 100,
+    top: '45%',
+    left: '5%',
+  },
+  bubble4: {
+    width: 60,
+    height: 60,
+    top: '60%',
+    right: '8%',
+  },
+  bubble5: {
+    width: 90,
+    height: 90,
+    top: '75%',
+    left: '20%',
+  },
+  bubble6: {
+    width: 70,
+    height: 70,
+    top: '88%',
+    right: '25%',
   },
 });
 

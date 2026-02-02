@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { PermissionsAndroid, Platform, AppState } from 'react-native';
+import { PermissionsAndroid, Platform, AppState, View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -211,21 +211,31 @@ const MainTabNavigator = () => {
               iconName = 'help-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return (
+            <View style={focused ? styles.activeIconContainer : undefined}>
+              <Ionicons name={iconName} size={size} color={color} />
+            </View>
+          );
         },
-        tabBarActiveTintColor: '#FF4458',
-        tabBarInactiveTintColor: '#999999',
+        tabBarActiveTintColor: '#FF4D6D',
+        tabBarInactiveTintColor: '#378BBB',
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
-          height: 60 + insets.bottom, // Dynamic height based on device
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10, // Use inset or fallback
+          backgroundColor: '#16283D',
+          borderTopWidth: 2,
+          borderTopColor: '#378BBB',
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
           paddingTop: 8,
+          shadowColor: '#378BBB',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.6,
+          shadowRadius: 12,
+          elevation: 15,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
+          color: '#FFFFFF',
         },
       })}
       initialRouteName="SwipeHub"
@@ -261,5 +271,15 @@ const MainTabNavigator = () => {
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  activeIconContainer: {
+    shadowColor: '#FF4D6D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+});
 
 export default MainTabNavigator;
