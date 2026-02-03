@@ -610,6 +610,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
           relationshipIntent: relationshipIntent || null,
           interestedIn,
           matchRadiusKm,
+          signupComplete: true, // Mark signup as complete
         });
 
       console.log('✅ Dating preferences saved');

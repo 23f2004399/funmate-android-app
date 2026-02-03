@@ -133,6 +133,7 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
       },
       isVerified: false,
       premiumStatus: 'free',
+      signupComplete: false, // Creator hasn't completed setup yet
       createdAt: firestore.FieldValue.serverTimestamp(),
       lastActiveAt: firestore.FieldValue.serverTimestamp(),
     });

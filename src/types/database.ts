@@ -103,6 +103,7 @@ export interface User {
   location: UserLocation | null;
   photos: UserPhoto[];
   isVerified: boolean;
+  signupComplete: boolean;             // NEW - prevents incomplete profiles from appearing in swipe feed
   premiumStatus: 'free' | 'premium';
   premiumExpiresAt: any | null;
   premiumFeatures: PremiumFeatures;

@@ -465,11 +465,13 @@ const SwipeHubScreen = () => {
           const matchUserId = doc.id;
 
           // Skip self, blocked users, already swiped users, and users we already acted on in "Who Liked You"
+          // Also skip users who haven't completed signup (signupComplete !== true)
           if (
             matchUserId === userId || 
             blockedUserIds.includes(matchUserId) ||
             swipedUserIds.includes(matchUserId) ||
-            actedOnLikerIds.includes(matchUserId)
+            actedOnLikerIds.includes(matchUserId) ||
+            userData.signupComplete !== true
           ) {
             return;
           }

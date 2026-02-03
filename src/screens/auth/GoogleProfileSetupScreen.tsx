@@ -265,6 +265,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
           priorityListing: false,
         },
         creatorDetails: null,
+        signupComplete: false, // User hasn't completed signup yet
         createdAt: firestore.FieldValue.serverTimestamp(),
         lastActiveAt: firestore.FieldValue.serverTimestamp(),
       });
