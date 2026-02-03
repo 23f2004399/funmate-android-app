@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { launchImageLibrary, ImagePickerResponse, Asset } from 'react-native-image-picker';
@@ -32,6 +33,7 @@ interface PhotoSlot {
 }
 
 const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
+  const insets = useSafeAreaInsets();
   const [photos, setPhotos] = useState<PhotoSlot[]>([
     { localUri: null, order: 1, asset: null },
     { localUri: null, order: 2, asset: null },
@@ -398,31 +400,40 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Add Your Photos</Text>
-        <Text style={styles.subtitle}>
-          Upload at least 4 photos (max 6)
-        </Text>
-        <Text style={styles.countText}>
-          {uploadedCount} / 6 photos added {uploadedCount >= 4 ? '✓' : ''}
-        </Text>
-      </View>
+      {/* Header - only show back button if user navigated here from another screen */}
+      {navigation.canGoBack() && (
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          !navigation.canGoBack() && styles.scrollContentNoHeader
+        ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.title}>Add Your Photos</Text>
+          <Text style={styles.subtitle}>
+            Upload at least 4 photos (max 6)
+          </Text>
+          <Text style={styles.countText}>
+            {uploadedCount} / 6 photos added {uploadedCount >= 4 ? '✓' : ''}
+          </Text>
+        </View>
+
         {/* Photo Grid */}
         <View style={styles.grid}>
           {photos.map((photo, index) => (
@@ -474,7 +485,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       </ScrollView>
 
       {/* Upload Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(32, insets.bottom + 16) }]}>
         <TouchableOpacity
           onPress={handleUpload}
           disabled={uploadedCount < 4 || uploading}
@@ -509,6 +520,9 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 50,
   },
+  titleSection: {
+    marginBottom: 24,
+  },
   backButton: {
     width: 40,
     height: 40,
@@ -541,6 +555,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 24,
     paddingTop: 0,
+  },
+  scrollContentNoHeader: {
+    paddingTop: 60, // Extra top padding when no header
   },
   grid: {
     flexDirection: 'row',
@@ -658,7 +675,6 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 24,
-    paddingBottom: 32,
     borderTopWidth: 1,
     borderTopColor: '#233B57',
   },

@@ -125,7 +125,19 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
             
             if (signupStep && signupStep !== 'complete') {
               // User hasn't completed signup - route to appropriate screen
-              const targetScreen = getScreenForSignupStep(signupStep);
+              let targetScreen = getScreenForSignupStep(signupStep);
+              
+              // 🔥 FIX: If user is at basic_info step but has Google linked, route to GoogleProfileSetup
+              if (signupStep === 'basic_info') {
+                const hasGoogleLinked = userState.providerData.some(
+                  provider => provider.providerId === 'google.com'
+                );
+                if (hasGoogleLinked) {
+                  console.log('Google account linked, routing to GoogleProfileSetup');
+                  targetScreen = 'GoogleProfileSetup';
+                }
+              }
+              
               console.log('Incomplete signup, routing to:', targetScreen);
               setInitialRoute(targetScreen);
             } else {

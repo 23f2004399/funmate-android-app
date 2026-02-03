@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
@@ -37,6 +38,7 @@ interface CreatorGoogleProfileSetupScreenProps {
 }
 
 const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenProps> = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const { googleUser } = route.params;
   const [fullName, setFullName] = useState(googleUser.displayName || '');
   const [username, setUsername] = useState('');
@@ -172,7 +174,7 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <ScrollView 
         style={styles.scrollView}
@@ -249,7 +251,7 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={styles.continueButton}
+          style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
           onPress={handleContinue}
           disabled={loading}
           activeOpacity={0.8}

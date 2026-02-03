@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   Image,
   TextInput,
-  Alert,
   StatusBar,
   PermissionsAndroid,
   Platform,
@@ -38,6 +37,7 @@ import Geolocation from '@react-native-community/geolocation';
 import Slider from '@react-native-community/slider';
 import { CommonActions, useFocusEffect } from '@react-navigation/native';
 import { calculateProfileCompleteness, getMissingFields } from '../../utils/profileCompleteness';
+import { useAlert } from '../../contexts/AlertContext';
 
 type RelationshipIntent = 'casual' | 'long_term' | 'hookups' | 'friendship' | 'unsure';
 type Gender = 'male' | 'female' | 'trans' | 'non_binary';
@@ -223,6 +223,7 @@ const INTEREST_CATEGORIES = [
 ];
 
 const ProfileScreen = ({ navigation }: any) => {
+  const { showConfirm, showWarning } = useAlert();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userData, setUserData] = useState<any>(null);
@@ -509,10 +510,9 @@ const ProfileScreen = ({ navigation }: any) => {
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           return true;
         } else if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
-          Alert.alert(
+          showWarning(
             'Permission Required',
-            'Location permission was denied. Please enable it in Settings > Apps > Funmate > Permissions > Location',
-            [{ text: 'OK' }]
+            'Location permission was denied. Please enable it in Settings > Apps > Funmate > Permissions > Location'
           );
           return false;
         } else {
@@ -589,10 +589,9 @@ const ProfileScreen = ({ navigation }: any) => {
       const coords = await getCurrentLocation();
       
       if (!coords) {
-        Alert.alert(
+        showWarning(
           'Location Unavailable',
-          'Could not get your location. Please ensure Location/GPS is enabled in your device settings.\n\nGo to: Settings > Location > Turn ON',
-          [{ text: 'OK' }]
+          'Could not get your location. Please ensure Location/GPS is enabled in your device settings.\n\nGo to: Settings > Location > Turn ON'
         );
         return;
       }
@@ -643,38 +642,32 @@ const ProfileScreen = ({ navigation }: any) => {
    * Logout
    */
   const handleLogout = () => {
-    Alert.alert(
+    showConfirm(
       'Logout',
       'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await auth().signOut();
-              
-              // Reset navigation stack to Login
-              navigation.dispatch(
-                CommonActions.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                })
-              );
-              
-              Toast.show({
-                type: 'success',
-                text1: 'Logged Out',
-                text2: 'See you soon!',
-                visibilityTime: 2000,
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await auth().signOut();
+          
+          // Reset navigation stack to Login
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{ name: 'Login' }],
+            })
+          );
+          
+          Toast.show({
+            type: 'success',
+            text1: 'Logged Out',
+            text2: 'See you soon!',
+            visibilityTime: 2000,
+          });
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      },
+      { confirmText: 'Logout', destructive: true, icon: 'log-out-outline' }
     );
   };
 
@@ -1567,6 +1560,14 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 20,
     backgroundColor: '#0E1621',
+    borderBottomWidth: 2,
+    borderBottomColor: '#0E1621',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 1000,
   },
   headerTitle: {
     fontSize: 24,
@@ -1750,6 +1751,7 @@ const styles = StyleSheet.create({
   },
   settingsIconContainer: {
     position: 'relative',
+    zIndex: 1001,
   },
   gearIcon: {
     padding: 8,
@@ -1767,8 +1769,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
-    zIndex: 1000,
+    elevation: 20,
+    zIndex: 1002,
   },
   dropdownItem: {
     flexDirection: 'row',

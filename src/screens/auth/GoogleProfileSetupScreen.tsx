@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -29,8 +30,10 @@ interface GoogleProfileSetupScreenProps {
 }
 
 const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScreenProps) => {
-  const { googleUser } = route.params;
-  const [fullName, setFullName] = useState(googleUser.displayName || '');
+  const insets = useSafeAreaInsets();
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true);
+  const [googleUser, setGoogleUser] = useState<any>(null);
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
@@ -40,6 +43,62 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
   const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
+
+  // 🔥 FIX: Load Google user data with proper null checks and loading state
+  useEffect(() => {
+    const loadGoogleUserData = async () => {
+      try {
+        // First check route params
+        if (route.params?.googleUser) {
+          setGoogleUser(route.params.googleUser);
+          setFullName(route.params.googleUser.displayName || '');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Wait for Firebase Auth to initialize
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.error('No authenticated user found');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Find Google provider in providerData
+        const googleProvider = currentUser.providerData?.find(
+          provider => provider?.providerId === 'google.com'
+        );
+
+        if (googleProvider) {
+          const userData = {
+            uid: currentUser.uid,
+            email: googleProvider.email || currentUser.email || '',
+            displayName: googleProvider.displayName || currentUser.displayName || '',
+            photoURL: googleProvider.photoURL || currentUser.photoURL || null,
+          };
+          setGoogleUser(userData);
+          setFullName(userData.displayName);
+        } else {
+          // No Google provider found - shouldn't happen, but handle gracefully
+          console.warn('No Google provider found in providerData');
+          const fallbackData = {
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || '',
+            photoURL: currentUser.photoURL || null,
+          };
+          setGoogleUser(fallbackData);
+          setFullName(fallbackData.displayName);
+        }
+      } catch (error) {
+        console.error('Error loading Google user data:', error);
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    loadGoogleUserData();
+  }, [route.params]);
 
   // Check username availability with debounce
   useEffect(() => {
@@ -137,6 +196,24 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
     return true;
   };
 
+  const handleLogout = async () => {
+    try {
+      await auth().signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        text2: 'Please try again',
+        visibilityTime: 3000,
+      });
+    }
+  };
+
   const handleContinue = async () => {
     if (!validateForm()) return;
 
@@ -160,6 +237,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
         emailVerified: true, // Google accounts are verified
         identityVerified: false,
         bankVerified: false,
+        signupStep: 'photos', // User needs to upload photos next
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
@@ -214,9 +292,22 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
     }
   };
 
+  // Show loading screen while fetching user data
+  if (isLoadingUserData || !googleUser) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#378BBB" />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <TouchableWithoutFeedback 
         onPress={() => {
@@ -231,13 +322,23 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
       >
         {/* Header with Google Info */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Just a few more details</Text>
 
@@ -350,7 +451,7 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
             colors={['#378BBB', '#4FC3F7']}
             start={{x: 0, y: 0}}
             end={{x: 1, y: 0}}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -404,6 +505,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0E1621',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#B8C7D9',
+    fontFamily: 'Inter_24pt-Regular',
+  },
   scrollView: {
     flex: 1,
   },
@@ -417,6 +529,10 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoutButton: {
+    padding: 8,
     marginBottom: 16,
   },
   title: {

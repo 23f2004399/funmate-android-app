@@ -219,7 +219,7 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <View style={styles.header}>
         <TouchableOpacity 

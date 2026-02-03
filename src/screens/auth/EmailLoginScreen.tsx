@@ -222,7 +222,7 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <ScrollView 
         style={styles.scrollView}

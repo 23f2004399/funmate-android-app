@@ -66,14 +66,19 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // 6. MATCHES - Both users can read (unless blocked), participants can create/update blockedBy
+    // 6. MATCHES - Both users can read/list their own matches, participants can create/update blockedBy
     match /matches/{matchId} {
-      allow read: if isAuthenticated() && 
+      // Allow reading individual match docs where user is a participant
+      allow get: if isAuthenticated() && 
+                    (resource.data.userA == request.auth.uid || 
+                     resource.data.userB == request.auth.uid) &&
+                    // Hide if blocked by other user
+                    (resource.data.blockedBy == null || 
+                     resource.data.blockedBy == request.auth.uid);
+      // Allow listing/querying matches where user is a participant (without blockedBy check for query compatibility)
+      allow list: if isAuthenticated() && 
                      (resource.data.userA == request.auth.uid || 
-                      resource.data.userB == request.auth.uid) &&
-                     // Hide if blocked by other user
-                     (resource.data.blockedBy == null || 
-                      resource.data.blockedBy == request.auth.uid);
+                      resource.data.userB == request.auth.uid);
       allow create: if isAuthenticated() && 
                        (request.resource.data.userA == request.auth.uid || 
                         request.resource.data.userB == request.auth.uid);

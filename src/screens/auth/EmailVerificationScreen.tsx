@@ -281,7 +281,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <View style={styles.header}>
         <TouchableOpacity 

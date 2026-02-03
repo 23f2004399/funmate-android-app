@@ -7,6 +7,7 @@ import {
   StatusBar,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 
 interface LoginScreenProps {
@@ -14,6 +15,7 @@ interface LoginScreenProps {
 }
 
 const LoginScreen = ({ navigation }: LoginScreenProps) => {
+  const insets = useSafeAreaInsets();
   // Bubble animations
   const bubble1Y = useRef(new Animated.Value(0)).current;
   const bubble2Y = useRef(new Animated.Value(0)).current;
@@ -78,7 +80,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
       
       {/* Floating Bubbles */}
       <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />
@@ -130,7 +132,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
       </View>
 
       {/* Footer */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(32, insets.bottom + 16) }]}>
         <Text style={styles.footerText}>
           By continuing, you agree to our{' '}
           <Text style={styles.footerLink}>Terms</Text> &{' '}
@@ -272,7 +274,6 @@ const styles = StyleSheet.create({
     flex: 0.5,
     justifyContent: 'flex-end',
     paddingHorizontal: 32,
-    paddingBottom: 24,
   },
   footerText: {
     fontSize: 12,

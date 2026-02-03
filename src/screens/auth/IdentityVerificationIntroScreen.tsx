@@ -27,7 +27,7 @@ const IdentityVerificationIntroScreen: React.FC<IdentityVerificationIntroScreenP
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       {/* Header - only show back button if user navigated here from another screen */}
       {canGoBack && (

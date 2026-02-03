@@ -8,12 +8,14 @@ import {
   Animated,
   Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface AccountTypeScreenProps {
   navigation: any;
 }
 
 const AccountTypeScreen = ({ navigation }: AccountTypeScreenProps) => {
+  const insets = useSafeAreaInsets();
   const [openCard, setOpenCard] = useState<string | null>(null);
   const explorerCardSlide = useRef(new Animated.Value(-400)).current;
   const hostCardSlide = useRef(new Animated.Value(400)).current;
@@ -113,7 +115,7 @@ const AccountTypeScreen = ({ navigation }: AccountTypeScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       {/* Floating Bubbles */}
       <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />
@@ -235,7 +237,7 @@ const AccountTypeScreen = ({ navigation }: AccountTypeScreenProps) => {
 
       {/* Back Button */}
       <TouchableOpacity
-        style={styles.backButton}
+        style={[styles.backButton, { marginBottom: Math.max(24, insets.bottom) }]}
         onPress={() => navigation.goBack()}
         activeOpacity={0.8}
       >
@@ -407,7 +409,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: '#233B57',
   },

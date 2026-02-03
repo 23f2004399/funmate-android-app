@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Slider from '@react-native-community/slider';
+import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { WhoLikedYouFilters, DEFAULT_FILTERS, RELATIONSHIP_INTENT_OPTIONS } from '../types/filters';
 
 const { width } = Dimensions.get('window');
@@ -160,7 +160,7 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
           <View style={styles.header}>
             <Text style={styles.title}>Filter Who Liked You</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#1A1A1A" />
+              <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
@@ -170,32 +170,35 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Age Range</Text>
               <Text style={styles.rangeValue}>{ageMin} - {ageMax} years</Text>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Min: {ageMin}</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={18}
-                  maximumValue={60}
+              <View style={styles.sliderContainer}>
+                <MultiSlider
+                  values={[ageMin, ageMax]}
+                  onValuesChange={(values) => {
+                    setAgeMin(values[0]);
+                    setAgeMax(values[1]);
+                  }}
+                  min={18}
+                  max={60}
                   step={1}
-                  value={ageMin}
-                  onValueChange={setAgeMin}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
-                />
-              </View>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Max: {ageMax}</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={18}
-                  maximumValue={60}
-                  step={1}
-                  value={ageMax}
-                  onValueChange={setAgeMax}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
+                  sliderLength={width - 80}
+                  selectedStyle={{
+                    backgroundColor: '#378BBB',
+                  }}
+                  unselectedStyle={{
+                    backgroundColor: '#1B2F48',
+                  }}
+                  markerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 24,
+                    width: 24,
+                    borderRadius: 12,
+                  }}
+                  pressedMarkerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 28,
+                    width: 28,
+                    borderRadius: 14,
+                  }}
                 />
               </View>
             </View>
@@ -204,32 +207,35 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Height Range</Text>
               <Text style={styles.rangeValue}>{heightMin} - {heightMax} cm</Text>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Min: {heightMin} cm</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={100}
-                  maximumValue={300}
+              <View style={styles.sliderContainer}>
+                <MultiSlider
+                  values={[heightMin, heightMax]}
+                  onValuesChange={(values) => {
+                    setHeightMin(values[0]);
+                    setHeightMax(values[1]);
+                  }}
+                  min={100}
+                  max={300}
                   step={1}
-                  value={heightMin}
-                  onValueChange={setHeightMin}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
-                />
-              </View>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Max: {heightMax} cm</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={100}
-                  maximumValue={300}
-                  step={1}
-                  value={heightMax}
-                  onValueChange={setHeightMax}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
+                  sliderLength={width - 80}
+                  selectedStyle={{
+                    backgroundColor: '#378BBB',
+                  }}
+                  unselectedStyle={{
+                    backgroundColor: '#1B2F48',
+                  }}
+                  markerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 24,
+                    width: 24,
+                    borderRadius: 12,
+                  }}
+                  pressedMarkerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 28,
+                    width: 28,
+                    borderRadius: 14,
+                  }}
                 />
               </View>
             </View>
@@ -264,17 +270,34 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Maximum Distance</Text>
               <Text style={styles.rangeValue}>Within {maxDistance} km</Text>
-              <Slider
-                style={styles.slider}
-                minimumValue={1}
-                maximumValue={100}
-                step={1}
-                value={maxDistance}
-                onValueChange={setMaxDistance}
-                minimumTrackTintColor="#FF4458"
-                maximumTrackTintColor="#E0E0E0"
-                thumbTintColor="#FF4458"
-              />
+              <View style={styles.sliderContainer}>
+                <MultiSlider
+                  values={[maxDistance]}
+                  onValuesChange={(values) => setMaxDistance(values[0])}
+                  min={1}
+                  max={100}
+                  step={1}
+                  sliderLength={width - 80}
+                  selectedStyle={{
+                    backgroundColor: '#378BBB',
+                  }}
+                  unselectedStyle={{
+                    backgroundColor: '#1B2F48',
+                  }}
+                  markerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 24,
+                    width: 24,
+                    borderRadius: 12,
+                  }}
+                  pressedMarkerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 28,
+                    width: 28,
+                    borderRadius: 14,
+                  }}
+                />
+              </View>
             </View>
 
             {/* Occupation */}
@@ -285,7 +308,7 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
                 placeholder="Search occupations..."
                 value={occupationSearch}
                 onChangeText={setOccupationSearch}
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
               />
               <ScrollView style={styles.occupationList} nestedScrollEnabled>
                 {filteredOccupations.length > 0 ? (
@@ -307,7 +330,7 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
                         {occ}
                       </Text>
                       {selectedOccupations.includes(occ) && (
-                        <Ionicons name="checkmark-circle" size={20} color="#FF4458" />
+                        <Ionicons name="checkmark-circle" size={20} color="#378BBB" />
                       )}
                     </TouchableOpacity>
                   ))
@@ -324,32 +347,35 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Trust Score (Profile Completeness)</Text>
               <Text style={styles.rangeValue}>{trustScoreMin}% - {trustScoreMax}%</Text>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Min: {trustScoreMin}%</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0}
-                  maximumValue={100}
+              <View style={styles.sliderContainer}>
+                <MultiSlider
+                  values={[trustScoreMin, trustScoreMax]}
+                  onValuesChange={(values) => {
+                    setTrustScoreMin(values[0]);
+                    setTrustScoreMax(values[1]);
+                  }}
+                  min={0}
+                  max={100}
                   step={5}
-                  value={trustScoreMin}
-                  onValueChange={setTrustScoreMin}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
-                />
-              </View>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Max: {trustScoreMax}%</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0}
-                  maximumValue={100}
-                  step={5}
-                  value={trustScoreMax}
-                  onValueChange={setTrustScoreMax}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
+                  sliderLength={width - 80}
+                  selectedStyle={{
+                    backgroundColor: '#378BBB',
+                  }}
+                  unselectedStyle={{
+                    backgroundColor: '#1B2F48',
+                  }}
+                  markerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 24,
+                    width: 24,
+                    borderRadius: 12,
+                  }}
+                  pressedMarkerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 28,
+                    width: 28,
+                    borderRadius: 14,
+                  }}
                 />
               </View>
             </View>
@@ -358,32 +384,35 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
             <View style={styles.filterSection}>
               <Text style={styles.filterLabel}>Match Score</Text>
               <Text style={styles.rangeValue}>{matchScoreMin}% - {matchScoreMax}%</Text>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Min: {matchScoreMin}%</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0}
-                  maximumValue={100}
+              <View style={styles.sliderContainer}>
+                <MultiSlider
+                  values={[matchScoreMin, matchScoreMax]}
+                  onValuesChange={(values) => {
+                    setMatchScoreMin(values[0]);
+                    setMatchScoreMax(values[1]);
+                  }}
+                  min={0}
+                  max={100}
                   step={5}
-                  value={matchScoreMin}
-                  onValueChange={setMatchScoreMin}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
-                />
-              </View>
-              <View style={styles.doubleSliderContainer}>
-                <Text style={styles.sliderLabel}>Max: {matchScoreMax}%</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={0}
-                  maximumValue={100}
-                  step={5}
-                  value={matchScoreMax}
-                  onValueChange={setMatchScoreMax}
-                  minimumTrackTintColor="#FF4458"
-                  maximumTrackTintColor="#E0E0E0"
-                  thumbTintColor="#FF4458"
+                  sliderLength={width - 80}
+                  selectedStyle={{
+                    backgroundColor: '#378BBB',
+                  }}
+                  unselectedStyle={{
+                    backgroundColor: '#1B2F48',
+                  }}
+                  markerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 24,
+                    width: 24,
+                    borderRadius: 12,
+                  }}
+                  pressedMarkerStyle={{
+                    backgroundColor: '#378BBB',
+                    height: 28,
+                    width: 28,
+                    borderRadius: 14,
+                  }}
                 />
               </View>
             </View>
@@ -409,11 +438,11 @@ const WhoLikedYouFilterModal: React.FC<Props> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
@@ -425,12 +454,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#1B2F48',
   },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   closeButton: {
     padding: 4,
@@ -441,25 +470,29 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#1B2F48',
   },
   filterLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   rangeValue: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 12,
+  },
+  sliderContainer: {
+    alignItems: 'center',
+    paddingVertical: 10,
   },
   doubleSliderContainer: {
     marginBottom: 8,
   },
   sliderLabel: {
     fontSize: 13,
-    color: '#666666',
+    color: '#7F93AA',
     marginBottom: 4,
   },
   slider: {
@@ -476,16 +509,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#378BBB',
+    backgroundColor: '#16283D',
   },
   chipSelected: {
-    backgroundColor: '#FF4458',
-    borderColor: '#FF4458',
+    backgroundColor: '#378BBB',
+    borderColor: '#378BBB',
   },
   chipText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     fontWeight: '500',
   },
   chipTextSelected: {
@@ -493,12 +526,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#1B2F48',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    backgroundColor: '#16283D',
     marginBottom: 12,
   },
   occupationList: {
@@ -512,28 +546,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 4,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#16283D',
   },
   occupationItemSelected: {
-    backgroundColor: '#FFF0F1',
+    backgroundColor: '#1B2F48',
   },
   occupationText: {
     fontSize: 14,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   occupationTextSelected: {
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: '500',
   },
   emptyText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
     paddingVertical: 20,
   },
   selectedCount: {
     fontSize: 12,
-    color: '#FF4458',
+    color: '#378BBB',
     marginTop: 8,
     fontWeight: '500',
   },
@@ -546,26 +580,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: '#1B2F48',
   },
   clearButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
     alignItems: 'center',
   },
   clearButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FF4458',
+    color: '#378BBB',
   },
   applyButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     alignItems: 'center',
   },
   applyButtonText: {

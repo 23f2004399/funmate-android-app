@@ -236,7 +236,7 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       try {
         await firestore().collection('accounts').doc(userId).set({
           authUid: userId,
-          phoneNumber: phoneNumber, // Store phone number for resume
+          // Phone number NOT stored here - available via auth().currentUser.phoneNumber
           role: accountType === 'creator' ? 'event_creator' : 'user',
           creatorType: null,
           status: 'pending_verification',
@@ -320,7 +320,7 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       {/* Floating Bubbles */}
       <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />

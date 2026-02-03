@@ -12,7 +12,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   TextInput,
   ScrollView,
   ActivityIndicator,
@@ -21,6 +20,15 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { ReportReason } from '../../types/database';
+
+type ConfirmationType = 'block' | 'unblock' | 'success' | 'error' | 'warning' | null;
+
+interface ConfirmationState {
+  type: ConfirmationType;
+  title: string;
+  message: string;
+  onConfirm?: () => void;
+}
 
 interface BlockReportModalProps {
   visible: boolean;
@@ -48,6 +56,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
   const [description, setDescription] = useState('');
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmation, setConfirmation] = useState<ConfirmationState>({ type: null, title: '', message: '' });
 
   // Reset form when modal closes
   useEffect(() => {
@@ -57,6 +66,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
       setDescription('');
       setScreenshots([]);
       setIsSubmitting(false);
+      setConfirmation({ type: null, title: '', message: '' });
     }
   }, [visible]);
 
@@ -68,56 +78,53 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
     { value: 'other', label: 'Other' },
   ];
 
+  const showConfirmation = (type: ConfirmationType, title: string, message: string, onConfirm?: () => void) => {
+    setConfirmation({ type, title, message, onConfirm });
+  };
+
+  const hideConfirmation = () => {
+    setConfirmation({ type: null, title: '', message: '' });
+  };
+
   const handleBlock = () => {
-    Alert.alert(
+    showConfirmation(
+      'block',
       'Block User',
       `Are you sure you want to block ${userName}? You won't see each other's profiles or be able to message.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              await onBlock();
-              onClose();
-              Alert.alert('Blocked', `${userName} has been blocked.`);
-            } catch (error) {
-              console.error('Error blocking user:', error);
-              Alert.alert('Error', 'Failed to block user. Please try again.');
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        hideConfirmation();
+        setIsSubmitting(true);
+        try {
+          await onBlock();
+          showConfirmation('success', 'Blocked', `${userName} has been blocked.`);
+        } catch (error) {
+          console.error('Error blocking user:', error);
+          showConfirmation('error', 'Error', 'Failed to block user. Please try again.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
     );
   };
 
-  const handleUnblock = () => {
-    Alert.alert(
+  const handleUnblockUser = () => {
+    showConfirmation(
+      'unblock',
       'Unblock User',
       `Are you sure you want to unblock ${userName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unblock',
-          onPress: async () => {
-            setIsSubmitting(true);
-            try {
-              await onUnblock?.();
-              onClose();
-              Alert.alert('Unblocked', `${userName} has been unblocked.`);
-            } catch (error) {
-              console.error('Error unblocking user:', error);
-              Alert.alert('Error', 'Failed to unblock user. Please try again.');
-            } finally {
-              setIsSubmitting(false);
-            }
-          },
-        },
-      ]
+      async () => {
+        hideConfirmation();
+        setIsSubmitting(true);
+        try {
+          await onUnblock?.();
+          showConfirmation('success', 'Unblocked', `${userName} has been unblocked.`);
+        } catch (error) {
+          console.error('Error unblocking user:', error);
+          showConfirmation('error', 'Error', 'Failed to unblock user. Please try again.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
     );
   };
 
@@ -137,7 +144,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
       }
     } catch (error) {
       console.error('Error picking screenshot:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      showConfirmation('error', 'Error', 'Failed to pick image. Please try again.');
     }
   };
 
@@ -147,12 +154,12 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
 
   const handleReportSubmit = async () => {
     if (!selectedReason) {
-      Alert.alert('Select Reason', 'Please select a reason for reporting.');
+      showConfirmation('warning', 'Select Reason', 'Please select a reason for reporting.');
       return;
     }
 
     if (!description.trim()) {
-      Alert.alert('Add Description', 'Please describe what happened.');
+      showConfirmation('warning', 'Add Description', 'Please describe what happened.');
       return;
     }
 
@@ -167,14 +174,14 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
       setScreenshots([]);
       setView('main');
       
-      Alert.alert(
+      showConfirmation(
+        'success',
         'Report Submitted',
-        'Thank you for your report. Our team will review it shortly.',
-        [{ text: 'OK', onPress: onClose }]
+        'Thank you for your report. Our team will review it shortly.'
       );
     } catch (error) {
       console.error('Error submitting report:', error);
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      showConfirmation('error', 'Error', 'Failed to submit report. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -189,7 +196,10 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
         onPress={() => setView('report')}
         disabled={isSubmitting}
       >
-        <Text style={styles.optionText}>🚩 Report User</Text>
+        <View style={styles.optionHeader}>
+          <Ionicons name="flag-outline" size={20} color="#F4B400" style={styles.optionIcon} />
+          <Text style={styles.optionText}>Report User</Text>
+        </View>
         <Text style={styles.optionDescription}>
           Report inappropriate behavior
         </Text>
@@ -197,12 +207,20 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
 
       <TouchableOpacity
         style={[styles.option, isBlocked ? styles.warningOption : styles.dangerOption]}
-        onPress={isBlocked ? handleUnblock : handleBlock}
+        onPress={isBlocked ? handleUnblockUser : handleBlock}
         disabled={isSubmitting}
       >
-        <Text style={[styles.optionText, !isBlocked && styles.dangerText]}>
-          {isBlocked ? '✓ Unblock User' : '🚫 Block User'}
-        </Text>
+        <View style={styles.optionHeader}>
+          <Ionicons 
+            name={isBlocked ? "checkmark-circle-outline" : "ban-outline"} 
+            size={20} 
+            color={isBlocked ? "#2ECC71" : "#FF4D6D"} 
+            style={styles.optionIcon} 
+          />
+          <Text style={[styles.optionText, !isBlocked && styles.dangerText]}>
+            {isBlocked ? 'Unblock User' : 'Block User'}
+          </Text>
+        </View>
         <Text style={styles.optionDescription}>
           {isBlocked 
             ? 'Restore visibility and messaging'
@@ -219,7 +237,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
       </TouchableOpacity>
 
       {isSubmitting && (
-        <ActivityIndicator size="large" color="#E94057" style={styles.loader} />
+        <ActivityIndicator size="large" color="#378BBB" style={styles.loader} />
       )}
     </View>
   );
@@ -263,7 +281,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
       <TextInput
         style={styles.descriptionInput}
         placeholder="Please describe the issue..."
-        placeholderTextColor="#999"
+        placeholderTextColor="#7F93AA"
         multiline
         numberOfLines={4}
         value={description}
@@ -288,7 +306,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
                 style={styles.removeScreenshotButton}
                 onPress={() => handleRemoveScreenshot(index)}
               >
-                <Ionicons name="close-circle" size={24} color="#E94057" />
+                <Ionicons name="close-circle" size={24} color="#FF4D6D" />
               </TouchableOpacity>
             </View>
           ))}
@@ -301,7 +319,7 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
           onPress={handlePickScreenshot}
           disabled={isSubmitting}
         >
-          <Ionicons name="camera-outline" size={20} color="#E94057" />
+          <Ionicons name="camera-outline" size={20} color="#378BBB" />
           <Text style={styles.uploadButtonText}>
             {screenshots.length === 0 ? 'Add Screenshots' : `Add More (${3 - screenshots.length} left)`}
           </Text>
@@ -342,6 +360,83 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
           {view === 'main' ? renderMainView() : renderReportView()}
         </View>
       </View>
+
+      {/* Inline Confirmation Modal */}
+      <Modal
+        visible={confirmation.type !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={hideConfirmation}
+      >
+        <View style={styles.confirmationOverlay}>
+          <View style={styles.confirmationContainer}>
+            <View style={[
+              styles.confirmationIconContainer,
+              confirmation.type === 'success' && styles.successIconBg,
+              confirmation.type === 'error' && styles.errorIconBg,
+              confirmation.type === 'warning' && styles.warningIconBg,
+              (confirmation.type === 'block' || confirmation.type === 'unblock') && styles.infoIconBg,
+            ]}>
+              <Ionicons 
+                name={
+                  confirmation.type === 'success' ? 'checkmark-circle' :
+                  confirmation.type === 'error' ? 'close-circle' :
+                  confirmation.type === 'warning' ? 'warning' :
+                  confirmation.type === 'block' ? 'ban' :
+                  confirmation.type === 'unblock' ? 'person-remove' :
+                  'information-circle'
+                }
+                size={32}
+                color={
+                  confirmation.type === 'success' ? '#2ECC71' :
+                  confirmation.type === 'error' ? '#FF4D6D' :
+                  confirmation.type === 'warning' ? '#F4B400' :
+                  '#378BBB'
+                }
+              />
+            </View>
+            <Text style={styles.confirmationTitle}>{confirmation.title}</Text>
+            <Text style={styles.confirmationMessage}>{confirmation.message}</Text>
+            
+            <View style={styles.confirmationButtons}>
+              {confirmation.onConfirm ? (
+                <>
+                  <TouchableOpacity
+                    style={styles.confirmationCancelBtn}
+                    onPress={hideConfirmation}
+                  >
+                    <Text style={styles.confirmationCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmationActionBtn,
+                      confirmation.type === 'block' && styles.destructiveBtn,
+                    ]}
+                    onPress={confirmation.onConfirm}
+                  >
+                    <Text style={styles.confirmationActionText}>
+                      {confirmation.type === 'block' ? 'Block' : 
+                       confirmation.type === 'unblock' ? 'Unblock' : 'Confirm'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.confirmationOkBtn}
+                  onPress={() => {
+                    hideConfirmation();
+                    if (confirmation.type === 'success') {
+                      onClose();
+                    }
+                  }}
+                >
+                  <Text style={styles.confirmationActionText}>OK</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -349,11 +444,11 @@ export const BlockReportModal: React.FC<BlockReportModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#16283D',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '80%',
@@ -367,39 +462,47 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: '#B8C7D9',
     marginBottom: 24,
     lineHeight: 20,
   },
   option: {
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#1B2F48',
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
   },
+  optionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  optionIcon: {
+    marginRight: 8,
+  },
   dangerOption: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
   },
   warningOption: {
-    backgroundColor: '#FFF8E1',
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
   },
   optionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 4,
+    color: '#FFFFFF',
   },
   dangerText: {
-    color: '#E94057',
+    color: '#FF4D6D',
   },
   optionDescription: {
     fontSize: 13,
-    color: '#666',
+    color: '#7F93AA',
+    marginLeft: 28,
   },
   cancelButton: {
     padding: 16,
@@ -408,7 +511,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 16,
-    color: '#666',
+    color: '#7F93AA',
     fontWeight: '500',
   },
   loader: {
@@ -417,14 +520,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   descriptionLabel: {
     marginTop: 16,
   },
   reasonOption: {
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#1B2F48',
     padding: 14,
     borderRadius: 10,
     marginBottom: 8,
@@ -432,28 +535,28 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   reasonOptionSelected: {
-    backgroundColor: '#FFF0F3',
-    borderColor: '#E94057',
+    backgroundColor: 'rgba(55, 139, 187, 0.2)',
+    borderColor: '#378BBB',
   },
   reasonText: {
     fontSize: 15,
-    color: '#666',
+    color: '#B8C7D9',
   },
   reasonTextSelected: {
-    color: '#E94057',
+    color: '#378BBB',
     fontWeight: '600',
   },
   descriptionInput: {
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     padding: 12,
     fontSize: 15,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     minHeight: 100,
   },
   evidenceNote: {
     fontSize: 12,
-    color: '#666',
+    color: '#7F93AA',
     marginBottom: 12,
   },
   screenshotsContainer: {
@@ -471,35 +574,35 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 8,
-    backgroundColor: '#F6F6F6',
+    backgroundColor: '#1B2F48',
   },
   removeScreenshotButton: {
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#fff',
+    backgroundColor: '#16283D',
     borderRadius: 12,
   },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF0F3',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     padding: 14,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E94057',
+    borderColor: '#378BBB',
     borderStyle: 'dashed',
     marginBottom: 20,
     gap: 8,
   },
   uploadButtonText: {
-    color: '#E94057',
+    color: '#378BBB',
     fontSize: 15,
     fontWeight: '600',
   },
   submitButton: {
-    backgroundColor: '#E94057',
+    backgroundColor: '#378BBB',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -516,5 +619,98 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 12,
     alignItems: 'center',
+  },
+  // Confirmation modal styles
+  confirmationOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  confirmationContainer: {
+    backgroundColor: '#16283D',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+  },
+  confirmationIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successIconBg: {
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+  },
+  errorIconBg: {
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
+  },
+  warningIconBg: {
+    backgroundColor: 'rgba(244, 180, 0, 0.15)',
+  },
+  infoIconBg: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+  },
+  confirmationTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  confirmationMessage: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  confirmationCancelBtn: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    alignItems: 'center',
+  },
+  confirmationCancelText: {
+    color: '#378BBB',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmationActionBtn: {
+    flex: 1,
+    backgroundColor: '#378BBB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  confirmationActionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  confirmationOkBtn: {
+    paddingHorizontal: 48,
+    backgroundColor: '#378BBB',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  destructiveBtn: {
+    backgroundColor: '#FF4D6D',
   },
 });

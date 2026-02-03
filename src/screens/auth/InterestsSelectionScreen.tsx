@@ -15,6 +15,7 @@ import {
   ScrollView,
   FlatList,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
@@ -130,6 +131,7 @@ const INTEREST_CATEGORIES = [
 ];
 
 const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>('movies_tv');
   const [saving, setSaving] = useState(false);
@@ -263,7 +265,7 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -424,7 +426,7 @@ const InterestsSelectionScreen: React.FC<InterestsSelectionScreenProps> = ({ nav
       </ScrollView>
 
       {/* Continue Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(32, insets.bottom + 16) }]}>
         <TouchableOpacity
           onPress={handleContinue}
           disabled={saving}
@@ -699,7 +701,8 @@ const styles = StyleSheet.create({
     height: 20,
   },
   footer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     backgroundColor: '#16283D',
     borderTopWidth: 1,
     borderTopColor: '#233B57',

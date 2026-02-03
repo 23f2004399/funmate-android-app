@@ -12,7 +12,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Image,
   SafeAreaView,
@@ -23,12 +22,14 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { BlockedUser, User } from '../../types/database';
 import { getBlockedUsers, unblockUser } from '../../services/blockService';
+import { useAlert } from '../../contexts/AlertContext';
 
 interface BlockedUserWithDetails extends BlockedUser {
   userDetails?: User;
 }
 
 export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const { showError } = useAlert();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,11 +74,11 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
       setBlockedUsers(blockedWithDetails);
     } catch (error) {
       console.error('Error loading blocked users:', error);
-      Alert.alert('Error', 'Failed to load blocked users');
+      showError('Error', 'Failed to load blocked users');
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, showError]);
 
   useEffect(() => {
     loadBlockedUsers();
@@ -109,7 +110,7 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
       setUnblockModal({ visible: false, userId: '', userName: '' });
     } catch (error) {
       console.error('Error unblocking user:', error);
-      Alert.alert('Error', 'Failed to unblock user. Please try again.');
+      showError('Error', 'Failed to unblock user. Please try again.');
     } finally {
       setIsUnblocking(false);
     }

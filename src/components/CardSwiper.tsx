@@ -24,7 +24,7 @@ const SWIPE_OUT_DURATION = 300; // Slightly slower for smoother feel
 
 interface CardSwiperProps {
   data: any[];
-  renderCard: (item: any, index: number) => React.ReactElement | null;
+  renderCard: (item: any, index: number, swipeProgress?: { direction: 'left' | 'right' | 'none', progress: number }) => React.ReactElement | null;
   onSwipeRight?: (index: number) => void;
   onSwipeLeft?: (index: number) => void;
   onSwipedAll?: () => void;
@@ -48,6 +48,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
   const callbacksRef = useRef({ onSwipeRight, onSwipeLeft, onSwipedAll });
   const dataRef = useRef(data);
   const currentCardIdRef = useRef(data[0]?.id); // Track current top card
+  const swipeProgressValue = useRef({ direction: 'none' as 'left' | 'right' | 'none', progress: 0 });
+  const forceUpdateRef = useRef(0);
+  const [, setForceUpdate] = React.useState(0);
 
   // Keep refs updated on every render
   callbacksRef.current = { onSwipeRight, onSwipeLeft, onSwipedAll };
@@ -67,6 +70,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
       opacity.setValue(1);
       isSwipingRef.current = false;
       currentCardIdRef.current = newCardId;
+      // Reset swipe progress so new card starts with blue border
+      swipeProgressValue.current = { direction: 'none', progress: 0 };
+      setForceUpdate(prev => prev + 1);
     }
   }, [data, position, opacity]);
 
@@ -104,6 +110,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
   const forceSwipe = (direction: 'right' | 'left') => {
     if (isSwipingRef.current) return;
     isSwipingRef.current = true;
+    
+    // Reset swipe progress immediately when swipe completes
+    swipeProgressValue.current = { direction: 'none', progress: 0 };
 
     const x = direction === 'right' ? width + 100 : -width - 100;
     
@@ -131,6 +140,17 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
         onPanResponderMove: (_, gesture) => {
           if (!isSwipingRef.current) {
             position.setValue({ x: gesture.dx, y: gesture.dy });
+            
+            // Calculate swipe progress for border animation
+            const direction = gesture.dx > 0 ? 'right' : gesture.dx < 0 ? 'left' : 'none';
+            const progress = Math.min(Math.abs(gesture.dx) / SWIPE_THRESHOLD, 1);
+            swipeProgressValue.current = { direction, progress };
+            
+            // Force re-render to update border (throttled for performance)
+            forceUpdateRef.current++;
+            if (forceUpdateRef.current % 2 === 0) {
+              setForceUpdate(prev => prev + 1);
+            }
           }
         },
         onPanResponderRelease: (_, gesture) => {
@@ -142,6 +162,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
             forceSwipe('left');
           } else {
             resetPosition();
+            // Reset swipe progress when card snaps back
+            swipeProgressValue.current = { direction: 'none', progress: 0 };
+            setForceUpdate(prev => prev + 1);
           }
         },
       }),
@@ -196,7 +219,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
               style={[styles.card, getCardStyle(), cardStyle]}
               {...panResponder.panHandlers}
             >
-              {renderCard(item, i)}
+              {renderCard(item, i, swipeProgressValue.current)}
             </Animated.View>
           );
         }
@@ -208,9 +231,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
             style={[
               styles.card,
               {
-                top: 10 * i,
                 transform: [{ scale: 1 - 0.05 * i }],
-                opacity: 1 - 0.2 * i,
+                opacity: 1 - 0.3 * i,
+                zIndex: -i,
               },
               cardStyle,
             ]}
@@ -250,7 +273,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
           ]}
           pointerEvents="none"
         >
-          <Ionicons name="close-circle" size={100} color="#FF4458" />
+          <Ionicons name="close-circle" size={100} color="#8C8C8C" />
         </Animated.View>
       )}
     </View>

@@ -31,6 +31,7 @@ import {
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -45,6 +46,7 @@ interface CreatorBasicInfoScreenProps {
 }
 
 const CreatorBasicInfoScreen: React.FC<CreatorBasicInfoScreenProps> = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const { phoneNumber } = route.params;
 
   // Form state
@@ -332,7 +334,7 @@ const CreatorBasicInfoScreen: React.FC<CreatorBasicInfoScreenProps> = ({ navigat
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <KeyboardAwareScrollView 
         style={styles.scrollView}
@@ -490,7 +492,7 @@ const CreatorBasicInfoScreen: React.FC<CreatorBasicInfoScreenProps> = ({ navigat
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={styles.continueButton}
+          style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
           onPress={handleEmailSignup}
           disabled={loading}
           activeOpacity={0.8}

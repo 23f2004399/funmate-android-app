@@ -16,12 +16,12 @@ import {
   Switch,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ScrollView,
   SafeAreaView,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import notificationService from '../../services/NotificationService';
+import { useAlert } from '../../contexts/AlertContext';
 
 interface NotificationSettings {
   likes: boolean;
@@ -37,6 +37,7 @@ interface NotificationSettingsScreenProps {
 const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
   navigation,
 }) => {
+  const { showError } = useAlert();
   const [settings, setSettings] = useState<NotificationSettings>({
     likes: true,
     matches: true,
@@ -58,7 +59,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
       setSettings(savedSettings);
     } catch (error) {
       console.error('Error loading notification settings:', error);
-      Alert.alert('Error', 'Failed to load notification settings');
+      showError('Error', 'Failed to load notification settings');
     } finally {
       setLoading(false);
     }
@@ -77,7 +78,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
     } catch (error) {
       // Revert on error
       setSettings(settings);
-      Alert.alert('Error', 'Failed to update setting. Please try again.');
+      showError('Error', 'Failed to update setting. Please try again.');
     } finally {
       setSaving(false);
     }

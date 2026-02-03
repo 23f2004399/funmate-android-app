@@ -10,6 +10,7 @@ import {
   Alert,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import auth, { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
@@ -23,6 +24,7 @@ interface PhoneNumberScreenProps {
 }
 
 const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
+  const insets = useSafeAreaInsets();
   const { accountType = 'user', isLogin = false } = route.params || {};
   const [countryCode, setCountryCode] = useState<CountryCode>('IN');
   const [callingCode, setCallingCode] = useState('+91');
@@ -121,7 +123,7 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       {/* Floating Bubbles */}
       <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />
@@ -208,7 +210,7 @@ const PhoneNumberScreen = ({ navigation, route }: PhoneNumberScreenProps) => {
             colors={phoneNumber.length < 10 ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
             start={{x: 0, y: 0}}
             end={{x: 1, y: 0}}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />

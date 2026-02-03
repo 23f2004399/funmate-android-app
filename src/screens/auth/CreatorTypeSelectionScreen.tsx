@@ -23,6 +23,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
@@ -35,6 +36,7 @@ interface CreatorTypeSelectionScreenProps {
 type CreatorType = 'individual' | 'merchant';
 
 const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [selectedType, setSelectedType] = useState<CreatorType | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -111,7 +113,7 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <ScrollView 
         style={styles.scrollView}
@@ -220,6 +222,7 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
             style={[
               styles.continueButton,
               !selectedType && styles.continueButtonDisabled,
+              { marginBottom: Math.max(32, insets.bottom + 16) },
             ]}
             onPress={handleContinue}
             disabled={!selectedType || loading}

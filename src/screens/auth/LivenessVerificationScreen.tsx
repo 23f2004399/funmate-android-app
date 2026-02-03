@@ -87,6 +87,24 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
   const [attemptsLeft, setAttemptsLeft] = useState(5);
   const [faceDetected, setFaceDetected] = useState(false);
 
+  const handleLogout = async () => {
+    try {
+      await auth().signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        text2: 'Please try again',
+        visibilityTime: 3000,
+      });
+    }
+  };
+
   // Animation for circle overlay
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -449,7 +467,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={true} />
 
       {/* Camera Preview (Full Screen) */}
       <Camera
@@ -483,13 +501,23 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Instruction Card */}
@@ -576,6 +604,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   backButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 25,
+  },
+  logoutButton: {
     width: 50,
     height: 50,
     justifyContent: 'center',

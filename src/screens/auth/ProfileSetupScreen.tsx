@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import DatePicker from 'react-native-date-picker';
@@ -30,7 +31,9 @@ interface ProfileSetupScreenProps {
 }
 
 const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
-  const [phoneNumber, setPhoneNumber] = useState(route.params?.phoneNumber || '');
+  const insets = useSafeAreaInsets();
+  // Phone number available from Firebase Auth, not passed as route param anymore
+  const [phoneNumber] = useState(auth().currentUser?.phoneNumber || '');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -47,30 +50,6 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
-
-  // Fetch phoneNumber from Firestore if not in route params (resume scenario)
-  useEffect(() => {
-    const fetchPhoneNumber = async () => {
-      if (!phoneNumber) {
-        try {
-          const userId = auth().currentUser?.uid;
-          if (userId) {
-            const accountDoc = await firestore().collection('accounts').doc(userId).get();
-            if (accountDoc.exists) {
-              const storedPhone = accountDoc.data()?.phoneNumber;
-              if (storedPhone) {
-                setPhoneNumber(storedPhone);
-                console.log('Fetched phoneNumber from Firestore:', storedPhone);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching phoneNumber:', error);
-        }
-      }
-    };
-    fetchPhoneNumber();
-  }, []);
 
   /**
    * Calculate password strength
@@ -248,6 +227,20 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
       // Now send verification email
       await user.sendEmailVerification();
       
+      // Update account with signupStep so app knows user hasn't completed signup yet
+      await firestore().collection('accounts').doc(user.uid).set({
+        authUid: user.uid,
+        role: 'user',
+        creatorType: null,
+        status: 'active',
+        phoneVerified: true,
+        emailVerified: false,
+        identityVerified: false,
+        bankVerified: false,
+        signupStep: 'photos', // User needs to upload photos next
+        createdAt: firestore.FieldValue.serverTimestamp(),
+      });
+      
       setLoading(false);
       Toast.show({
         type: 'success',
@@ -374,7 +367,7 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <TouchableWithoutFeedback 
         onPress={() => {
@@ -596,7 +589,7 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
             colors={['#378BBB', '#4FC3F7']}
             start={{x: 0, y: 0}}
             end={{x: 1, y: 0}}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(16, insets.bottom + 16) }]}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />

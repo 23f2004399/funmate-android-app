@@ -223,7 +223,7 @@ const IndividualVerificationScreen: React.FC<IndividualVerificationScreenProps> 
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
       <KeyboardAwareScrollView
         style={styles.scrollView}

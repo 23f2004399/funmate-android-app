@@ -28,6 +28,7 @@ import {
   PanResponder,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line } from 'react-native-svg';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -387,6 +388,7 @@ const GlowingSocialInput: React.FC<{
 };
 
 const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [bio, setBio] = useState('');
   const [height, setHeight] = useState<number | null>(null);
   const [heightDisplayUnit, setHeightDisplayUnit] = useState<'cm' | 'ft'>('ft');
@@ -648,7 +650,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <KeyboardAwareScrollView
         style={styles.scrollView}
@@ -943,7 +945,7 @@ const DatingPreferencesScreen: React.FC<DatingPreferencesScreenProps> = ({ navig
       </KeyboardAwareScrollView>
 
       {/* Complete Button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(32, insets.bottom + 16) }]}>
         <TouchableOpacity
           style={styles.completeButton}
           onPress={handleComplete}
@@ -1182,7 +1184,8 @@ const styles = StyleSheet.create({
     height: 20,
   },
   footer: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     backgroundColor: '#0E1621',
     borderTopWidth: 1,
     borderTopColor: '#233B57',

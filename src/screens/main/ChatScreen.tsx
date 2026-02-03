@@ -33,7 +33,6 @@ import {
   Modal,
   Pressable,
   Dimensions,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -47,6 +46,7 @@ import { BlockReportModal } from '../../components/modals/BlockReportModal';
 import { useBlockReport } from '../../hooks/useBlockReport';
 import { ReportReason } from '../../types/database';
 import { isBlockedBy, isUserBlocked } from '../../services/blockService';
+import { useAlert } from '../../contexts/AlertContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -89,6 +89,7 @@ const ChatScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<ChatRouteParams, 'Chat'>>();
   const insets = useSafeAreaInsets();
+  const { showSuccess, showError, showConfirm } = useAlert();
   const { chatId: initialChatId, recipientId, recipientName, recipientPhoto } = route.params;
 
   const userId = auth().currentUser?.uid;
@@ -226,16 +227,71 @@ const ChatScreen = () => {
             setChat(chatData);
             setIsMutual(chatData.isMutual);
           } else {
-            // Create new restricted chat (cold outreach from global search or deleted chat)
+            // Chat doesn't exist or was deleted - check if there's an active match
+            // Query all matches where current user is a participant, then filter
+            let existingMatch = null;
+            console.log('🔍 Checking for existing match between', userId, 'and', recipientId);
+            
+            try {
+              // Get all matches where current user is userA
+              const matchQueryA = await firestore()
+                .collection('matches')
+                .where('userA', '==', userId)
+                .get();
+              
+              console.log('📊 Match query A (userA=me) results:', matchQueryA.docs.length);
+              
+              // Find if any of these matches is with the recipient
+              for (const doc of matchQueryA.docs) {
+                const matchData = doc.data();
+                if (matchData.userB === recipientId && matchData.isActive !== false) {
+                  existingMatch = { id: doc.id, ...matchData };
+                  console.log('✅ Found active match (A):', doc.id);
+                  break;
+                }
+              }
+            } catch (e) {
+              console.log('❌ Match query A failed:', e);
+            }
+
+            // If not found, check matches where current user is userB
+            if (!existingMatch) {
+              try {
+                const matchQueryB = await firestore()
+                  .collection('matches')
+                  .where('userB', '==', userId)
+                  .get();
+                
+                console.log('📊 Match query B (userB=me) results:', matchQueryB.docs.length);
+                
+                // Find if any of these matches is with the recipient
+                for (const doc of matchQueryB.docs) {
+                  const matchData = doc.data();
+                  if (matchData.userA === recipientId && matchData.isActive !== false) {
+                    existingMatch = { id: doc.id, ...matchData };
+                    console.log('✅ Found active match (B):', doc.id);
+                    break;
+                  }
+                }
+              } catch (e) {
+                console.log('❌ Match query B also failed:', e);
+              }
+            }
+
+            const isMutualMatch = !!existingMatch;
+            const matchId = existingMatch ? existingMatch.id : null;
+            console.log('🎯 Final decision - isMutual:', isMutualMatch, 'matchId:', matchId);
+
+            // Create new chat - respects match status
             const newChatRef = await firestore().collection('chats').add({
               type: 'dating',
               participants: [userId, recipientId],
-              relatedMatchId: null,
-              isMutual: false, // Restricted by default
+              relatedMatchId: matchId,
+              isMutual: isMutualMatch, // True if match exists!
               lastMessage: null,
               relatedEventId: null,
               deletionPolicy: {
-                type: 'none',
+                type: isMutualMatch ? 'on_unmatch' : 'none',
                 days: null,
               },
               allowDeleteForEveryone: false,
@@ -252,11 +308,11 @@ const ChatScreen = () => {
               id: newChatRef.id,
               type: 'dating',
               participants: [userId, recipientId],
-              relatedMatchId: null,
-              isMutual: false,
+              relatedMatchId: matchId,
+              isMutual: isMutualMatch,
               lastMessage: null,
               relatedEventId: null,
-              deletionPolicy: { type: 'none', days: null },
+              deletionPolicy: { type: isMutualMatch ? 'on_unmatch' : 'none', days: null },
               allowDeleteForEveryone: false,
               deleteForEveryoneWindowDays: null,
               deletedAt: null,
@@ -265,7 +321,7 @@ const ChatScreen = () => {
               createdAt: new Date(),
               lastMessageAt: new Date(),
             });
-            setIsMutual(false);
+            setIsMutual(isMutualMatch);
           }
         }
       } catch (error: any) {
@@ -783,7 +839,7 @@ const ChatScreen = () => {
                     style={styles.reactionOptionMore}
                     onPress={() => setShowExtendedEmojis(true)}
                   >
-                    <Ionicons name="add" size={24} color="#666666" />
+                    <Ionicons name="add" size={24} color="#B8C7D9" />
                   </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>
@@ -799,7 +855,7 @@ const ChatScreen = () => {
                       onPress={() => setShowExtendedEmojis(false)}
                       style={styles.extendedEmojiClose}
                     >
-                      <Ionicons name="close" size={24} color="#666666" />
+                      <Ionicons name="close" size={24} color="#B8C7D9" />
                     </TouchableOpacity>
                   </View>
                   <View style={styles.extendedEmojiGrid}>
@@ -834,9 +890,9 @@ const ChatScreen = () => {
   if (loading) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF4458" />
+          <ActivityIndicator size="large" color="#378BBB" />
           <Text style={styles.loadingText}>Loading chat...</Text>
         </View>
       </View>
@@ -845,12 +901,12 @@ const ChatScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.headerProfile}>
@@ -869,14 +925,14 @@ const ChatScreen = () => {
           style={styles.headerAction}
           onPress={openBlockReportModal}
         >
-          <Ionicons name="ellipsis-vertical" size={24} color="#1A1A1A" />
+          <Ionicons name="ellipsis-vertical" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       {/* Restricted Chat Notice */}
       {!isMutual && !hasBlockedRecipient && (
         <View style={styles.restrictedNotice}>
-          <Ionicons name="lock-closed" size={16} color="#FF9500" />
+          <Ionicons name="lock-closed" size={16} color="#F4B400" />
           <Text style={styles.restrictedNoticeText}>
             This is a restricted chat. Send a quick message to break the ice!
           </Text>
@@ -886,29 +942,24 @@ const ChatScreen = () => {
       {/* Blocked User Notice */}
       {hasBlockedRecipient && (
         <View style={styles.blockedNotice}>
-          <Ionicons name="ban" size={16} color="#E94057" />
+          <Ionicons name="ban" size={16} color="#FF4D6D" />
           <Text style={styles.blockedNoticeText}>
             You've blocked this user. Unblock to send messages.
           </Text>
           <TouchableOpacity 
             onPress={() => {
-              Alert.alert(
+              showConfirm(
                 'Unblock User',
                 `Are you sure you want to unblock ${recipient?.name || recipientName || 'this user'}?`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Unblock',
-                    onPress: async () => {
-                      try {
-                        await handleUnblock();
-                        Alert.alert('Unblocked', `${recipient?.name || recipientName || 'User'} has been unblocked.`);
-                      } catch (error) {
-                        Alert.alert('Error', 'Failed to unblock user. Please try again.');
-                      }
-                    },
-                  },
-                ]
+                async () => {
+                  try {
+                    await handleUnblock();
+                    showSuccess('Unblocked', `${recipient?.name || recipientName || 'User'} has been unblocked.`);
+                  } catch (error) {
+                    showError('Error', 'Failed to unblock user. Please try again.');
+                  }
+                },
+                { confirmText: 'Unblock', icon: 'person-remove' }
               );
             }} 
             style={styles.unblockButton}
@@ -931,7 +982,7 @@ const ChatScreen = () => {
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           <View style={styles.emptyMessages}>
-            <Ionicons name="chatbubbles-outline" size={60} color="#E0E0E0" />
+            <Ionicons name="chatbubbles-outline" size={60} color="#7F93AA" />
             <Text style={styles.emptyMessagesText}>
               {isMutual
                 ? 'Start the conversation!'
@@ -955,16 +1006,16 @@ const ChatScreen = () => {
             disabled={uploadingPhoto}
           >
             {uploadingPhoto ? (
-              <ActivityIndicator size="small" color="#FF4458" />
+              <ActivityIndicator size="small" color="#378BBB" />
             ) : (
-              <Ionicons name="image-outline" size={24} color="#FF4458" />
+              <Ionicons name="image-outline" size={24} color="#378BBB" />
             )}
           </TouchableOpacity>
 
           <TextInput
             style={styles.textInput}
             placeholder="Type a message..."
-            placeholderTextColor="#999999"
+            placeholderTextColor="#7F93AA"
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -1024,7 +1075,7 @@ const ChatScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0E1621',
   },
   loadingContainer: {
     flex: 1,
@@ -1034,7 +1085,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
   },
   header: {
     flexDirection: 'row',
@@ -1042,9 +1093,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#233B57',
   },
   backButton: {
     padding: 4,
@@ -1059,7 +1110,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#1B2F48',
   },
   headerInfo: {
     marginLeft: 12,
@@ -1068,11 +1119,11 @@ const styles = StyleSheet.create({
   headerName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   restrictedBadge: {
     fontSize: 12,
-    color: '#FF9500',
+    color: '#F4B400',
     fontWeight: '500',
   },
   headerAction: {
@@ -1081,7 +1132,7 @@ const styles = StyleSheet.create({
   restrictedNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF8E7',
+    backgroundColor: 'rgba(244, 180, 0, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
@@ -1089,12 +1140,12 @@ const styles = StyleSheet.create({
   restrictedNoticeText: {
     flex: 1,
     fontSize: 13,
-    color: '#996600',
+    color: '#F4B400',
   },
   blockedNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 8,
@@ -1102,11 +1153,11 @@ const styles = StyleSheet.create({
   blockedNoticeText: {
     flex: 1,
     fontSize: 13,
-    color: '#C62828',
+    color: '#FF4D6D',
     fontWeight: '500',
   },
   unblockButton: {
-    backgroundColor: '#E94057',
+    backgroundColor: '#FF4D6D',
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
@@ -1133,7 +1184,7 @@ const styles = StyleSheet.create({
   emptyMessagesText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
   },
   messageBubble: {
@@ -1142,18 +1193,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   ownMessage: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     borderBottomRightRadius: 4,
   },
   otherMessage: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1B2F48',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#233B57',
   },
   shadowChipMessage: {
     borderWidth: 2,
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
     borderStyle: 'dashed',
   },
   messageContainer: {
@@ -1178,7 +1229,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   otherMessageText: {
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   imageMessage: {
     padding: 4,
@@ -1198,7 +1249,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   otherMessageTimestamp: {
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'left',
   },
   reactionsContainer: {
@@ -1222,19 +1273,19 @@ const styles = StyleSheet.create({
   reactionBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderRadius: 12,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#233B57',
   },
   reactionEmoji: {
     fontSize: 14,
   },
   reactionCount: {
     fontSize: 11,
-    color: '#666666',
+    color: '#B8C7D9',
     marginLeft: 2,
   },
   shadowChipBadge: {
@@ -1251,16 +1302,16 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#233B57',
     gap: 8,
   },
   photoButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFF0F2',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1268,28 +1319,28 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 44,
     maxHeight: 120,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    backgroundColor: '#233B57',
   },
   // Reaction picker styles
   reactionOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-start',
     alignItems: 'center',
   },
@@ -1297,16 +1348,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderRadius: 28,
     paddingHorizontal: 8,
     paddingVertical: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 10,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#233B57',
   },
   reactionOption: {
     padding: 8,
@@ -1318,23 +1371,25 @@ const styles = StyleSheet.create({
     padding: 8,
     marginLeft: 4,
     borderLeftWidth: 1,
-    borderLeftColor: '#E0E0E0',
+    borderLeftColor: '#233B57',
   },
   // Extended emoji picker styles
   extendedEmojiPicker: {
     position: 'absolute',
     top: '30%',
     alignSelf: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderRadius: 20,
     padding: 16,
     width: SCREEN_WIDTH - 40,
     maxWidth: 360,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 10,
+    borderWidth: 1,
+    borderColor: '#233B57',
   },
   extendedEmojiHeader: {
     flexDirection: 'row',
@@ -1343,12 +1398,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#233B57',
   },
   extendedEmojiTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   extendedEmojiClose: {
     padding: 4,
@@ -1369,15 +1424,15 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   shadowChipsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#233B57',
   },
   shadowChipsLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#666666',
+    color: '#7F93AA',
     marginLeft: 16,
     marginBottom: 10,
     textTransform: 'uppercase',
@@ -1387,17 +1442,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   shadowChip: {
-    backgroundColor: '#FFF0F2',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
   },
   shadowChipText: {
     fontSize: 14,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: '500',
   },
 });

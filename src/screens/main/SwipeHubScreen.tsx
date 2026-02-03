@@ -34,7 +34,7 @@ import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
 import Geolocation from '@react-native-community/geolocation';
 import { getBlockedUserIds } from '../../utils/blockCache';
-import { calculateMatchScore, calculateDistance, passesFilters } from '../../utils/RecomendationEngine';
+import { calculateMatchScore, calculateDistance, passesFilters, getIntentCompatibilityType, getCommonInterests, formatIntent } from '../../utils/RecomendationEngine';
 import { calculateProfileCompleteness } from '../../utils/profileCompleteness';
 import notificationService from '../../services/NotificationService';
 
@@ -66,6 +66,17 @@ interface Match {
   distance: number;
   matchScore: number;
   lastActiveAt?: any;
+  height?: {
+    value: number;
+    displayUnit: 'cm' | 'ft';
+  } | null;
+  occupation?: string | null;
+  socialHandles?: {
+    instagram: string | null;
+    linkedin: string | null;
+    facebook: string | null;
+    twitter: string | null;
+  } | null;
 }
 
 // Match data for animation (mutual match)
@@ -88,6 +99,8 @@ const SwipeHubScreen = () => {
   const [matchAnimationData, setMatchAnimationData] = useState<MatchAnimationData | null>(null);
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string>('');
   const [expandedSocial, setExpandedSocial] = useState<string | null>(null);
+  const [currentUserInterests, setCurrentUserInterests] = useState<string[]>([]);
+  const [currentUserIntent, setCurrentUserIntent] = useState<string | null>(null);
   const showMatchAnimationRef = useRef(false); // Ref for synchronous access to prevent empty state flicker
   
   const userId = auth().currentUser?.uid;
@@ -277,10 +290,10 @@ const SwipeHubScreen = () => {
   }, [matches.length]);
 
   /**
-   * Fetch current user's photo for match animation
+   * Fetch current user's photo and profile data for match animation and scoring
    */
   useEffect(() => {
-    const fetchCurrentUserPhoto = async () => {
+    const fetchCurrentUserData = async () => {
       if (!userId) return;
       
       try {
@@ -290,14 +303,18 @@ const SwipeHubScreen = () => {
           const primaryPhoto = userData?.photos?.find((p: any) => p.isPrimary)?.url;
           const firstPhoto = userData?.photos?.[0]?.url;
           setCurrentUserPhoto(primaryPhoto || firstPhoto || '');
+          
+          // Store current user's interests and intent for match score
+          setCurrentUserInterests(userData?.interests || []);
+          setCurrentUserIntent(userData?.relationshipIntent || null);
         }
       } catch (error) {
-        console.error('Error fetching current user photo:', error);
+        console.error('Error fetching current user data:', error);
       }
     };
     
-    fetchCurrentUserPhoto();
-  }, [userId]);
+    fetchCurrentUserData();
+  }, [userId, isFocused]); // Re-fetch when screen gains focus
 
   /**
    * On tab focus or loading complete - check permission status and show/hide banner accordingly
@@ -820,15 +837,46 @@ const SwipeHubScreen = () => {
   /**
    * Render individual card (memoized for performance)
    */
-  const renderCard = useCallback((match: Match, index: number) => {
+  const renderCard = useCallback((match: Match, index: number, swipeProgress?: { direction: 'left' | 'right' | 'none', progress: number }) => {
     const currentPhoto = match.photos[currentPhotoIndex]?.url || 'https://via.placeholder.com/400';
     const matchPercentage = Math.round(match.matchScore);
     
     // Show "unknown" if no location data
     const distanceText = match.location ? `${match.distance} km away` : 'Location unknown';
+    
+    // Calculate border color based on swipe progress
+    const getBorderColor = () => {
+      if (!swipeProgress || swipeProgress.progress === 0) return '#378BBB'; // Blue default
+      
+      if (swipeProgress.direction === 'right') {
+        // Interpolate from blue to red
+        const blueAmount = Math.round(55 * (1 - swipeProgress.progress));
+        const redAmount = Math.round(255 * swipeProgress.progress + 55 * (1 - swipeProgress.progress));
+        const greenAmount = Math.round(139 * (1 - swipeProgress.progress) + 77 * swipeProgress.progress);
+        const blueComponent = Math.round(187 * (1 - swipeProgress.progress) + 109 * swipeProgress.progress);
+        return `rgb(${redAmount}, ${greenAmount}, ${blueComponent})`;
+      } else if (swipeProgress.direction === 'left') {
+        // Interpolate from blue to grey
+        const greyValue = Math.round(55 + (140 - 55) * swipeProgress.progress);
+        return `rgb(${greyValue}, ${greyValue}, ${greyValue})`;
+      }
+      
+      return '#378BBB';
+    };
+    
+    // Calculate shadow color (follows border)
+    const getShadowColor = () => {
+      if (!swipeProgress || swipeProgress.progress === 0) return '#378BBB';
+      if (swipeProgress.direction === 'right') return getBorderColor();
+      if (swipeProgress.direction === 'left') return getBorderColor();
+      return '#378BBB';
+    };
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, {
+        borderColor: getBorderColor(),
+        shadowColor: getShadowColor(),
+      }]}>
         {/* Photo with cache control for faster loading */}
         <Image 
           source={{ uri: currentPhoto, cache: 'force-cache' }} 
@@ -877,16 +925,18 @@ const SwipeHubScreen = () => {
           </View>
         )}
 
-        {/* Match percentage badge */}
-        <View style={styles.matchBadge}>
-          <Text style={styles.matchPercentage}>{matchPercentage}%</Text>
-          <Text style={styles.matchLabel}>Match</Text>
-        </View>
-
-        {/* Trust badge (profile completeness) */}
-        <View style={styles.trustBadge}>
-          <Text style={styles.trustPercentage}>{calculateProfileCompleteness(match)}%</Text>
-          <Text style={styles.trustLabel}>Trusted</Text>
+        {/* Stacked Micro Pills (top-right) */}
+        <View style={styles.badgesContainer}>
+          {/* Trusted Badge */}
+          <View style={styles.trustedBadge}>
+            <Ionicons name="shield-checkmark" size={14} color="#2ECC71" />
+            <Text style={styles.trustedText}>{calculateProfileCompleteness(match)}% Trusted</Text>
+          </View>
+          {/* Match Badge */}
+          <View style={styles.matchBadge}>
+            <Ionicons name="heart" size={14} color="#FF4D6D" />
+            <Text style={styles.matchText}>{matchPercentage}% Match</Text>
+          </View>
         </View>
 
         {/* Card info */}
@@ -897,7 +947,7 @@ const SwipeHubScreen = () => {
                 {match.name}, {match.age}
               </Text>
               <View style={styles.cardMeta}>
-                <Ionicons name="location-outline" size={14} color="#999999" />
+                <Ionicons name="location-outline" size={14} color="#000000" />
                 <Text style={styles.cardDistance}>{distanceText}</Text>
               </View>
             </View>
@@ -933,8 +983,8 @@ const SwipeHubScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ActivityIndicator size="large" color="#FF4458" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+        <ActivityIndicator size="large" color="#378BBB" />
         <Text style={styles.loadingText}>Finding matches...</Text>
       </View>
     );
@@ -947,11 +997,11 @@ const SwipeHubScreen = () => {
   if (matches.length === 0 && !showMatchAnimation) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
         
         {/* Header */}
         <View style={styles.header}>
-          <Ionicons name="heart" size={32} color="#FF4458" />
+          <Ionicons name="heart" size={32} color="#378BBB" />
           <Text style={styles.title}>Swipe Hub</Text>
         </View>
 
@@ -959,7 +1009,7 @@ const SwipeHubScreen = () => {
         {showLocationBanner && (
           <View style={styles.locationBanner}>
             <View style={styles.locationBannerContent}>
-              <Ionicons name="location" size={20} color="#856404" />
+              <Ionicons name="location" size={20} color="#F4B400" />
               <Text style={styles.locationBannerText}>
                 Enable location for better matches nearby
               </Text>
@@ -975,7 +1025,7 @@ const SwipeHubScreen = () => {
                 style={styles.closeBannerButton}
                 onPress={() => setShowLocationBanner(false)}
               >
-                <Ionicons name="close" size={20} color="#856404" />
+                <Ionicons name="close" size={20} color="#F4B400" />
               </TouchableOpacity>
             </View>
           </View>
@@ -988,13 +1038,13 @@ const SwipeHubScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#FF4458']}
-              tintColor="#FF4458"
+              colors={['#378BBB']}
+              tintColor="#378BBB"
             />
           }
           showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="people-outline" size={80} color="#E0E0E0" />
+          <Ionicons name="people-outline" size={80} color="#7F93AA" />
           <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptyText}>
             Check back later for new profiles!{'\n'}Try adjusting your preferences or radius.
@@ -1007,11 +1057,11 @@ const SwipeHubScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
       
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="heart" size={32} color="#FF4458" />
+        <Ionicons name="heart" size={32} color="#378BBB" />
         <Text style={styles.title}>Swipe Hub</Text>
       </View>
 
@@ -1019,7 +1069,7 @@ const SwipeHubScreen = () => {
       {showLocationBanner && (
         <View style={styles.locationBanner}>
           <View style={styles.locationBannerContent}>
-            <Ionicons name="location" size={20} color="#856404" />
+            <Ionicons name="location" size={20} color="#F4B400" />
             <Text style={styles.locationBannerText}>
               Enable location for better matches nearby
             </Text>
@@ -1035,7 +1085,7 @@ const SwipeHubScreen = () => {
               style={styles.closeBannerButton}
               onPress={() => setShowLocationBanner(false)}
             >
-              <Ionicons name="close" size={20} color="#856404" />
+              <Ionicons name="close" size={20} color="#F4B400" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1049,8 +1099,8 @@ const SwipeHubScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#FF4458']}
-            tintColor="#FF4458"
+            colors={['#378BBB']}
+            tintColor="#378BBB"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -1083,167 +1133,257 @@ const SwipeHubScreen = () => {
             {/* Basic Info Header */}
             <View style={styles.detailHeader}>
               <Text style={styles.detailName}>{currentMatch.name}, {currentMatch.age}</Text>
-              <View style={styles.detailLocation}>
-                <Ionicons name="location-outline" size={16} color="#666666" />
-                <Text style={styles.detailLocationText}>
-                  {currentMatch.location ? `${currentMatch.distance} km away` : 'Location unknown'}
-                </Text>
-              </View>
             </View>
 
             {/* Bio Section */}
             <View style={styles.detailSection}>
               <Text style={styles.detailSectionTitle}>Bio</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentMatch.bio || 'No bio added yet'}
-              </Text>
+              <View style={styles.bioBox}>
+                <Text style={styles.bioBoxText}>
+                  {currentMatch.bio || 'No bio added yet'}
+                </Text>
+              </View>
             </View>
 
-            {/* Interests Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Interests</Text>
-              {currentMatch.interests && currentMatch.interests.length > 0 ? (
-                <View style={styles.interestsContainer}>
-                  {currentMatch.interests.map((interest, index) => (
-                    <View key={index} style={styles.interestChip}>
-                      <Text style={styles.interestChipText}>{interest}</Text>
-                    </View>
-                  ))}
+            {/* Match Score Section */}
+            {(() => {
+              const commonInterests = getCommonInterests(currentUserInterests, currentMatch.interests || []);
+              const intentType = getIntentCompatibilityType(currentUserIntent, currentMatch.relationshipIntent);
+              const hasLocation = currentMatch.location && currentMatch.distance >= 0;
+              const hasInterests = commonInterests.length > 0;
+              const hasIntent = intentType === 'exact' || intentType === 'compatible';
+              const hasPreviousLines = hasInterests || hasIntent;
+
+              // Only show section if there's something to display
+              if (!hasInterests && !hasIntent && !hasLocation) return null;
+
+              return (
+                <View style={styles.matchScoreSection}>
+                  <Text style={styles.matchScoreSectionTitle}>Match Score</Text>
+                  <View style={styles.matchScoreContent}>
+                    {/* Interests line */}
+                    {hasInterests && (
+                      <View style={styles.matchScoreParagraph}>
+                        <Text style={styles.matchScoreText}>
+                          You guys have some similar Interests:{' '}
+                        </Text>
+                        <View style={styles.matchScoreChips}>
+                          {commonInterests.map((interest, index) => (
+                            <View key={index} style={styles.matchScoreChip}>
+                              <Text style={styles.matchScoreChipText}>{interest}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Intent line */}
+                    {intentType === 'exact' && (
+                      <Text style={styles.matchScoreText}>
+                        You both have same relationship Intent too: <Text style={styles.matchScoreHighlight}>{formatIntent(currentMatch.relationshipIntent)}</Text>
+                      </Text>
+                    )}
+                    {intentType === 'compatible' && (
+                      <Text style={styles.matchScoreText}>
+                        You guys have compatible Intents: <Text style={styles.matchScoreHighlight}>{formatIntent(currentUserIntent)} ↔ {formatIntent(currentMatch.relationshipIntent)}</Text>
+                      </Text>
+                    )}
+
+                    {/* Distance line */}
+                    {hasLocation && (
+                      <Text style={styles.matchScoreText}>
+                        {hasPreviousLines ? 'And guess what?' : 'Guess what?'} They live only <Text style={styles.matchScoreHighlight}>{currentMatch.distance} kms</Text> away.
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              ) : (
-                <Text style={styles.detailEmptyText}>No interests added yet</Text>
-              )}
-            </View>
+              );
+            })()}
 
-            {/* Looking For Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Looking For</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentMatch.relationshipIntent || 'Not specified'}
-              </Text>
-            </View>
+            {/* Profile Section - Contains all profile details */}
+            <View style={styles.profileSection}>
+              <Text style={styles.profileSectionTitle}>Profile</Text>
+              
+              {/* Row 1: Interests - Full Width */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Interests</Text>
+                {currentMatch.interests && currentMatch.interests.length > 0 ? (
+                  <View style={styles.interestsContainer}>
+                    {currentMatch.interests.map((interest, index) => (
+                      <View key={index} style={styles.interestChip}>
+                        <Text style={styles.interestChipText}>{interest}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.detailEmptyText}>No interests added yet</Text>
+                )}
+              </View>
 
-            {/* Interested In Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Interested In</Text>
-              {currentMatch.interestedIn && currentMatch.interestedIn.length > 0 ? (
-                <View style={styles.interestsContainer}>
-                  {currentMatch.interestedIn.map((gender, index) => (
-                    <View key={index} style={styles.preferenceChip}>
-                      <Text style={styles.preferenceChipText}>{gender}</Text>
-                    </View>
-                  ))}
+              {/* Row 2: Looking For | Interested In */}
+              <View style={styles.profileRow}>
+                {/* Looking For - Left */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Looking For</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {formatIntent(currentMatch.relationshipIntent) || 'Not specified'}
+                  </Text>
                 </View>
-              ) : (
-                <Text style={styles.detailEmptyText}>Not specified</Text>
-              )}
-            </View>
 
-            {/* Gender Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Gender</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentMatch.gender || 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Height Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Height</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentMatch.height ? `${currentMatch.height.value} cm` : 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Occupation Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Occupation</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentMatch.occupation || 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Social Handles Section */}
-            {currentMatch.socialHandles && (
-              currentMatch.socialHandles.instagram || 
-              currentMatch.socialHandles.linkedin || 
-              currentMatch.socialHandles.facebook || 
-              currentMatch.socialHandles.twitter
-            ) && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>Socials</Text>
-                <View style={styles.socialIconsContainer}>
-                  {currentMatch.socialHandles.instagram && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
-                      >
-                        <Ionicons name="logo-instagram" size={28} color="#E4405F" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'instagram' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>
-                            @{currentMatch.socialHandles.instagram.replace('@', '')}
+                {/* Interested In - Right */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Interested In</Text>
+                  {currentMatch.interestedIn && currentMatch.interestedIn.length > 0 ? (
+                    <View style={styles.interestsContainer}>
+                      {currentMatch.interestedIn.map((gender, index) => (
+                        <View key={index} style={styles.preferenceChipSmall}>
+                          <Text style={styles.preferenceChipTextSmall}>
+                            {gender.charAt(0).toUpperCase() + gender.slice(1)}
                           </Text>
                         </View>
-                      )}
+                      ))}
                     </View>
-                  )}
-                  {currentMatch.socialHandles.linkedin && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
-                      >
-                        <Ionicons name="logo-linkedin" size={28} color="#0A66C2" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'linkedin' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>
-                            {currentMatch.socialHandles.linkedin}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {currentMatch.socialHandles.facebook && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
-                      >
-                        <Ionicons name="logo-facebook" size={28} color="#1877F2" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'facebook' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>
-                            {currentMatch.socialHandles.facebook}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {currentMatch.socialHandles.twitter && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
-                      >
-                        <Text style={styles.xLogoLarge}>𝕏</Text>
-                      </TouchableOpacity>
-                      {expandedSocial === 'twitter' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>
-                            @{currentMatch.socialHandles.twitter.replace('@', '')}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                  ) : (
+                    <Text style={styles.profileRowItemText}>Not specified</Text>
                   )}
                 </View>
               </View>
-            )}
+
+              {/* Row 3: Height | Gender */}
+              <View style={styles.profileRow}>
+                {/* Height - Left */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Height</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {currentMatch.height ? `${currentMatch.height.value} cm` : 'Not specified'}
+                  </Text>
+                </View>
+
+                {/* Gender - Right */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Gender</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {currentMatch.gender ? 
+                      currentMatch.gender.charAt(0).toUpperCase() + currentMatch.gender.slice(1) 
+                      : 'Not specified'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Row 4: Occupation - Full Width */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Occupation</Text>
+                <Text style={styles.profileRowItemText}>
+                  {currentMatch.occupation || 'Not specified'}
+                </Text>
+              </View>
+
+              {/* Row 5: Social Handles Section */}
+              {currentMatch.socialHandles && (
+                currentMatch.socialHandles.instagram || 
+                currentMatch.socialHandles.linkedin || 
+                currentMatch.socialHandles.facebook || 
+                currentMatch.socialHandles.twitter
+              ) && (
+                <View style={styles.profileDetailSection}>
+                  <Text style={styles.profileDetailTitle}>Socials</Text>
+                  <View style={styles.socialIconsContainer}>
+                    {currentMatch.socialHandles.instagram && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
+                        >
+                          <Ionicons name="logo-instagram" size={28} color="#E4405F" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'instagram' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              @{currentMatch.socialHandles.instagram.replace('@', '')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentMatch.socialHandles.linkedin && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
+                        >
+                          <Ionicons name="logo-linkedin" size={28} color="#0A66C2" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'linkedin' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              {currentMatch.socialHandles.linkedin}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentMatch.socialHandles.facebook && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
+                        >
+                          <Ionicons name="logo-facebook" size={28} color="#1877F2" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'facebook' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              {currentMatch.socialHandles.facebook}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentMatch.socialHandles.twitter && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
+                        >
+                          <Text style={styles.xLogoLarge}>𝕏</Text>
+                        </TouchableOpacity>
+                        {expandedSocial === 'twitter' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              @{currentMatch.socialHandles.twitter.replace('@', '')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Trust Score Section */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Trust Score</Text>
+                <View style={styles.trustScoreContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${calculateProfileCompleteness(currentMatch)}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.trustScorePercentage}>
+                    {calculateProfileCompleteness(currentMatch)}%
+                  </Text>
+                </View>
+                <View style={styles.trustScoreInfoContainer}>
+                  <Ionicons name="star" size={12} color="#7F93AA" />
+                  <Text style={styles.trustScoreInfoText}>
+                    Trust score is based on profile completion
+                  </Text>
+                </View>
+              </View>
+            </View>
 
             {/* Bottom padding for scroll */}
             <View style={styles.bottomPadding} />
@@ -1267,18 +1407,19 @@ const SwipeHubScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0E1621',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
+    fontFamily: 'Inter-Regular',
   },
   header: {
     flexDirection: 'row',
@@ -1286,25 +1427,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#0E1621',
+    borderBottomWidth: 2,
+    borderBottomColor: '#0E1621',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
     gap: 12,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
   locationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF3CD',
+    backgroundColor: 'rgba(244, 180, 0, 0.15)',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#FFEEBA',
+    borderBottomColor: '#233B57',
   },
   locationBannerContent: {
     flexDirection: 'row',
@@ -1314,8 +1461,9 @@ const styles = StyleSheet.create({
   },
   locationBannerText: {
     fontSize: 14,
-    color: '#856404',
+    color: '#F4B400',
     flex: 1,
+    fontFamily: 'Inter-Regular',
   },
   locationBannerActions: {
     flexDirection: 'row',
@@ -1323,7 +1471,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   enableButton: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1334,6 +1482,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   closeBannerButton: {
     padding: 4,
@@ -1352,24 +1501,27 @@ const styles = StyleSheet.create({
   pullToRefreshHint: {
     marginTop: 16,
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     fontStyle: 'italic',
+    fontFamily: 'Inter-Italic',
   },
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: '#16283D',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 10,
     overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
-    height: '70%',
+    height: '100%',
     resizeMode: 'cover',
   },
   leftTapArea: {
@@ -1377,14 +1529,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     width: '40%',
-    height: '70%',
+    height: '100%',
   },
   rightTapArea: {
     position: 'absolute',
     top: 0,
     right: 0,
     width: '40%',
-    height: '70%',
+    height: '100%',
   },
   photoIndicators: {
     position: 'absolute',
@@ -1405,49 +1557,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   matchBadge: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    backgroundColor: '#FF4458',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    gap: 5,
   },
-  matchPercentage: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  matchText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF4D6D',
+    fontFamily: 'Inter-Medium',
   },
-  matchLabel: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    marginTop: -2,
-  },
-  trustBadge: {
+  badgesContainer: {
     position: 'absolute',
-    top: 75, // Below match badge
-    right: 20,
-    backgroundColor: '#4CAF50',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    top: 16,
+    right: 12,
+    gap: 6,
+    alignItems: 'flex-end',
+  },
+  trustedBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    gap: 5,
   },
-  trustPercentage: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  trustLabel: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    marginTop: -2,
+  trustedText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2ECC71',
+    fontFamily: 'Inter-Medium',
   },
   cardInfo: {
-    flex: 1,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: 16,
-    justifyContent: 'space-between',
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1457,8 +1610,9 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 4,
+    fontFamily: 'Inter-Bold',
   },
   cardMeta: {
     flexDirection: 'row',
@@ -1467,13 +1621,17 @@ const styles = StyleSheet.create({
   },
   cardDistance: {
     fontSize: 14,
-    color: '#999999',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   cardBio: {
     fontSize: 14,
-    color: '#666666',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
     lineHeight: 20,
     marginTop: 8,
+    fontFamily: 'Inter-Bold',
   },
   interestsTags: {
     flexDirection: 'row',
@@ -1482,14 +1640,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   interestTag: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#1B2F48',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
   interestText: {
     fontSize: 12,
-    color: '#666666',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -1497,7 +1657,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
     gap: 60,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   actionButton: {
     width: 60,
@@ -1507,19 +1667,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
   passButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderWidth: 2,
-    borderColor: '#FF6B6B',
+    borderColor: '#FF4D6D',
   },
   likeButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderWidth: 2,
-    borderColor: '#4ECDC4',
+    borderColor: '#2ECC71',
   },
   emptyContainer: {
     flex: 1,
@@ -1530,21 +1690,17 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginTop: 20,
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     textAlign: 'center',
     lineHeight: 24,
-  },
-  pullToRefreshHint: {
-    marginTop: 20,
-    fontSize: 14,
-    color: '#999999',
-    fontStyle: 'italic',
+    fontFamily: 'Inter-Regular',
   },
   // Location Request Styles
   locationRequestContainer: {
@@ -1557,7 +1713,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -1565,22 +1721,24 @@ const styles = StyleSheet.create({
   locationRequestTitle: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 16,
     textAlign: 'center',
+    fontFamily: 'Inter-Bold',
   },
   locationRequestDescription: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
+    fontFamily: 'Inter-Regular',
   },
   enableLocationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 30,
@@ -1588,18 +1746,20 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   enableLocationButtonDisabled: {
-    backgroundColor: '#FFB0B8',
+    backgroundColor: 'rgba(55, 139, 187, 0.5)',
   },
   enableLocationButtonText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   locationPrivacyText: {
     marginTop: 20,
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#2ECC71',
     textAlign: 'center',
+    fontFamily: 'Inter-Regular',
   },
   // Profile Details Styles (Bumble-style scroll)
   scrollIndicator: {
@@ -1608,11 +1768,12 @@ const styles = StyleSheet.create({
   },
   scrollHintText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     marginTop: 4,
+    fontFamily: 'Inter-Regular',
   },
   profileDetailsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -1620,7 +1781,7 @@ const styles = StyleSheet.create({
     marginTop: -10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -1630,8 +1791,9 @@ const styles = StyleSheet.create({
   detailName: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
   },
   detailLocation: {
     flexDirection: 'row',
@@ -1640,7 +1802,8 @@ const styles = StyleSheet.create({
   },
   detailLocationText: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
+    fontFamily: 'Inter-Regular',
   },
   detailSection: {
     marginBottom: 24,
@@ -1648,18 +1811,182 @@ const styles = StyleSheet.create({
   detailSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 10,
+    fontFamily: 'Inter-SemiBold',
   },
   detailSectionContent: {
     fontSize: 16,
-    color: '#444444',
+    color: '#B8C7D9',
     lineHeight: 24,
+    fontFamily: 'Inter-Regular',
+  },
+  bioBox: {
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    padding: 16,
+    minHeight: 100,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  bioBoxText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    lineHeight: 22,
+    fontFamily: 'Inter-Regular',
   },
   detailEmptyText: {
     fontSize: 15,
-    color: '#999999',
+    color: '#7F93AA',
     fontStyle: 'italic',
+    fontFamily: 'Inter-Italic',
+  },
+  matchScoreSection: {
+    marginBottom: 24,
+    backgroundColor: '#1B2F48',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FF4D6D',
+    shadowColor: '#FF4D6D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  matchScoreContent: {
+    gap: 12,
+  },
+  matchScoreSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    fontFamily: 'Inter-Bold',
+    alignSelf: 'flex-start',
+  },
+  profileSection: {
+    marginBottom: 24,
+    backgroundColor: '#1B2F48',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  profileSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    fontFamily: 'Inter-Bold',
+  },
+  profileDetailSection: {
+    marginBottom: 33,
+  },
+  profileDetailTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
+  },
+  profileRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  profileRowItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  profileRowItemHalf: {
+    flex: 1,
+  },
+  profileDetailTitleCentered: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
+    textAlign: 'center',
+  },
+  profileRowItemText: {
+    fontSize: 14,
+    color: '#B8C7D9',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+  },
+  profileRowItemTextCentered: {
+    fontSize: 14,
+    color: '#B8C7D9',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+  },
+  preferenceChipSmall: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 139, 187, 0.3)',
+    marginBottom: 4,
+  },
+  preferenceChipTextSmall: {
+    fontSize: 12,
+    color: '#378BBB',
+    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
+  },
+  matchScoreParagraph: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  matchScoreText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    lineHeight: 22,
+    fontFamily: 'Inter-Regular',
+  },
+  matchScoreHighlight: {
+    color: '#378BBB',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+  },
+  matchScoreChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  matchScoreChip: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#378BBB',
+  },
+  matchScoreChipText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   interestsContainer: {
     flexDirection: 'row',
@@ -1667,30 +1994,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   interestChip: {
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FFD6DA',
+    borderColor: '#378BBB',
   },
   interestChipText: {
     fontSize: 14,
-    color: '#FF4458',
+    color: '#FFFFFF',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   preferenceChip: {
-    backgroundColor: '#E8F4FD',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#B3D9F2',
+    borderColor: 'rgba(55, 139, 187, 0.3)',
   },
   preferenceChipText: {
     fontSize: 14,
-    color: '#1976D2',
+    color: '#378BBB',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   verificationBadge: {
     flexDirection: 'row',
@@ -1709,21 +2038,22 @@ const styles = StyleSheet.create({
   matchScoreBar: {
     flex: 1,
     height: 8,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#1B2F48',
     borderRadius: 4,
     overflow: 'hidden',
   },
   matchScoreFill: {
     height: '100%',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#FF4D6D',
     borderRadius: 4,
   },
-  matchScoreText: {
+  matchScoreBarText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FF4458',
+    color: '#FF4D6D',
     width: 45,
     textAlign: 'right',
+    fontFamily: 'Inter-Bold',
   },
   socialIconsContainer: {
     flexDirection: 'row',
@@ -1737,33 +2067,77 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   socialHandlePopup: {
     marginTop: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#16283D',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     maxWidth: 150,
+    borderWidth: 1,
+    borderColor: '#378BBB',
   },
   socialHandlePopupText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+    fontFamily: 'Inter-Medium',
   },
   xLogoLarge: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#FFFFFF',
   },
   bottomPadding: {
     height: 40,
+  },
+  trustScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#233B57',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#378BBB',
+    borderRadius: 999,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  trustScorePercentage: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#378BBB',
+    fontFamily: 'Inter-Bold',
+    minWidth: 45,
+    textAlign: 'right',
+  },
+  trustScoreInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  trustScoreInfoText: {
+    fontSize: 12,
+    color: '#7F93AA',
+    fontFamily: 'Inter-Regular',
   },
 });
 
