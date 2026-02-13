@@ -71,7 +71,7 @@ const LoginScreen = ({ navigation }: LoginScreenProps) => {
 
   const handleEmailLogin = () => {
     console.log('Email login pressed');
-    // TODO: Navigate to email login
+    navigation.navigate('EmailLogin');
   };
 
   const handleCreateAccount = () => {

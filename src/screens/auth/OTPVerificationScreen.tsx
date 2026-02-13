@@ -244,10 +244,10 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           emailVerified: false,
           identityVerified: false,
           bankVerified: false,
-          signupStep: 'basic_info',
+          signupStep: accountType === 'creator' ? 'creator_basic_info' : 'basic_info',
           createdAt: firestore.FieldValue.serverTimestamp(),
         });
-        console.log('Account document created with signupStep: basic_info');
+        console.log('Account document created with signupStep:', accountType === 'creator' ? 'creator_basic_info' : 'basic_info');
       } catch (createError) {
         console.error('Error creating account document:', createError);
         // Continue anyway - the signup screens will handle this

@@ -24,6 +24,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
@@ -49,14 +50,20 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
       throw new Error('No authenticated user');
     }
 
+    // Set signupStep based on creator type
+    const signupStep = type === 'individual' 
+      ? 'individual_host_verification' 
+      : 'merchant_verification'; // TODO: Add merchant_verification to SignupStep type
+
     await firestore()
       .collection('accounts')
       .doc(user.uid)
       .update({
         creatorType: type,
+        signupStep: signupStep,
       });
 
-    console.log(`✅ Creator type set to: ${type}`);
+    console.log(`✅ Creator type set to: ${type}, signupStep: ${signupStep}`);
   };
 
   /**
@@ -113,24 +120,13 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
-        </View>
-
         {/* Content */}
         <View style={styles.content}>
           <Text style={styles.title}>Choose Your Creator Type</Text>
@@ -152,7 +148,7 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
                 <Ionicons 
                   name="person" 
                   size={32} 
-                  color={selectedType === 'individual' ? '#FF4458' : '#666666'} 
+                  color={selectedType === 'individual' ? '#378BBB' : '#7F93AA'} 
                 />
               </View>
               <View style={[
@@ -192,7 +188,7 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
                 <Ionicons 
                   name="business" 
                   size={32} 
-                  color={selectedType === 'merchant' ? '#FF4458' : '#666666'} 
+                  color={selectedType === 'merchant' ? '#378BBB' : '#7F93AA'} 
                 />
               </View>
               <View style={[
@@ -219,20 +215,26 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
 
           {/* Continue Button */}
           <TouchableOpacity
-            style={[
-              styles.continueButton,
-              !selectedType && styles.continueButtonDisabled,
-              { marginBottom: Math.max(32, insets.bottom + 16) },
-            ]}
             onPress={handleContinue}
             disabled={!selectedType || loading}
             activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.continueButtonText}>Continue</Text>
-            )}
+            <LinearGradient
+              colors={selectedType ? ['#378BBB', '#4FC3F7'] : ['transparent', 'transparent']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 0}}
+              style={[
+                styles.continueButton,
+                !selectedType && styles.continueButtonDisabled,
+                { marginBottom: Math.max(32, insets.bottom + 16) },
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.continueButtonText}>Continue</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -243,7 +245,7 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   scrollView: {
     flex: 1,
@@ -251,41 +253,32 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 10,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingTop: 60,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 32,
     lineHeight: 24,
+    fontFamily: 'Inter_24pt-Regular',
   },
   optionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderRadius: 16,
     padding: 24,
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
+    borderColor: '#233B57',
     elevation: 2,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -293,11 +286,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   optionCardSelected: {
-    borderColor: '#FF4458',
-    backgroundColor: '#FFF5F6',
+    borderColor: '#378BBB',
+    backgroundColor: '#1B2F48',
     elevation: 4,
-    shadowColor: '#FF4458',
-    shadowOpacity: 0.2,
+    shadowColor: '#378BBB',
+    shadowOpacity: 0.3,
   },
   optionHeader: {
     flexDirection: 'row',
@@ -309,7 +302,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#233B57',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -318,56 +311,61 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#CCCCCC',
+    borderColor: '#7F93AA',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonSelected: {
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
   },
   optionTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   optionTitleSelected: {
-    color: '#FF4458',
+    color: '#378BBB',
   },
   optionDescription: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
     lineHeight: 22,
     marginBottom: 16,
+    fontFamily: 'Inter_24pt-Regular',
   },
   featuresList: {
     gap: 8,
   },
   featureItem: {
     fontSize: 14,
-    color: '#555555',
+    color: '#7F93AA',
     lineHeight: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
+    backgroundColor: 'transparent',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
   },
   continueButtonDisabled: {
-    backgroundColor: '#FFB3BC',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#233B57',
     elevation: 0,
     shadowOpacity: 0,
   },
@@ -375,6 +373,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
 });
 

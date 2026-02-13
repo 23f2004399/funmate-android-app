@@ -12,7 +12,7 @@
  * 5. Navigates to CreatorTypeSelection
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,10 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Animated,
+  Pressable,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
@@ -38,6 +41,14 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
   const [checking, setChecking] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<number | null>(null);
+  
+  const scaleAnim1 = useRef(new Animated.Value(1)).current;
+  const scaleAnim2 = useRef(new Animated.Value(1)).current;
+  const scaleAnim3 = useRef(new Animated.Value(1)).current;
+  const flipAnim1 = useRef(new Animated.Value(0)).current;
+  const flipAnim2 = useRef(new Animated.Value(0)).current;
+  const flipAnim3 = useRef(new Animated.Value(0)).current;
 
   // Countdown timer for resend
   useEffect(() => {
@@ -50,6 +61,61 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
       setCanResend(true);
     }
   }, [resendTimer]);
+
+  const toggleCard = (cardNumber: number) => {
+    const scaleAnim = cardNumber === 1 ? scaleAnim1 : cardNumber === 2 ? scaleAnim2 : scaleAnim3;
+    const flipAnim = cardNumber === 1 ? flipAnim1 : cardNumber === 2 ? flipAnim2 : flipAnim3;
+    
+    if (expandedCard === cardNumber) {
+      // Collapse
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(flipAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setExpandedCard(null);
+    } else {
+      // Collapse previous if any
+      if (expandedCard !== null) {
+        const prevScaleAnim = expandedCard === 1 ? scaleAnim1 : expandedCard === 2 ? scaleAnim2 : scaleAnim3;
+        const prevFlipAnim = expandedCard === 1 ? flipAnim1 : expandedCard === 2 ? flipAnim2 : flipAnim3;
+        Animated.parallel([
+          Animated.spring(prevScaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            friction: 8,
+          }),
+          Animated.timing(prevFlipAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+      
+      // Expand new
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1.15,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(flipAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setExpandedCard(cardNumber);
+    }
+  };
 
   /**
    * Check if email is verified in Firebase Auth
@@ -220,7 +286,7 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <View style={styles.header}>
         <TouchableOpacity 
@@ -228,7 +294,7 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -238,10 +304,102 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
           We sent a verification link to {email}
         </Text>
 
-        <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionText}>📧 Check your email inbox</Text>
-          <Text style={styles.instructionText}>🔗 Click the verification link</Text>
-          <Text style={styles.instructionText}>✅ Come back and tap "I've Verified"</Text>
+        <View style={styles.instructionsRow}>
+          {/* Card 1 */}
+          <Pressable onPress={() => toggleCard(1)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim1 },
+                    {
+                      rotateY: flipAnim1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 1 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Check Inbox{"\n"}or Spam</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>1</Text>
+                  <Text style={styles.instructionText}>Step 1</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
+
+          {/* Card 2 */}
+          <Pressable onPress={() => toggleCard(2)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim2 },
+                    {
+                      rotateY: flipAnim2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 2 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Click{"\n"}Verification Link</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>2</Text>
+                  <Text style={styles.instructionText}>Step 2</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
+
+          {/* Card 3 */}
+          <Pressable onPress={() => toggleCard(3)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim3 },
+                    {
+                      rotateY: flipAnim3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 3 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Tap I've Verified{"\n"}to Continue</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>3</Text>
+                  <Text style={styles.instructionText}>Step 3</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
         </View>
 
         {isVerified && (
@@ -257,26 +415,29 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
           activeOpacity={0.8}
         >
           {checking ? (
-            <ActivityIndicator color="#FF4458" />
+            <ActivityIndicator color="#378BBB" />
           ) : (
             <Text style={styles.checkButtonText}>Check Verification Status</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.verifyButton,
-            !isVerified && styles.verifyButtonDisabled,
-          ]}
           onPress={handleVerify}
           disabled={!isVerified || loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.verifyButtonText}>I've Verified - Continue</Text>
-          )}
+          <LinearGradient
+            colors={!isVerified || loading ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.verifyButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.verifyButtonText}>I've Verified - Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.resendContainer}>
@@ -297,7 +458,7 @@ const CreatorEmailVerificationScreen: React.FC<CreatorEmailVerificationScreenPro
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   header: {
     paddingHorizontal: 20,
@@ -318,73 +479,102 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 40,
+    fontFamily: 'Inter_24pt-Regular',
   },
-  instructionsContainer: {
-    backgroundColor: '#F5F5F5',
+  instructionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 32,
+  },
+  instructionCard: {
+    backgroundColor: '#16283D',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#233B57',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 120,
+  },
+  cardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBackText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 16,
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  instructionNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#378BBB',
+    marginBottom: 4,
+    fontFamily: 'Inter_24pt-Bold',
   },
   instructionText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-    marginBottom: 12,
-    lineHeight: 24,
+    fontSize: 11,
+    color: '#B8C7D9',
+    textAlign: 'center',
+    fontFamily: 'Inter_24pt-Regular',
   },
   verifiedBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#1F3B2E',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2ECC71',
   },
   verifiedText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#2ECC71',
+    fontFamily: 'Inter_24pt-Bold',
   },
   checkButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#FF4458',
+    borderColor: '#378BBB',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 16,
   },
   checkButtonText: {
-    color: '#FF4458',
+    color: '#378BBB',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   verifyButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
     marginBottom: 24,
-  },
-  verifyButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
   },
   verifyButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   resendContainer: {
     flexDirection: 'row',
@@ -393,17 +583,20 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
+    fontFamily: 'Inter_24pt-Regular',
   },
   resendLink: {
     fontSize: 15,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   resendTimer: {
     fontSize: 15,
-    color: '#999999',
+    color: '#7F93AA',
     fontWeight: '500',
+    fontFamily: 'Inter_24pt-Regular',
   },
 });
 

@@ -25,8 +25,10 @@ import {
   ScrollView,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
@@ -39,12 +41,71 @@ interface CreatorGoogleProfileSetupScreenProps {
 
 const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { googleUser } = route.params;
-  const [fullName, setFullName] = useState(googleUser.displayName || '');
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true);
+  const [googleUser, setGoogleUser] = useState<any>(null);
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showLogoutAlert, setShowLogoutAlert] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+
+  // Load Google user data with proper null checks and loading state
+  useEffect(() => {
+    const loadGoogleUserData = async () => {
+      try {
+        // First check route params
+        if (route.params?.googleUser) {
+          setGoogleUser(route.params.googleUser);
+          setFullName(route.params.googleUser.displayName || '');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Wait for Firebase Auth to initialize
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.error('No authenticated user found');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Find Google provider in providerData
+        const googleProvider = currentUser.providerData?.find(
+          provider => provider?.providerId === 'google.com'
+        );
+
+        if (googleProvider) {
+          const userData = {
+            uid: currentUser.uid,
+            email: googleProvider.email || currentUser.email || '',
+            displayName: googleProvider.displayName || currentUser.displayName || '',
+            photoURL: googleProvider.photoURL || currentUser.photoURL || null,
+          };
+          setGoogleUser(userData);
+          setFullName(userData.displayName);
+        } else {
+          // No Google provider found - shouldn't happen, but handle gracefully
+          console.warn('No Google provider found in providerData');
+          const fallbackData = {
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || '',
+            photoURL: currentUser.photoURL || null,
+          };
+          setGoogleUser(fallbackData);
+          setFullName(fallbackData.displayName);
+        }
+      } catch (error) {
+        console.error('Error loading Google user data:', error);
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    loadGoogleUserData();
+  }, [route.params]);
 
   // Check username availability with debounce
   useEffect(() => {
@@ -127,6 +188,7 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
         emailVerified: true, // Google accounts are verified
         identityVerified: false,
         bankVerified: false,
+        signupStep: 'creator_type_selection', // Creator needs to choose type next
         createdAt: firestore.FieldValue.serverTimestamp(),
       });
 
@@ -172,10 +234,21 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
       });
     }
   };
-
+  // Show loading screen while fetching user data
+  if (isLoadingUserData || !googleUser) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#378BBB" />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
 
       <ScrollView 
         style={styles.scrollView}
@@ -183,13 +256,23 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
       >
         {/* Header with Google Info */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-          </TouchableOpacity>
+          {navigation.canGoBack() ? (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => setShowLogoutAlert(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-out-outline" size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
           <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Just a few more details</Text>
 
@@ -213,13 +296,15 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
           <View>
             <Text style={styles.label}>Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
               value={fullName}
               onChangeText={setFullName}
               placeholder="Your Name"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               autoCapitalize="words"
               editable={!loading}
+              onFocus={() => setFocusedInput('fullName')}
+              onBlur={() => setFocusedInput(null)}
             />
           </View>
 
@@ -227,13 +312,15 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
             <Text style={styles.label}>Username</Text>
             <View style={styles.usernameContainer}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
                 value={username}
                 onChangeText={setUsername}
                 placeholder="@username"
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 autoCapitalize="none"
                 editable={!loading}
+                onFocus={() => setFocusedInput('username')}
+                onBlur={() => setFocusedInput(null)}
               />
               {username.length >= 3 && (
                 <View style={styles.usernameStatus}>
@@ -252,20 +339,66 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
           onPress={handleContinue}
           disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.continueButtonText}>Continue</Text>
-          )}
+          <LinearGradient
+            colors={['#378BBB', '#4FC3F7']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.continueButtonText}>Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        visible={showLogoutAlert}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLogoutAlert(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>Use Different Number?</Text>
+            <Text style={styles.alertMessage}>
+              You'll need to verify your phone number again.
+            </Text>
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={styles.alertCancelButton}
+                onPress={() => setShowLogoutAlert(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.alertLogoutButton}
+                onPress={async () => {
+                  setShowLogoutAlert(false);
+                  await auth().signOut();
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' as never }],
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertLogoutText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -273,7 +406,18 @@ const CreatorGoogleProfileSetupScreen: React.FC<CreatorGoogleProfileSetupScreenP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#B8C7D9',
+    fontFamily: 'Inter_24pt-Regular',
   },
   scrollView: {
     flex: 1,
@@ -293,21 +437,24 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
-    marginBottom: 24,
+    color: '#B8C7D9',
+    marginBottom: 20,
+    fontFamily: 'Inter_24pt-Regular',
   },
   googleInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    padding: 16,
+    backgroundColor: '#16283D',
     borderRadius: 12,
-    marginTop: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#233B57',
   },
   googleAvatar: {
     width: 48,
@@ -320,13 +467,15 @@ const styles = StyleSheet.create({
   },
   googleLabel: {
     fontSize: 12,
-    color: '#666666',
-    marginBottom: 4,
+    color: '#7F93AA',
+    marginBottom: 2,
+    fontFamily: 'Inter_24pt-Regular',
   },
   googleEmail: {
     fontSize: 14,
-    color: '#1A1A1A',
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontFamily: 'Inter_24pt-Bold',
   },
   form: {
     paddingHorizontal: 32,
@@ -336,17 +485,40 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#B8C7D9',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1B2F48',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     height: 56,
+    justifyContent: 'center',
+    fontFamily: 'Inter_24pt-Regular',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inputFocused: {
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inputText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#7F93AA',
+    fontFamily: 'Inter_24pt-Regular',
   },
   usernameContainer: {
     position: 'relative',
@@ -359,35 +531,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availableText: {
-    color: '#4CAF50',
+    color: '#2ECC71',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   unavailableText: {
-    color: '#FF4458',
+    color: '#FF4D6D',
     fontSize: 14,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
+    backgroundColor: 'transparent',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginHorizontal: 32,
-    marginTop: 32,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    marginTop: 24,
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
   },
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   bottomSpacer: {
     height: 40,
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertBox: {
+    backgroundColor: '#16283D',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#233B57',
+  },
+  alertTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  alertMessage: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontFamily: 'Inter_24pt-Regular',
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  alertCancelButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#233B57',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  alertCancelText: {
+    color: '#B8C7D9',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
+  },
+  alertLogoutButton: {
+    flex: 1,
+    backgroundColor: '#FF4D6D',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  alertLogoutText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
 });
 

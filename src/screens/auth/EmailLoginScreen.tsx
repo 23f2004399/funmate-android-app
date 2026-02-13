@@ -10,7 +10,7 @@
  * - Email/password signup → Must use email/password login
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,12 +20,15 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  Animated,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 
 interface EmailLoginScreenProps {
   navigation: any;
@@ -37,6 +40,49 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Bubble animations
+  const bubble1Y = useRef(new Animated.Value(0)).current;
+  const bubble2Y = useRef(new Animated.Value(0)).current;
+  const bubble3Y = useRef(new Animated.Value(0)).current;
+  const bubble4Y = useRef(new Animated.Value(0)).current;
+  const bubble5Y = useRef(new Animated.Value(0)).current;
+  const bubble6Y = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const createBubbleAnimation = (animatedValue: Animated.Value, duration: number, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animatedValue, {
+            toValue: -30,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animatedValue, {
+            toValue: 30,
+            duration: duration,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const animations = [
+      createBubbleAnimation(bubble1Y, 4000, 0),
+      createBubbleAnimation(bubble2Y, 5000, 500),
+      createBubbleAnimation(bubble3Y, 3500, 1000),
+      createBubbleAnimation(bubble4Y, 4500, 300),
+      createBubbleAnimation(bubble5Y, 3800, 700),
+      createBubbleAnimation(bubble6Y, 4200, 200),
+    ];
+
+    animations.forEach(anim => anim.start());
+
+    return () => {
+      animations.forEach(anim => anim.stop());
+    };
+  }, []);
 
   /**
    * Validate email format
@@ -222,7 +268,15 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+
+      {/* Floating Bubbles */}
+      <Animated.View style={[styles.bubble, styles.bubble1, { transform: [{ translateY: bubble1Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble2, { transform: [{ translateY: bubble2Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble3, { transform: [{ translateY: bubble3Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble4, { transform: [{ translateY: bubble4Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble5, { transform: [{ translateY: bubble5Y }] }]} />
+      <Animated.View style={[styles.bubble, styles.bubble6, { transform: [{ translateY: bubble6Y }] }]} />
 
       <ScrollView 
         style={styles.scrollView}
@@ -237,7 +291,7 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
@@ -254,10 +308,16 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {googleLoading ? (
-              <ActivityIndicator color="#1A1A1A" />
+              <ActivityIndicator color="#378BBB" />
             ) : (
               <>
-                <Ionicons name="logo-google" size={22} color="#DB4437" style={styles.googleIcon} />
+                <Svg width="18" height="18" viewBox="0 0 48 48" style={styles.googleIcon}>
+                  <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                  <Path fill="none" d="M0 0h48v48H0z" />
+                </Svg>
                 <Text style={styles.googleButtonText}>Continue with Google</Text>
               </>
             )}
@@ -274,13 +334,13 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#999999" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color="#7F93AA" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -292,13 +352,13 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#999999" style={styles.inputIcon} />
+              <Ionicons name="lock-closed-outline" size={20} color="#7F93AA" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter your password"
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
@@ -310,7 +370,7 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={20}
-                  color="#999999"
+                  color="#7F93AA"
                 />
               </TouchableOpacity>
             </View>
@@ -318,16 +378,22 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
 
           {/* Login Button */}
           <TouchableOpacity
-            style={[styles.loginButton, (!email || !password) && styles.loginButtonDisabled]}
             onPress={handleEmailLogin}
             disabled={!email || !password || loading || googleLoading}
             activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.loginButtonText}>Login</Text>
-            )}
+            <LinearGradient
+              colors={(!email || !password) ? ['#233B57', '#233B57'] : ['#378BBB', '#4FC3F7']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.loginButton}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Sign Up Link */}
@@ -349,7 +415,49 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
+  },
+  bubble: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: '#378BBB',
+    opacity: 0.08,
+  },
+  bubble1: {
+    width: 120,
+    height: 120,
+    top: '10%',
+    left: '5%',
+  },
+  bubble2: {
+    width: 80,
+    height: 80,
+    top: '25%',
+    right: '10%',
+  },
+  bubble3: {
+    width: 150,
+    height: 150,
+    top: '50%',
+    left: '10%',
+  },
+  bubble4: {
+    width: 100,
+    height: 100,
+    top: '70%',
+    right: '5%',
+  },
+  bubble5: {
+    width: 60,
+    height: 60,
+    top: '15%',
+    right: '25%',
+  },
+  bubble6: {
+    width: 90,
+    height: 90,
+    top: '80%',
+    left: '20%',
   },
   scrollView: {
     flex: 1,
@@ -359,7 +467,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 60,
     paddingBottom: 10,
   },
   backButton: {
@@ -370,38 +478,41 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
     paddingTop: 20,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 32,
+    fontFamily: 'Inter_24pt-Regular',
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#378BBB',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 24,
   },
   googleIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   googleButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Bold',
   },
   orDivider: {
     flexDirection: 'row',
@@ -411,13 +522,14 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#233B57',
   },
   orText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     marginHorizontal: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   inputGroup: {
     marginBottom: 20,
@@ -425,17 +537,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#B8C7D9',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#233B57',
+    borderRadius: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#1B2F48',
   },
   inputIcon: {
     marginRight: 12,
@@ -444,33 +557,29 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_24pt-Regular',
   },
   eyeIcon: {
     padding: 4,
   },
   loginButton: {
-    backgroundColor: '#FF4458',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     marginTop: 12,
     marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-  },
-  loginButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
+    elevation: 4,
   },
   loginButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
   signupContainer: {
     flexDirection: 'row',
@@ -479,12 +588,14 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 15,
-    color: '#666666',
+    color: '#7F93AA',
+    fontFamily: 'Inter_24pt-Regular',
   },
   signupLink: {
     fontSize: 15,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: '600',
+    fontFamily: 'Inter_24pt-Bold',
   },
 });
 

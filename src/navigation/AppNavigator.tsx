@@ -24,6 +24,11 @@ import DatingPreferencesScreen from '../screens/auth/DatingPreferencesScreen';
 import CreatorEmailVerificationScreen from '../screens/auth/CreatorEmailVerificationScreen';
 import CreatorTypeSelectionScreen from '../screens/auth/CreatorTypeSelectionScreen';
 import IndividualVerificationScreen from '../screens/auth/IndividualVerificationScreen';
+import IndividualBankDetailsScreen from '../screens/auth/IndividualBankDetailsScreen';
+import IndividualHostProfileScreen from '../screens/auth/IndividualHostProfileScreen';
+import MerchantVerificationScreen from '../screens/auth/MerchantVerificationScreen';
+import MerchantBankDetailsScreen from '../screens/auth/MerchantBankDetailsScreen';
+import MerchantProfileScreen from '../screens/auth/MerchantProfileScreen';
 import LikesSwiperScreen from '../screens/main/LikesSwiperScreen';
 import ChatScreen from '../screens/main/ChatScreen';
 import { BlockedUsersScreen } from '../screens/settings/BlockedUsersScreen';
@@ -38,7 +43,7 @@ export type RootStackParamList = {
   PhoneNumber: { accountType?: 'user' | 'creator'; isLogin?: boolean };
   OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator'; isLogin?: boolean };
   ProfileSetup: { phoneNumber?: string };
-  CreatorBasicInfo: { phoneNumber: string };
+  CreatorBasicInfo: { phoneNumber?: string };
   CreatorGoogleProfileSetup: { googleUser: any };
   CreatorEmailVerification: {
     phoneNumber: string;
@@ -50,7 +55,10 @@ export type RootStackParamList = {
   CreatorTypeSelection: undefined;
   IndividualVerification: undefined;
   IndividualBankDetails: undefined;
+  IndividualHostProfile: undefined;
   MerchantVerification: undefined;
+  MerchantBankDetails: undefined;
+  MerchantProfile: undefined;
   EmailVerification: {
     phoneNumber: string;
     fullName: string;
@@ -85,6 +93,34 @@ const getScreenForSignupStep = (signupStep: SignupStep): keyof RootStackParamLis
       return 'AccountType';
     case 'basic_info':
       return 'ProfileSetup';
+    case 'creator_basic_info':
+      return 'CreatorBasicInfo';
+    case 'creator_google_profile':
+      return 'CreatorGoogleProfileSetup';
+    case 'creator_type_selection':
+      return 'CreatorTypeSelection';
+    case 'individual_host_verification':
+      return 'IndividualVerification';
+    case 'individual_bank_details':
+      return 'IndividualBankDetails';
+    case 'individual_host_profile':
+      return 'IndividualHostProfile';
+    case 'individual_host_complete':
+      // Individual host signup complete - route to main app for now
+      // TODO: Once Host Dashboard is built, route to it:
+      // return 'IndividualHostDashboard';
+      return 'MainTabs';
+    case 'merchant_verification':
+      return 'MerchantVerification';
+    case 'merchant_bank_details':
+      return 'MerchantBankDetails';
+    case 'merchant_profile':
+      return 'MerchantProfile';
+    case 'merchant_complete':
+      // Merchant signup complete - route to main app for now
+      // TODO: Once Merchant Dashboard is built, route to it:
+      // return 'MerchantDashboard';
+      return 'MainTabs';
     case 'photos':
       return 'PhotoUpload';
     case 'liveness':
@@ -123,7 +159,13 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
             const accountData = accountDoc.data();
             const signupStep = accountData?.signupStep as SignupStep;
             
-            if (signupStep && signupStep !== 'complete') {
+            // Check if signup is complete (any completion type)
+            const isSignupComplete = 
+              signupStep === 'complete' || 
+              signupStep === 'individual_host_complete' || 
+              signupStep === 'merchant_complete';
+            
+            if (signupStep && !isSignupComplete) {
               // User hasn't completed signup - route to appropriate screen
               let targetScreen = getScreenForSignupStep(signupStep);
               
@@ -194,6 +236,11 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         <Stack.Screen name="CreatorEmailVerification" component={CreatorEmailVerificationScreen} />
         <Stack.Screen name="CreatorTypeSelection" component={CreatorTypeSelectionScreen} />
         <Stack.Screen name="IndividualVerification" component={IndividualVerificationScreen} />
+        <Stack.Screen name="IndividualBankDetails" component={IndividualBankDetailsScreen} />
+        <Stack.Screen name="IndividualHostProfile" component={IndividualHostProfileScreen} />
+        <Stack.Screen name="MerchantVerification" component={MerchantVerificationScreen} />
+        <Stack.Screen name="MerchantBankDetails" component={MerchantBankDetailsScreen} />
+        <Stack.Screen name="MerchantProfile" component={MerchantProfileScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="GoogleProfileSetup" component={GoogleProfileSetupScreen} />
         <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />

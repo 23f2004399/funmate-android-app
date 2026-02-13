@@ -8,13 +8,24 @@
 // SIGNUP STEP TYPE
 // ==========================================
 export type SignupStep = 
-  | 'account_type'    // Just verified phone, need to select account type
-  | 'basic_info'      // Need to fill basic info (name, email, etc.)
-  | 'photos'          // Need to upload photos
-  | 'liveness'        // Need to complete liveness verification
-  | 'preferences'     // Need to fill dating preferences (skippable)
-  | 'interests'       // Need to select interests (skippable)
-  | 'complete';       // Signup complete, can access app
+  | 'account_type'             // Just verified phone, need to select account type
+  | 'basic_info'               // Explorer: Need to fill basic info (name, email, etc.)
+  | 'creator_basic_info'       // Creator: Need to fill basic info (name, email, etc.)
+  | 'creator_google_profile'   // Creator: Linked Google, need to complete profile
+  | 'creator_type_selection'   // Creator: Need to choose Individual or Merchant
+  | 'individual_host_verification' // Individual Host: Identity verification (Aadhaar/PAN)
+  | 'individual_bank_details'  // Individual Host: Bank account details for payouts
+  | 'individual_host_profile'  // Individual Host: Bio, experience, category, social links
+  | 'individual_host_complete' // Individual Host: Signup complete, route to host dashboard
+  | 'merchant_verification'    // Merchant: Business verification (GST/PAN/License)
+  | 'merchant_bank_details'    // Merchant: Bank account details for business payouts
+  | 'merchant_profile'         // Merchant: Business profile, description, categories
+  | 'merchant_complete'        // Merchant: Signup complete, route to merchant dashboard
+  | 'photos'                   // Need to upload photos
+  | 'liveness'                 // Need to complete liveness verification
+  | 'preferences'              // Need to fill dating preferences (skippable)
+  | 'interests'                // Need to select interests (skippable)
+  | 'complete';                // Explorer: Signup complete, can access app
 
 // ==========================================
 // ACCOUNTS COLLECTION
@@ -85,6 +96,27 @@ export interface SocialHandles {
   twitter: string | null;    // @username only (X)
 }
 
+// ==========================================
+// CREATOR DETAILS (FOR EVENT CREATORS)
+// ==========================================
+export interface BusinessAddress {
+  addressLine: string;
+  city: string;
+  state: string;
+  country: string;
+}
+
+export interface CreatorDetails {
+  organizationName: string | null;    // Business/Organization name (merchant only)
+  logoUrl: string | null;             // Business logo URL
+  businessAddress: BusinessAddress | null;  // Official business address
+  website: string | null;             // Business website
+  contactEmail: string | null;        // Customer contact email
+  experienceYears: number | null;     // Years of experience
+  bio: string | null;                 // Business/creator description
+  socialLinks: string[] | null;       // Array of social media URLs (Instagram, LinkedIn, etc.)
+}
+
 export interface User {
   id?: string;
   accountId: string;
@@ -107,6 +139,7 @@ export interface User {
   premiumStatus: 'free' | 'premium';
   premiumExpiresAt: any | null;
   premiumFeatures: PremiumFeatures;
+  creatorDetails: CreatorDetails | null;  // Only filled when role = event_creator
   createdAt: any;
   lastActiveAt: any;
 }
@@ -249,4 +282,45 @@ export interface AccountSuspension {
   liftedAt: any | null;
   liftedBy: string | null; // admin accountId
   createdAt: any;
+}
+
+// ==========================================
+// MERCHANT VERIFICATION COLLECTION
+// ==========================================
+export interface GSTDetails {
+  legal_name: string;
+  trade_name: string;
+  state: string;
+  gstin_status: string;
+  date_of_registration: string;
+}
+
+export interface PANDetails {
+  full_name: string;
+  category: string;
+  pan_status: string;
+}
+
+export interface LicenseDetails {
+  licenseLast4: string;
+  business_name: string;
+  issue_date: string;
+  expiry_date: string;
+  issuing_authority: string;
+  license_type: string;
+}
+
+export interface MerchantVerification {
+  gstLast4: string | null;           // Only last 4 digits
+  panLast4: string | null;           // Only last 4 digits
+  licenseLast4: string | null;       // Only last 4 digits
+  gstVerified: boolean;
+  panVerified: boolean;
+  licenseVerified: boolean;
+  verifiedAt: any;
+  licenseDocumentURL: string | null;     // Secure Firebase Storage URL
+  licenseVerificationId: string | null;  // Digio verification ID
+  gstDetails: GSTDetails | null;         // From Digio GST API
+  panDetails: PANDetails | null;         // From Digio PAN API
+  licenseDetails: LicenseDetails | null; // From Digio OCR
 }
