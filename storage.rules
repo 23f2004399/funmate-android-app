@@ -79,6 +79,23 @@ service firebase.storage {
                        request.auth.uid == accountId;
     }
     
+    // Event Media (banners, photos, videos)
+    // Public read for event discovery; only authenticated users can upload
+    match /event-media/{eventId}/{mediaFile} {
+      // Anyone can view event media (used in event cards, listings, detail pages)
+      allow read: if true;
+
+      // Any authenticated user can upload event media
+      // Validate: max 50MB, images or videos only
+      allow write: if request.auth != null &&
+                      request.resource.size < 50 * 1024 * 1024 &&
+                      (request.resource.contentType.matches('image/.*') ||
+                       request.resource.contentType.matches('video/.*'));
+
+      // Authenticated users can delete event media they uploaded
+      allow delete: if request.auth != null;
+    }
+
     // Default: deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

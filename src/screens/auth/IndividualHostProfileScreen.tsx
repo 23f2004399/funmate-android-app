@@ -24,22 +24,23 @@ import {
   StyleSheet,
   StatusBar,
   Animated,
-  Alert,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import Toast from 'react-native-toast-message';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 
 type RootStackParamList = {
   IndividualHostProfile: undefined;
   MainTabs: undefined;
+  HostTabs: undefined;
 };
 
 type IndividualHostProfileScreenNavigationProp = NativeStackNavigationProp<
@@ -210,10 +211,12 @@ const IndividualHostProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleSubmit = async () => {
     if (!isFormValid()) {
-      Alert.alert(
-        'Bio Required',
-        'Please write a bio of at least 50 characters to help users know more about you as a host.'
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Bio Required',
+        text2: 'Please write a bio of at least 50 characters to help users know more about you as a host.',
+        visibilityTime: 4000,
+      });
       return;
     }
 
@@ -260,30 +263,31 @@ const IndividualHostProfileScreen: React.FC<Props> = ({ navigation }) => {
 
       setIsSubmitting(false);
 
-      // For now, user stays on this screen after completing profile
-      // TODO: Once Individual Host Dashboard is built, navigate there:
-      // navigation.replace('IndividualHostDashboard');
-      Alert.alert(
-        'Profile Complete! 🎉',
-        "You're all set! Your profile has been saved.",
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Stay on this screen for now
-              console.log('Individual Host profile complete - staying on profile screen until dashboard is built');
-            },
-          },
-        ]
-      );
+      Toast.show({
+        type: 'success',
+        text1: 'Profile Complete! 🎉',
+        text2: "You're all set as a host!",
+        visibilityTime: 2000,
+      });
+
+      // Navigate to Host Dashboard
+      setTimeout(() => {
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'HostTabs' as any }],
+          })
+        );
+      }, 2000);
     } catch (error: any) {
       console.error('Profile save error:', error);
       setIsSubmitting(false);
-      Alert.alert(
-        'Error',
-        error.message || 'Failed to save profile. Please try again.',
-        [{ text: 'OK' }]
-      );
+      Toast.show({
+        type: 'error',
+        text1: 'Save Failed',
+        text2: error.message || 'Failed to save profile. Please try again.',
+        visibilityTime: 4000,
+      });
     }
   };
 

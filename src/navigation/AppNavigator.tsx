@@ -6,6 +6,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import MainTabNavigator from './MainTabNavigator';
+import HostTabNavigator from './HostTabNavigator';
 import LoginScreen from '../screens/auth/LoginScreen';
 import EmailLoginScreen from '../screens/auth/EmailLoginScreen';
 import AccountTypeScreen from '../screens/auth/AccountTypeScreen';
@@ -30,7 +31,16 @@ import MerchantVerificationScreen from '../screens/auth/MerchantVerificationScre
 import MerchantBankDetailsScreen from '../screens/auth/MerchantBankDetailsScreen';
 import MerchantProfileScreen from '../screens/auth/MerchantProfileScreen';
 import LikesSwiperScreen from '../screens/main/LikesSwiperScreen';
+import CreateEventStep1Screen from '../screens/host/events/CreateEventStep1Screen';
+import CreateEventStep2Screen from '../screens/host/events/CreateEventStep2Screen';
+import CreateEventStep3Screen from '../screens/host/events/CreateEventStep3Screen';
+import CreateEventStep4Screen from '../screens/host/events/CreateEventStep4Screen';
+import ManageEventScreen from '../screens/host/manage/ManageEventScreen';
+import EditEventScreen from '../screens/host/manage/EditEventScreen';
+import HostBankAccountScreen from '../screens/host/HostBankAccountScreen';
+import EditHostProfileScreen from '../screens/host/EditHostProfileScreen';
 import ChatScreen from '../screens/main/ChatScreen';
+import EventDetailScreen from '../screens/main/EventDetailScreen';
 import { BlockedUsersScreen } from '../screens/settings/BlockedUsersScreen';
 import NotificationSettingsScreen from '../screens/settings/NotificationSettingsScreen';
 import { SignupStep } from '../types/database';
@@ -39,6 +49,7 @@ export type RootStackParamList = {
   Login: undefined;
   EmailLogin: undefined;
   MainTabs: undefined;
+  HostTabs: undefined;
   AccountType: undefined;
   PhoneNumber: { accountType?: 'user' | 'creator'; isLogin?: boolean };
   OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator'; isLogin?: boolean };
@@ -83,7 +94,77 @@ export type RootStackParamList = {
   };
   BlockedUsers: undefined;
   NotificationSettings: undefined;
-  // TODO: Add more screens later
+  // Explorer Event Hub
+  EventDetail: { eventId: string };
+  // Host profile screens
+  EditHostProfile: undefined;
+  HostBankAccount: undefined;
+  // Manage Event
+  ManageEvent: {
+    eventId: string;
+    eventTitle: string;
+    eventStatus: 'draft' | 'live' | 'ended' | 'cancelled';
+  };
+  EditEvent: {
+    eventId: string;
+    eventStatus: 'draft' | 'live';
+  };
+  // Create Event flow
+  CreateEventStep1: undefined;
+  CreateEventStep2: {
+    step1: {
+      title: string;
+      description: string;
+      category: string;
+      tags: string[];
+    };
+  };
+  CreateEventStep3: {
+    step1: {
+      title: string;
+      description: string;
+      category: string;
+      tags: string[];
+    };
+    step2: {
+      startTime: string;
+      endTime: string;
+      venue: string;
+      address: string;
+      lat: number | null;
+      lng: number | null;
+      geoHash: string;
+    };
+  };
+  CreateEventStep4: {
+    step1: {
+      title: string;
+      description: string;
+      category: string;
+      tags: string[];
+    };
+    step2: {
+      startTime: string;
+      endTime: string;
+      venue: string;
+      address: string;
+      lat: number | null;
+      lng: number | null;
+      geoHash: string;
+    };
+    step3: {
+      price: number;
+      isFree: boolean;
+      capacityType: 'limited' | 'unlimited';
+      capacityTotal: number | null;
+      hasAgeRestriction: boolean;
+      ageMin: number | null;
+      ageMax: number | null;
+      hasGenderRestriction: boolean;
+      genderRestrictions: string[] | null;
+      entryCodeLength: number;
+    };
+  };
 };
 
 // Map signupStep to screen name
@@ -106,10 +187,8 @@ const getScreenForSignupStep = (signupStep: SignupStep): keyof RootStackParamLis
     case 'individual_host_profile':
       return 'IndividualHostProfile';
     case 'individual_host_complete':
-      // Individual host signup complete - route to main app for now
-      // TODO: Once Host Dashboard is built, route to it:
-      // return 'IndividualHostDashboard';
-      return 'MainTabs';
+      // Individual host signup complete - route to host dashboard
+      return 'HostTabs';
     case 'merchant_verification':
       return 'MerchantVerification';
     case 'merchant_bank_details':
@@ -117,10 +196,8 @@ const getScreenForSignupStep = (signupStep: SignupStep): keyof RootStackParamLis
     case 'merchant_profile':
       return 'MerchantProfile';
     case 'merchant_complete':
-      // Merchant signup complete - route to main app for now
-      // TODO: Once Merchant Dashboard is built, route to it:
-      // return 'MerchantDashboard';
-      return 'MainTabs';
+      // Merchant signup complete - route to host dashboard
+      return 'HostTabs';
     case 'photos':
       return 'PhotoUpload';
     case 'liveness':
@@ -183,8 +260,16 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
               console.log('Incomplete signup, routing to:', targetScreen);
               setInitialRoute(targetScreen);
             } else {
-              // Signup complete or no signupStep field (legacy user) - go to main
-              setInitialRoute('MainTabs');
+              // Signup complete - route to appropriate dashboard
+              if (signupStep === 'individual_host_complete' || signupStep === 'merchant_complete') {
+                // Host (Individual or Merchant) - route to Host Dashboard
+                console.log('Host signup complete, routing to HostTabs');
+                setInitialRoute('HostTabs');
+              } else {
+                // Regular user - route to Main Tabs
+                console.log('User signup complete, routing to MainTabs');
+                setInitialRoute('MainTabs');
+              }
             }
           } else {
             // No account doc - this is a new user who just verified phone
@@ -262,6 +347,38 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         />
         {/* Main app - after auth */}
         <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+        {/* Host Dashboard - for Individual & Merchant hosts */}
+        <Stack.Screen name="HostTabs" component={HostTabNavigator} />
+        {/* Create Event flow */}
+        <Stack.Screen name="CreateEventStep1" component={CreateEventStep1Screen} />
+        <Stack.Screen name="CreateEventStep2" component={CreateEventStep2Screen} />
+        <Stack.Screen name="CreateEventStep3" component={CreateEventStep3Screen} />
+        <Stack.Screen name="CreateEventStep4" component={CreateEventStep4Screen} />
+        <Stack.Screen
+          name="ManageEvent"
+          component={ManageEventScreen}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="EditEvent"
+          component={EditEventScreen}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="HostBankAccount"
+          component={HostBankAccountScreen}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="EditHostProfile"
+          component={EditHostProfileScreen}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="EventDetail"
+          component={EventDetailScreen}
+          options={{ headerShown: false, animation: 'slide_from_right' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

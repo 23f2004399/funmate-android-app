@@ -134,6 +134,12 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         return;
       }
 
+      const accountData = accountDoc.data();
+      const signupStep = accountData?.signupStep;
+      const isHost =
+        signupStep === 'individual_host_complete' ||
+        signupStep === 'merchant_complete';
+
       setGoogleLoading(false);
       Toast.show({
         type: 'success',
@@ -142,11 +148,11 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // Navigate to main app
+      // Navigate to the correct dashboard based on account role
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs' as never }],
+          routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
         });
       }, 1500);
 
@@ -221,6 +227,12 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         return;
       }
 
+      const accountData = accountDoc.data();
+      const signupStep = accountData?.signupStep;
+      const isHost =
+        signupStep === 'individual_host_complete' ||
+        signupStep === 'merchant_complete';
+
       setLoading(false);
       Toast.show({
         type: 'success',
@@ -229,11 +241,11 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // Navigate to main app
+      // Navigate to the correct dashboard based on account role
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs' as never }],
+          routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
         });
       }, 1500);
 

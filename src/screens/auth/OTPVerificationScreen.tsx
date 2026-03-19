@@ -169,7 +169,13 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           return;
         }
         
-        // Login successful
+        // Login successful - check account role to determine correct dashboard
+        const loginAccountDoc = await firestore().collection('accounts').doc(userId).get();
+        const loginSignupStep = loginAccountDoc.data()?.signupStep;
+        const isHost =
+          loginSignupStep === 'individual_host_complete' ||
+          loginSignupStep === 'merchant_complete';
+
         setLoading(false);
         Toast.show({
           type: 'success',
@@ -178,11 +184,11 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           visibilityTime: 3000,
         });
         
-        // Navigate to main app
+        // Navigate to the correct dashboard based on account role
         setTimeout(() => {
           navigation.reset({
             index: 0,
-            routes: [{ name: 'MainTabs' as never }],
+            routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
           });
         }, 1500);
         return;

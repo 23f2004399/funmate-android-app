@@ -30,7 +30,7 @@ import {
   Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -43,6 +43,7 @@ import Toast from 'react-native-toast-message';
 
 type RootStackParamList = {
   MerchantProfile: undefined;
+  HostTabs: undefined;
 };
 
 type MerchantProfileScreenNavigationProp = NativeStackNavigationProp<
@@ -389,14 +390,17 @@ const MerchantProfileScreen: React.FC<Props> = ({ navigation }) => {
         type: 'success',
         text1: 'Business Profile Complete! 🎉',
         text2: 'Your merchant account is now active',
-        visibilityTime: 3000,
+        visibilityTime: 2000,
       });
 
-      // Navigate to main app (or merchant dashboard)
+      // Navigate to Host Dashboard
       setTimeout(() => {
-        console.log('Navigate to Merchant Dashboard');
-        // TODO: navigation.navigate('MerchantDashboard');
-        // For now, stays on this screen until dashboard is built
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'HostTabs' as any }],
+          })
+        );
       }, 2000);
     } catch (error: any) {
       console.error('Save profile error:', error);
