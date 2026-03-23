@@ -7,7 +7,9 @@ import {
   StatusBar,
   ScrollView,
   Image,
+  ImageBackground,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +22,28 @@ import auth from '@react-native-firebase/auth';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { API_ENDPOINTS, getEnvironmentInfo } from '../../config/api';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BADGE_SIZE = 24;
+const CIRCLE_SIZE = Math.floor((SCREEN_WIDTH - 48) / 3) - Math.floor(BADGE_SIZE / 2);
+const CELL_WIDTH = CIRCLE_SIZE + Math.floor(BADGE_SIZE / 2);
+const CELL_HEIGHT = CIRCLE_SIZE + BADGE_SIZE;
+
+// Badge centers sit exactly on the circumference at the 45° (bottom-right / top-right) position
+// Circle center in cell coords: (CIRCLE_SIZE/2, BADGE_SIZE/2 + CIRCLE_SIZE/2)
+// Circumference point at ±45°: center ± radius * 0.7071
+const _R = CIRCLE_SIZE / 2;
+const _CX = _R;                          // circle center x in cell
+const _CY = BADGE_SIZE / 2 + _R;        // circle center y in cell
+const _D = Math.round(_R * 0.7071);     // offset along each axis at 45°
+
+// Bottom-right circumference (+ badge)
+const ADD_BADGE_LEFT = _CX + _D - Math.floor(BADGE_SIZE / 2);
+const ADD_BADGE_TOP  = _CY + _D - Math.floor(BADGE_SIZE / 2);
+
+// Top-right circumference (× badge)
+const REMOVE_BADGE_LEFT = _CX + _D - Math.floor(BADGE_SIZE / 2);
+const REMOVE_BADGE_TOP  = _CY - _D - Math.floor(BADGE_SIZE / 2);
 
 interface PhotoUploadScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'PhotoUpload'>;
@@ -128,11 +152,11 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
       console.log('📡 Sending request to:', API_ENDPOINTS.DETECT_FACE);
       const response = await fetch(API_ENDPOINTS.DETECT_FACE, {
         method: 'POST',
-        body: formData,
+        body: formData as any,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-        signal: controller.signal,
+        signal: controller.signal as any,
       });
       
       clearTimeout(timeoutId);
@@ -142,7 +166,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
         throw new Error(`API returned ${response.status}`);
       }
       
-      const result = await response.json();
+      const result = await response.json() as any;
       console.log('✅ Face detection result:', result);
       
       // Check if face was detected and approved
@@ -347,7 +371,7 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
           throw new Error('Failed to create face template');
         }
         
-        const templateResult = await templateResponse.json();
+        const templateResult = await templateResponse.json() as any;
         console.log('✅ Face template created:', templateResult.photos_processed, 'photos processed');
         
         // Update user document with photos AND template
@@ -399,300 +423,322 @@ const PhotoUploadScreen = ({ navigation, route }: PhotoUploadScreenProps) => {
   const uploadedCount = photos.filter(p => p.localUri !== null).length;
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.bg}
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* Header - only show back button if user navigated here from another screen */}
-      {navigation.canGoBack() && (
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.headerBtn}>
+          {navigation.canGoBack() && (
+            <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
         </View>
-      )}
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+        <View style={styles.headerBtn} />
+      </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          !navigation.canGoBack() && styles.scrollContentNoHeader
-        ]}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>Add Your Photos</Text>
-          <Text style={styles.subtitle}>
-            Upload at least 4 photos (max 6)
-          </Text>
-          <Text style={styles.countText}>
-            {uploadedCount} / 6 photos added {uploadedCount >= 4 ? '✓' : ''}
-          </Text>
-        </View>
+        <Text style={styles.title}>Add Your Photos</Text>
+        <Text style={styles.subtitle}>Upload at least 4 clear face photos</Text>
+        <Text style={styles.countText}>
+          {uploadedCount}/6 added{uploadedCount >= 4 ? '  ✓' : ''}
+        </Text>
 
-        {/* Photo Grid */}
-        <View style={styles.grid}>
-          {photos.map((photo, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[
-                styles.photoSlot,
-                photo.localUri && styles.photoSlotWithGlow,
-              ]}
-              onPress={() => handleSelectPhoto(index)}
-              activeOpacity={0.7}
-            >
-              {photo.localUri ? (
-                <View style={styles.photoContainer}>
-                  <Image
-                    source={{ uri: photo.localUri }}
-                    style={styles.photo}
-                    resizeMode="cover"
-                  />
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => handleRemovePhoto(index)}
-                  >
-                    <Text style={styles.removeText}>✕</Text>
-                  </TouchableOpacity>
-                  {index === 0 && (
-                    <View style={styles.primaryBadge}>
-                      <Text style={styles.primaryText}>PRIMARY</Text>
+        {/* Row 1 */}
+        <View style={styles.photoRow}>
+          {[0, 1, 2].map((index) => {
+            const photo = photos[index];
+            return (
+              <View key={index} style={styles.circleCell}>
+                <TouchableOpacity
+                  style={[styles.circle, photo.localUri ? styles.circleFilled : styles.circleEmpty]}
+                  onPress={() => handleSelectPhoto(index)}
+                  activeOpacity={0.8}
+                >
+                  {!!photo.localUri && (
+                    <View style={styles.circleImageWrapper}>
+                      <Image
+                        source={{ uri: photo.localUri }}
+                        style={styles.circlePhoto}
+                        resizeMode="cover"
+                      />
                     </View>
                   )}
-                </View>
-              ) : (
-                <View style={styles.emptySlot}>
-                  <Text style={styles.plusIcon}>+</Text>
-                  <Text style={styles.slotText}>Add Photo</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
+                </TouchableOpacity>
+                {!photo.localUri && (
+                  <View style={styles.addBadge}>
+                    <Ionicons name="add" size={14} color="#FFFFFF" />
+                  </View>
+                )}
+                {!!photo.localUri && (
+                  <TouchableOpacity
+                    style={styles.removeBadge}
+                    onPress={() => handleRemovePhoto(index)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={11} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
         </View>
 
-        {/* Info Box */}
+        {/* Row 2 */}
+        <View style={[styles.photoRow, { marginBottom: 0 }]}>
+          {[3, 4, 5].map((index) => {
+            const photo = photos[index];
+            return (
+              <View key={index} style={styles.circleCell}>
+                <TouchableOpacity
+                  style={[styles.circle, photo.localUri ? styles.circleFilled : styles.circleEmpty]}
+                  onPress={() => handleSelectPhoto(index)}
+                  activeOpacity={0.8}
+                >
+                  {!!photo.localUri && (
+                    <View style={styles.circleImageWrapper}>
+                      <Image
+                        source={{ uri: photo.localUri }}
+                        style={styles.circlePhoto}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                {!photo.localUri && (
+                  <View style={styles.addBadge}>
+                    <Ionicons name="add" size={14} color="#FFFFFF" />
+                  </View>
+                )}
+                {!!photo.localUri && (
+                  <TouchableOpacity
+                    style={styles.removeBadge}
+                    onPress={() => handleRemovePhoto(index)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={11} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Guidelines */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>Photo Guidelines</Text>
-          <Text style={styles.infoText}>• Clear face photos work best</Text>
-          <Text style={styles.infoText}>• No inappropriate content</Text>
-          <Text style={styles.infoText}>• First photo is your profile picture</Text>
+          <Text style={styles.infoText}>• Your face must be clearly visible in each photo</Text>
+          <Text style={styles.infoText}>• First photo becomes your profile picture</Text>
+          <Text style={styles.infoText}>• No inappropriate or blurry content</Text>
         </View>
+
+        <View style={{ height: 16 }} />
       </ScrollView>
 
-      {/* Upload Button */}
+      {/* Footer */}
       <View style={[styles.footer, { paddingBottom: Math.max(32, insets.bottom + 16) }]}>
         <TouchableOpacity
           onPress={handleUpload}
           disabled={uploadedCount < 4 || uploading}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           <LinearGradient
-            colors={uploadedCount < 4 || uploading ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 0}}
+            colors={
+              uploadedCount < 4 || uploading
+                ? ['rgba(139,43,226,0.25)', 'rgba(6,182,212,0.25)']
+                : ['#8B2BE2', '#06B6D4']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.uploadButton}
           >
             {uploading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.uploadButtonText}>
-                Upload Photos ({uploadedCount}/6)
+                Continue  ({uploadedCount}/6)
               </Text>
             )}
           </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#0E1621',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,11,30,0.62)',
   },
   header: {
-    padding: 24,
-    paddingTop: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
-  titleSection: {
-    marginBottom: 24,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
+  headerBtn: {
+    width: 42,
+    height: 42,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  appName: {
     color: '#FFFFFF',
-    marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#B8C7D9',
-    marginBottom: 12,
-    fontFamily: 'Inter_24pt-Regular',
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#378BBB',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    paddingTop: 0,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 8,
   },
-  scrollContentNoHeader: {
-    paddingTop: 60, // Extra top padding when no header
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  photoSlot: {
-    width: '48%',
-    aspectRatio: 0.75,
-    marginBottom: 16,
-    borderRadius: 12,
-  },
-  photoSlotWithGlow: {
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
-    elevation: 8,
-    overflow: 'hidden',
-  },
-  mandatorySlot: {
-    borderWidth: 2,
-    borderColor: '#378BBB',
-  },
-  photoContainer: {
-    width: '100%',
-    height: '100%',
-  },
-  photo: {
-    width: '100%',
-    height: '100%',
-  },
-  emptySlot: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#16283D',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#233B57',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-  },
-  plusIcon: {
-    fontSize: 40,
-    color: '#378BBB',
+  title: {
+    fontSize: 32,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
-  slotText: {
-    fontSize: 12,
-    color: '#7F93AA',
-    fontWeight: '500',
-    fontFamily: 'Inter_24pt-Regular',
+  subtitle: {
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.50)',
+    marginBottom: 6,
   },
-  removeButton: {
+  countText: {
+    fontSize: 14,
+    fontFamily: 'Inter-SemiBold',
+    color: '#A855F7',
+    marginBottom: 28,
+  },
+  // ─── Circle grid ───
+  photoRow: {
+    flexDirection: 'row',
+    marginBottom: 18,
+  },
+  circleCell: {
+    width: CELL_WIDTH,
+    height: CELL_HEIGHT,
+  },
+  circle: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    top: Math.floor(BADGE_SIZE / 2),
+    left: 0,
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+  },
+  circleEmpty: {
+    backgroundColor: 'rgba(200,200,215,0.10)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  circleFilled: {},
+  circleImageWrapper: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    overflow: 'hidden',
+  },
+  circlePhoto: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    overflow: 'hidden',
+  },
+  addBadge: {
+    position: 'absolute',
+    left: ADD_BADGE_LEFT,
+    top: ADD_BADGE_TOP,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
+    backgroundColor: '#8B2BE2',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  removeText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  primaryBadge: {
+  removeBadge: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: '#378BBB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    left: REMOVE_BADGE_LEFT,
+    top: REMOVE_BADGE_TOP,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
+    backgroundColor: 'rgba(20,10,40,0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.30)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  primaryText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
-    fontFamily: 'Inter_24pt-Bold',
-  },
+  // ─── Info box ───
   infoBox: {
-    backgroundColor: '#16283D',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: 'rgba(30,28,45,0.85)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.25)',
+    padding: 18,
+    marginTop: 12,
   },
   infoTitle: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-SemiBold',
     color: '#FFFFFF',
-    marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    marginBottom: 10,
   },
   infoText: {
     fontSize: 13,
-    color: '#B8C7D9',
-    marginBottom: 4,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: 5,
     lineHeight: 20,
-    fontFamily: 'Inter_24pt-Regular',
   },
+  // ─── Footer ───
   footer: {
-    padding: 24,
-    borderTopWidth: 1,
-    borderTopColor: '#233B57',
+    paddingHorizontal: 24,
+    paddingTop: 16,
   },
   uploadButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
   },
   uploadButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
 });
 
