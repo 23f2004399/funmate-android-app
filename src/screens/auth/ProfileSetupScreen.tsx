@@ -8,7 +8,8 @@ import {
   StatusBar,
   ActivityIndicator,
   Modal,
-  Alert,
+  ImageBackground,
+  Image,
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
@@ -17,7 +18,6 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import DatePicker from 'react-native-date-picker';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
@@ -39,10 +39,6 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
-  const [dob, setDob] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [gender, setGender] = useState('');
-  const [showGenderPicker, setShowGenderPicker] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -118,13 +114,6 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
     return () => clearTimeout(timeoutId);
   }, [username]);
 
-  const formatDate = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
   const validateForm = () => {
     if (!fullName.trim()) {
       Toast.show({
@@ -162,24 +151,6 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
       });
       return false;
     }
-    if (!dob) {
-      Toast.show({
-        type: 'error',
-        text1: 'Date of Birth Required',
-        text2: 'Please select your date of birth',
-        visibilityTime: 3000,
-      });
-      return false;
-    }
-    if (!gender) {
-      Toast.show({
-        type: 'error',
-        text1: 'Gender Required',
-        text2: 'Please select your gender',
-        visibilityTime: 3000,
-      });
-      return false;
-    }
     if (password.length < 6) {
       Toast.show({
         type: 'error',
@@ -210,93 +181,14 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
     return true;
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (!validateForm()) return;
-
-    setLoading(true);
-    try {
-      const user = auth().currentUser;
-      if (!user) {
-        throw new Error('No authenticated user');
-      }
-
-      // Create email/password credential and link it to phone-authenticated account
-      const credential = auth.EmailAuthProvider.credential(email, password);
-      await user.linkWithCredential(credential);
-      
-      // Now send verification email
-      await user.sendEmailVerification();
-      
-      // Update account with signupStep so app knows user hasn't completed signup yet
-      await firestore().collection('accounts').doc(user.uid).set({
-        authUid: user.uid,
-        role: 'user',
-        creatorType: null,
-        status: 'active',
-        phoneVerified: true,
-        emailVerified: false,
-        identityVerified: false,
-        bankVerified: false,
-        signupStep: 'photos', // User needs to upload photos next
-        createdAt: firestore.FieldValue.serverTimestamp(),
-      });
-      
-      setLoading(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Verification Email Sent',
-        text2: `Check ${email} and click the verification link`,
-        visibilityTime: 4000,
-      });
-      
-      setTimeout(() => {
-        navigation.navigate('EmailVerification', {
-                phoneNumber,
-                fullName,
-                email,
-                username,
-                dob: formatDate(dob!),
-                gender,
-                password,
-              });
-      }, 1000);
-    } catch (error: any) {
-      setLoading(false);
-      console.error('Email linking error:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      
-      // Handle specific errors
-      if (error.code === 'auth/email-already-in-use') {
-        Toast.show({
-          type: 'error',
-          text1: 'Email Already in Use',
-          text2: 'This email is already registered',
-          visibilityTime: 4000,
-        });
-      } else if (error.code === 'auth/invalid-email') {
-        Toast.show({
-          type: 'error',
-          text1: 'Invalid Email',
-          text2: 'Please check your email address',
-          visibilityTime: 3000,
-        });
-      } else if (error.code === 'auth/weak-password') {
-        Toast.show({
-          type: 'error',
-          text1: 'Weak Password',
-          text2: 'Please use a stronger password',
-          visibilityTime: 3000,
-        });
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Setup Failed',
-          text2: error.message || 'Failed to send verification email',
-          visibilityTime: 4000,
-        });
-      }
-    }
+    navigation.navigate('DOBSelection', {
+      fullName,
+      email,
+      username,
+      password,
+    });
   };
 
   const handleGoogleSignIn = async () => {
@@ -366,272 +258,225 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+    <ImageBackground
+      source={require('../../assets/images/bg_party.webp')}
+      style={styles.bg}
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <TouchableWithoutFeedback 
+      {/* Funmate logo header — fixed above scroll */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => setShowLogoutAlert(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={26} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+        <View style={styles.headerBtn} />
+      </View>
+
+      <TouchableWithoutFeedback
         onPress={() => {
           Keyboard.dismiss();
           setFocusedInput(null);
         }}
       >
         <View style={{ flex: 1 }}>
-          <KeyboardAwareScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
-        extraScrollHeight={100}
-        extraHeight={150}
-        enableAutomaticScroll={true}
-        keyboardOpeningTime={0}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          {navigation.canGoBack() ? (
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={() => setShowLogoutAlert(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={26} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.title}>Complete Your Profile</Text>
-          <Text style={styles.subtitle}>Let's get to know you better</Text>
-        </View>
-
-        {/* Form Fields */}
-        <View style={styles.form}>
-          <TextInput
-            style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Full Name"
-            placeholderTextColor="#7F93AA"
-            autoCapitalize="words"
-            onFocus={() => setFocusedInput('fullName')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <TextInput
-            style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email Address"
-            placeholderTextColor="#7F93AA"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            onFocus={() => setFocusedInput('email')}
-            onBlur={() => setFocusedInput(null)}
-          />
-
-          <View style={styles.usernameContainer}>
-            <TextInput
-              style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
-              value={username}
-              onChangeText={setUsername}
-              placeholder="Username"
-              placeholderTextColor="#7F93AA"
-              autoCapitalize="none"
-              onFocus={() => setFocusedInput('username')}
-              onBlur={() => setFocusedInput(null)}
-            />
-            {username.length >= 3 && (
-              <View style={styles.usernameStatus}>
-                {checkingUsername ? (
-                  <ActivityIndicator size="small" color="#378BBB" />
-                ) : usernameAvailable === true ? (
-                  <Text style={styles.availableText}>✓ Available</Text>
-                ) : usernameAvailable === false ? (
-                  <Text style={styles.unavailableText}>✗ Taken</Text>
-                ) : null}
-              </View>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.input}
-            onPress={() => setShowDatePicker(true)}
-            activeOpacity={0.7}
+          <KeyboardAwareScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            enableOnAndroid={true}
+            extraScrollHeight={100}
+            extraHeight={150}
+            enableAutomaticScroll={true}
+            keyboardOpeningTime={0}
           >
-            <Text style={dob ? styles.inputText : styles.placeholderText}>
-              {dob ? formatDate(dob) : 'Date of Birth'}
-            </Text>
-          </TouchableOpacity>
-
-          <DatePicker
-            modal
-            open={showDatePicker}
-            date={dob || new Date(2000, 0, 1)}
-            mode="date"
-            maximumDate={new Date()}
-            minimumDate={new Date(1950, 0, 1)}
-            onConfirm={(date) => {
-              setShowDatePicker(false);
-              setDob(date);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
-
-          <TouchableOpacity
-            style={styles.input}
-            onPress={() => setShowGenderPicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={gender ? styles.inputText : styles.placeholderText}>
-              {gender || 'Select Gender'}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={[styles.passwordInput, focusedInput === 'password' && styles.inputFocused]}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor="#7F93AA"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              onFocus={() => setFocusedInput('password')}
-              onBlur={() => setFocusedInput(null)}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons 
-                name={showPassword ? 'eye-outline' : 'eye-off-outline'} 
-                size={22} 
-                color="#7F93AA" 
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Password Strength Indicator */}
-          {password.length > 0 && (
-            <View style={styles.passwordStrengthContainer}>
-              <View style={styles.strengthBarBackground}>
-                <View 
-                  style={[
-                    styles.strengthBarFill, 
-                    { 
-                      width: `${(passwordStrength.score / 6) * 100}%`,
-                      backgroundColor: passwordStrength.color 
-                    }
-                  ]} 
-                />
-              </View>
-              <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>
-                {passwordStrength.label}
-              </Text>
+            {/* Page title */}
+            <View style={styles.pageHeader}>
+              <Text style={styles.title} numberOfLines={1} adjustsFontSizeToFit>Complete Your Profile</Text>
+              <Text style={styles.subtitle}>Enter your basic details</Text>
             </View>
-          )}
 
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={[styles.passwordInput, focusedInput === 'confirmPassword' && styles.inputFocused]}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm Password"
-              placeholderTextColor="#7F93AA"
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-              onFocus={() => setFocusedInput('confirmPassword')}
-              onBlur={() => setFocusedInput(null)}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              <Ionicons 
-                name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'} 
-                size={22} 
-                color="#7F93AA" 
+            {/* Form Fields */}
+            <View style={styles.form}>
+              <TextInput
+                style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Full Name"
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                autoCapitalize="words"
+                onFocus={() => setFocusedInput('fullName')}
+                onBlur={() => setFocusedInput(null)}
               />
+
+              <TextInput
+                style={[styles.input, focusedInput === 'email' && styles.inputFocused]}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email Address"
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onFocus={() => setFocusedInput('email')}
+                onBlur={() => setFocusedInput(null)}
+              />
+
+              <View style={styles.usernameContainer}>
+                <TextInput
+                  style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Username"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  autoCapitalize="none"
+                  onFocus={() => setFocusedInput('username')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                {username.length >= 3 && (
+                  <View style={styles.usernameStatus}>
+                    {checkingUsername ? (
+                      <ActivityIndicator size="small" color="#9B59B6" />
+                    ) : usernameAvailable === true ? (
+                      <Text style={styles.availableText}>✓ Available</Text>
+                    ) : usernameAvailable === false ? (
+                      <Text style={styles.unavailableText}>✗ Taken</Text>
+                    ) : null}
+                  </View>
+                )}
+              </View>
+
+              {/* Password */}
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.passwordInput, focusedInput === 'password' && styles.inputFocused]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  onFocus={() => setFocusedInput('password')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={22}
+                    color="rgba(255,255,255,0.40)"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Password Strength Indicator */}
+              {password.length > 0 && (
+                <View style={styles.passwordStrengthContainer}>
+                  <View style={styles.strengthBarBackground}>
+                    <View
+                      style={[
+                        styles.strengthBarFill,
+                        {
+                          width: `${(passwordStrength.score / 6) * 100}%`,
+                          backgroundColor: passwordStrength.color,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.strengthLabel, { color: passwordStrength.color }]}>
+                    {passwordStrength.label}
+                  </Text>
+                </View>
+              )}
+
+              {/* Confirm Password */}
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.passwordInput, focusedInput === 'confirmPassword' && styles.inputFocused]}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  onFocus={() => setFocusedInput('confirmPassword')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                <TouchableOpacity
+                  style={styles.eyeIcon}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={22}
+                    color="rgba(255,255,255,0.40)"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Continue Button */}
+            <TouchableOpacity
+              onPress={handleContinue}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#8B2BE2', '#06B6D4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.continueButton}
+              >
+                <Text style={styles.continueButtonText}>Continue</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* Continue with Google Button */}
-        <TouchableOpacity
-          style={styles.googleButton}
-          onPress={handleGoogleSignIn}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          <Svg width="18" height="18" viewBox="0 0 48 48" style={{ marginRight: 12 }}>
-            <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-            <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-            <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-            <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-            <Path fill="none" d="M0 0h48v48H0z" />
-          </Svg>
-          <Text style={styles.googleButtonText}>Continue with Google</Text>
-        </TouchableOpacity>
+            {/* OR divider */}
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>OR</Text>
+              <View style={styles.orLine} />
+            </View>
 
-        {/* Continue Button */}
-        <TouchableOpacity
-          onPress={handleContinue}
-          disabled={loading}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#378BBB', '#4FC3F7']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 0}}
-            style={[styles.continueButton, { marginBottom: Math.max(16, insets.bottom + 16) }]}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.continueButtonText}>Continue</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </KeyboardAwareScrollView>
+            {/* Continue with Google Button */}
+            <TouchableOpacity
+              style={[styles.googleButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <Svg width="18" height="18" viewBox="0 0 48 48" style={{ marginRight: 12 }}>
+                <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                <Path fill="none" d="M0 0h48v48H0z" />
+              </Svg>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
+          </KeyboardAwareScrollView>
         </View>
       </TouchableWithoutFeedback>
-
-      {/* Gender Picker Modal */}
-      <Modal
-        visible={showGenderPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowGenderPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowGenderPicker(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Gender</Text>
-            {['Male', 'Female', 'Non-Binary', 'Prefer not to say'].map((g) => (
-              <TouchableOpacity
-                key={g}
-                style={styles.genderOption}
-                onPress={() => {
-                  setGender(g);
-                  setShowGenderPicker(false);
-                }}
-              >
-                <Text style={styles.genderOptionText}>{g}</Text>
-                {gender === g && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Logout Confirmation Modal */}
       <Modal
@@ -672,80 +517,108 @@ const ProfileSetupScreen = ({ navigation, route }: ProfileSetupScreenProps) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#0E1621',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,11,30,0.62)',
+  },
+  // Logo header row
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  headerBtn: {
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
+  },
+  // Page title section
+  pageHeader: {
+    paddingHorizontal: 32,
+    paddingTop: 28,
+    paddingBottom: 24,
+  },
+  title: {
+    fontSize: 26,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    lineHeight: 34,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.50)',
+    fontFamily: 'Inter-Regular',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
-  },
-  header: {
-    paddingHorizontal: 32,
     paddingTop: 40,
-    paddingBottom: 32,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#B8C7D9',
-    fontFamily: 'Inter_24pt-Regular',
+    paddingBottom: 40,
   },
   form: {
     paddingHorizontal: 32,
-    gap: 16,
+    gap: 14,
   },
   input: {
-    backgroundColor: '#1B2F48',
-    borderRadius: 12,
+    backgroundColor: 'rgba(45,43,58,0.85)',
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
     color: '#FFFFFF',
     height: 56,
     justifyContent: 'center',
-    fontFamily: 'Inter_24pt-Regular',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    fontFamily: 'Inter-Regular',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   inputFocused: {
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
+    borderColor: 'rgba(139,92,246,0.60)',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 4,
   },
   inputText: {
     fontSize: 16,
     color: '#FFFFFF',
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   placeholderText: {
     fontSize: 16,
-    color: '#7F93AA',
-    fontFamily: 'Inter_24pt-Regular',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
   usernameContainer: {
     position: 'relative',
@@ -759,31 +632,29 @@ const styles = StyleSheet.create({
   },
   availableText: {
     color: '#2ECC71',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
   },
   unavailableText: {
     color: '#FF4D6D',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
   },
   passwordContainer: {
     position: 'relative',
   },
   passwordInput: {
-    backgroundColor: '#1B2F48',
-    borderRadius: 12,
+    backgroundColor: 'rgba(45,43,58,0.85)',
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 16,
     paddingRight: 50,
     fontSize: 16,
     color: '#FFFFFF',
     height: 56,
-    fontFamily: 'Inter_24pt-Regular',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    fontFamily: 'Inter-Regular',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   eyeIcon: {
     position: 'absolute',
@@ -799,12 +670,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 8,
+    marginTop: 6,
   },
   strengthBarBackground: {
     flex: 1,
     height: 4,
-    backgroundColor: '#233B57',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -814,116 +685,91 @@ const styles = StyleSheet.create({
   },
   strengthLabel: {
     fontSize: 12,
-    fontWeight: '600',
     minWidth: 50,
-    fontFamily: 'Inter_24pt-Bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#16283D',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 20,
-    textAlign: 'center',
-    fontFamily: 'Inter_24pt-Bold',
-  },
-  genderOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#233B57',
-  },
-  genderOptionText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontFamily: 'Inter_24pt-Regular',
-  },
-  checkmark: {
-    fontSize: 20,
-    color: '#378BBB',
-    fontWeight: 'bold',
+    fontFamily: 'Inter-SemiBold',
   },
   googleButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     marginHorizontal: 32,
     marginTop: 24,
-    borderWidth: 2,
-    borderColor: '#378BBB',
   },
   googleButtonText: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   continueButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 32,
-    marginTop: 16,
-    shadowColor: '#378BBB',
+    marginTop: 14,
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 32,
+    marginTop: 20,
+    marginBottom: 16,
+    gap: 12,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  orText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    letterSpacing: 2,
   },
   alertOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0,0,0,0.80)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
   },
   alertBox: {
-    backgroundColor: '#16283D',
+    backgroundColor: 'rgba(30,28,45,0.96)',
     borderRadius: 20,
     padding: 24,
     width: '100%',
     maxWidth: 340,
-    borderWidth: 1,
-    borderColor: '#233B57',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   alertTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
     marginBottom: 12,
     textAlign: 'center',
-    fontFamily: 'Inter_24pt-Bold',
   },
   alertMessage: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.60)',
     marginBottom: 24,
     textAlign: 'center',
     lineHeight: 22,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   alertButtons: {
     flexDirection: 'row',
@@ -932,30 +778,28 @@ const styles = StyleSheet.create({
   alertCancelButton: {
     flex: 1,
     backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#233B57',
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   alertCancelText: {
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   alertLogoutButton: {
     flex: 1,
     backgroundColor: '#FF4D6D',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   alertLogoutText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
 });
 

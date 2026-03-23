@@ -6,11 +6,13 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Alert,
   Animated,
   Pressable,
+  ImageBackground,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import auth, { getAuth } from '@react-native-firebase/auth';
@@ -24,6 +26,7 @@ interface EmailVerificationScreenProps {
 }
 
 const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenProps) => {
+  const insets = useSafeAreaInsets();
   const { phoneNumber, fullName, email, username, dob, gender, password } = route.params;
   const [loading, setLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -66,6 +69,12 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       if (updatedUser?.emailVerified) {
         setIsVerified(true);
         setChecking(false);
+        Toast.show({
+          type: 'success',
+          text1: '✓ Email Verified!',
+          text2: 'You can now continue to the next step',
+          visibilityTime: 3000,
+        });
         return true;
       } else {
         setChecking(false);
@@ -281,17 +290,28 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.bg}
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          style={styles.headerBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+        <View style={styles.headerBtn} />
       </View>
 
       <View style={styles.content}>
@@ -398,12 +418,6 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           </Pressable>
         </View>
 
-        {isVerified && (
-          <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>✓ Email Verified!</Text>
-          </View>
-        )}
-
         <TouchableOpacity
           style={styles.checkButton}
           onPress={checkEmailVerification}
@@ -411,7 +425,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           activeOpacity={0.8}
         >
           {checking ? (
-            <ActivityIndicator color="#378BBB" />
+            <ActivityIndicator color="#A855F7" />
           ) : (
             <Text style={styles.checkButtonText}>Check Verification Status</Text>
           )}
@@ -423,9 +437,9 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={!isVerified || loading ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 0}}
+            colors={!isVerified || loading ? ['rgba(139,43,226,0.25)', 'rgba(6,182,212,0.25)'] : ['#8B2BE2', '#06B6D4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.verifyButton}
           >
             {loading ? (
@@ -436,7 +450,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           </LinearGradient>
         </TouchableOpacity>
 
-        <View style={styles.resendContainer}>
+        <View style={[styles.resendContainer, { marginBottom: Math.max(32, insets.bottom + 16) }]}>
           <Text style={styles.resendText}>Didn't receive email? </Text>
           {canResend ? (
             <TouchableOpacity onPress={handleResendCode} activeOpacity={0.7}>
@@ -447,56 +461,77 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           )}
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#0E1621',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,11,30,0.62)',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  headerBtn: {
+    width: 42,
+    height: 42,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
   },
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingTop: 48,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
-    marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    marginBottom: 10,
+    lineHeight: 40,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#B8C7D9',
-    marginBottom: 40,
-    fontFamily: 'Inter_24pt-Regular',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.50)',
+    marginBottom: 36,
+    fontFamily: 'Inter-Regular',
   },
   instructionsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 32,
+    gap: 10,
+    marginBottom: 28,
   },
   instructionCard: {
-    backgroundColor: '#16283D',
-    borderRadius: 12,
+    backgroundColor: 'rgba(30,28,45,0.88)',
+    borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: '#233B57',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.30)',
     alignItems: 'center',
     justifyContent: 'center',
     height: 120,
@@ -510,89 +545,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
     lineHeight: 16,
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   instructionNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#378BBB',
+    fontSize: 24,
+    fontFamily: 'Inter-Bold',
+    color: '#A855F7',
     marginBottom: 4,
-    fontFamily: 'Inter_24pt-Bold',
   },
   instructionText: {
     fontSize: 11,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.50)',
     textAlign: 'center',
-    fontFamily: 'Inter_24pt-Regular',
-  },
-  verifiedBadge: {
-    backgroundColor: '#1F3B2E',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2ECC71',
-  },
-  verifiedText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2ECC71',
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-Regular',
   },
   checkButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: 'rgba(30,28,45,0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.60)',
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   checkButtonText: {
-    color: '#378BBB',
+    color: '#A855F7',
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   verifyButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    shadowColor: '#378BBB',
+    justifyContent: 'center',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 24,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 16,
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
   resendContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   resendText: {
     fontSize: 15,
-    color: '#B8C7D9',
-    fontFamily: 'Inter_24pt-Regular',
+    color: 'rgba(255,255,255,0.50)',
+    fontFamily: 'Inter-Regular',
   },
   resendLink: {
     fontSize: 15,
-    color: '#378BBB',
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    color: '#22D3EE',
+    fontFamily: 'Inter-SemiBold',
   },
   resendTimer: {
     fontSize: 15,
-    color: '#7F93AA',
-    fontWeight: '500',
-    fontFamily: 'Inter_24pt-Regular',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
 });
 

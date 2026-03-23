@@ -13,10 +13,14 @@ import AccountTypeScreen from '../screens/auth/AccountTypeScreen';
 import PhoneNumberScreen from '../screens/auth/PhoneNumberScreen';
 import OTPVerificationScreen from '../screens/auth/OTPVerificationScreen';
 import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
+import DOBSelectionScreen from '../screens/auth/DOBSelectionScreen';
+import GenderSelectionScreen from '../screens/auth/GenderSelectionScreen';
 import CreatorBasicInfoScreen from '../screens/auth/CreatorBasicInfoScreen';
 import CreatorGoogleProfileSetupScreen from '../screens/auth/CreatorGoogleProfileSetupScreen';
 import EmailVerificationScreen from '../screens/auth/EmailVerificationScreen';
 import GoogleProfileSetupScreen from '../screens/auth/GoogleProfileSetupScreen';
+import GoogleProfileDOBSelectionScreen from '../screens/auth/GoogleProfileDOBSelectionScreen';
+import GoogleProfileGenderSelectionScreen from '../screens/auth/GoogleProfileGenderSelectionScreen';
 import PhotoUploadScreen from '../screens/auth/PhotoUploadScreen';
 import IdentityVerificationIntroScreen from '../screens/auth/IdentityVerificationIntroScreen';
 import LivenessVerificationScreen from '../screens/auth/LivenessVerificationScreen';
@@ -54,6 +58,19 @@ export type RootStackParamList = {
   PhoneNumber: { accountType?: 'user' | 'creator'; isLogin?: boolean };
   OTPVerification: { phoneNumber: string; verificationId: string; accountType?: 'user' | 'creator'; isLogin?: boolean };
   ProfileSetup: { phoneNumber?: string };
+  DOBSelection: {
+    fullName: string;
+    email: string;
+    username: string;
+    password: string;
+  };
+  GenderSelection: {
+    fullName: string;
+    email: string;
+    username: string;
+    password: string;
+    dob: string;
+  };
   CreatorBasicInfo: { phoneNumber?: string };
   CreatorGoogleProfileSetup: { googleUser: any };
   CreatorEmailVerification: {
@@ -80,6 +97,8 @@ export type RootStackParamList = {
     password: string;
   };
   GoogleProfileSetup: { googleUser: any };
+  GoogleProfileDOBSelection: { fullName: string; username: string };
+  GoogleProfileGenderSelection: { fullName: string; username: string; dob: string };
   PhotoUpload: undefined;
   IdentityVerification: undefined;
   LivenessVerification: undefined;
@@ -316,6 +335,8 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         <Stack.Screen name="PhoneNumber" component={PhoneNumberScreen} />
         <Stack.Screen name="OTPVerification" component={OTPVerificationScreen} />
         <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
+        <Stack.Screen name="DOBSelection" component={DOBSelectionScreen} />
+        <Stack.Screen name="GenderSelection" component={GenderSelectionScreen} />
         <Stack.Screen name="CreatorBasicInfo" component={CreatorBasicInfoScreen} />
         <Stack.Screen name="CreatorGoogleProfileSetup" component={CreatorGoogleProfileSetupScreen} />
         <Stack.Screen name="CreatorEmailVerification" component={CreatorEmailVerificationScreen} />
@@ -328,6 +349,8 @@ const AppNavigator = forwardRef<NavigationContainerRef<RootStackParamList>, {}>(
         <Stack.Screen name="MerchantProfile" component={MerchantProfileScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="GoogleProfileSetup" component={GoogleProfileSetupScreen} />
+        <Stack.Screen name="GoogleProfileDOBSelection" component={GoogleProfileDOBSelectionScreen} />
+        <Stack.Screen name="GoogleProfileGenderSelection" component={GoogleProfileGenderSelectionScreen} />
         <Stack.Screen name="PhotoUpload" component={PhotoUploadScreen} />
         <Stack.Screen name="IdentityVerification" component={IdentityVerificationIntroScreen} />
         <Stack.Screen name="LivenessVerification" component={LivenessVerificationScreen} />
