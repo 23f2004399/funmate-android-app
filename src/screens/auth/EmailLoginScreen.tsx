@@ -20,12 +20,18 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  ImageBackground,
+  Image,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 
 interface EmailLoginScreenProps {
   navigation: any;
@@ -37,6 +43,9 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const insets = useSafeAreaInsets();
 
   /**
    * Validate email format
@@ -88,6 +97,12 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         return;
       }
 
+      const accountData = accountDoc.data();
+      const signupStep = accountData?.signupStep;
+      const isHost =
+        signupStep === 'individual_host_complete' ||
+        signupStep === 'merchant_complete';
+
       setGoogleLoading(false);
       Toast.show({
         type: 'success',
@@ -96,11 +111,11 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // Navigate to main app
+      // Navigate to the correct dashboard based on account role
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs' as never }],
+          routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
         });
       }, 1500);
 
@@ -175,6 +190,12 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         return;
       }
 
+      const accountData = accountDoc.data();
+      const signupStep = accountData?.signupStep;
+      const isHost =
+        signupStep === 'individual_host_complete' ||
+        signupStep === 'merchant_complete';
+
       setLoading(false);
       Toast.show({
         type: 'success',
@@ -183,11 +204,11 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
         visibilityTime: 3000,
       });
 
-      // Navigate to main app
+      // Navigate to the correct dashboard based on account role
       setTimeout(() => {
         navigation.reset({
           index: 0,
-          routes: [{ name: 'MainTabs' as never }],
+          routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
         });
       }, 1500);
 
@@ -221,24 +242,41 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
-      <ScrollView 
+      <KeyboardAwareScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        enableOnAndroid={true}
+        extraScrollHeight={24}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity 
             style={styles.backButton}
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
+
+          {/* Funmate Logo — centred in header */}
+          <View style={styles.logoRow}>
+            <Image source={require('../../assets/logo.png')} style={styles.logoImage as any} />
+            <Text style={styles.appName}>Funmate</Text>
+          </View>
+
+          {/* Spacer to balance back button */}
+          <View style={styles.backButton} />
         </View>
 
         {/* Content */}
@@ -254,10 +292,16 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
             activeOpacity={0.8}
           >
             {googleLoading ? (
-              <ActivityIndicator color="#1A1A1A" />
+              <ActivityIndicator color="#8B2BE2" />
             ) : (
               <>
-                <Ionicons name="logo-google" size={22} color="#DB4437" style={styles.googleIcon} />
+                <Svg width="18" height="18" viewBox="0 0 48 48" style={styles.googleIcon}>
+                  <Path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <Path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <Path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <Path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                  <Path fill="none" d="M0 0h48v48H0z" />
+                </Svg>
                 <Text style={styles.googleButtonText}>Continue with Google</Text>
               </>
             )}
@@ -273,17 +317,19 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
           {/* Email Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#999999" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, emailFocused && styles.inputContainerFocused]}>
+              <Ionicons name="mail-outline" size={20} color={emailFocused ? '#A855F7' : 'rgba(255,255,255,0.40)'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
-                placeholderTextColor="#999999"
+                placeholderTextColor="rgba(255,255,255,0.35)"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
               />
             </View>
           </View>
@@ -291,16 +337,18 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
           {/* Password Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#999999" style={styles.inputIcon} />
+            <View style={[styles.inputContainer, passwordFocused && styles.inputContainerFocused]}>
+              <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? '#A855F7' : 'rgba(255,255,255,0.40)'} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Enter your password"
-                placeholderTextColor="#999999"
+                placeholderTextColor="rgba(255,255,255,0.35)"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -310,7 +358,7 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={20}
-                  color="#999999"
+                  color={passwordFocused ? '#A855F7' : 'rgba(255,255,255,0.40)'}
                 />
               </TouchableOpacity>
             </View>
@@ -318,16 +366,22 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
 
           {/* Login Button */}
           <TouchableOpacity
-            style={[styles.loginButton, (!email || !password) && styles.loginButtonDisabled]}
             onPress={handleEmailLogin}
             disabled={!email || !password || loading || googleLoading}
             activeOpacity={0.8}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.loginButtonText}>Login</Text>
-            )}
+            <LinearGradient
+              colors={(!email || !password) ? ['rgba(139,43,226,0.25)', 'rgba(6,182,212,0.25)'] : ['#8B2BE2', '#06B6D4']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.loginButton}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>Login</Text>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
 
           {/* Sign Up Link */}
@@ -341,15 +395,18 @@ const EmailLoginScreen: React.FC<EmailLoginScreenProps> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
-    </View>
+      </KeyboardAwareScrollView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13, 11, 30, 0.62)',
   },
   scrollView: {
     flex: 1,
@@ -358,8 +415,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 40,
     paddingBottom: 10,
   },
   backButton: {
@@ -368,40 +427,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 18,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+    position: 'absolute',
+    left: -36,
+  },
+  appName: {
+    fontSize: 30,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 32,
+    paddingTop: 48,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter_24pt-Bold',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     marginBottom: 32,
+    fontFamily: 'Inter_24pt-Regular',
+    textAlign: 'center',
   },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    paddingVertical: 14,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     marginBottom: 24,
   },
   googleIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   googleButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#1C1C1E',
+    fontFamily: 'Inter-SemiBold',
   },
   orDivider: {
     flexDirection: 'row',
@@ -411,66 +490,68 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(255, 255, 255, 0.30)',
   },
   orText: {
-    fontSize: 14,
-    color: '#999999',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.70)',
     marginHorizontal: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-Regular',
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 8,
+    fontFamily: 'Inter-Medium',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#FAFAFA',
+    height: 54,
+    backgroundColor: 'rgba(45, 43, 58, 0.85)',
+  },
+  inputContainerFocused: {
+    borderColor: 'rgba(139, 92, 246, 0.60)',
+    borderWidth: 1.5,
   },
   inputIcon: {
     marginRight: 12,
+    opacity: 0.55,
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Regular',
   },
   eyeIcon: {
     padding: 4,
+    opacity: 0.55,
   },
   loginButton: {
-    backgroundColor: '#FF4458',
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 12,
     marginBottom: 24,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  loginButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
   },
   loginButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
   signupContainer: {
     flexDirection: 'row',
@@ -479,12 +560,13 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 15,
-    color: '#666666',
+    color: 'rgba(255, 255, 255, 0.55)',
+    fontFamily: 'Inter-Regular',
   },
   signupLink: {
     fontSize: 15,
-    color: '#FF4458',
-    fontWeight: '600',
+    color: '#22D3EE',
+    fontFamily: 'Inter-SemiBold',
   },
 });
 

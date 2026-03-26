@@ -229,7 +229,8 @@ export const passesFilters = (
   }
 ): boolean => {
   // Gender preference filter
-  if (!currentUser.interestedIn.includes(potentialMatch.gender)) {
+  // If interestedIn is empty, it means no gender preference is set - show all genders
+  if (currentUser.interestedIn.length > 0 && !currentUser.interestedIn.includes(potentialMatch.gender)) {
     return false;
   }
   
@@ -250,4 +251,81 @@ export const passesFilters = (
   }
   
   return true;
+};
+
+/**
+ * Get intent compatibility type
+ * Returns: 'exact' | 'compatible' | 'weak' | 'none'
+ */
+export const getIntentCompatibilityType = (
+  userIntent: string | null,
+  matchIntent: string | null
+): 'exact' | 'compatible' | 'weak' | 'none' => {
+  if (!userIntent || !matchIntent) return 'none';
+  
+  // Exact match
+  if (userIntent === matchIntent) return 'exact';
+  
+  // Compatible overlaps (20 points)
+  const compatiblePairs = [
+    ['long_term', 'unsure'],
+    ['casual', 'unsure'],
+    ['hookups', 'unsure'],
+    ['hookups', 'casual'],
+    ['friendship', 'unsure'],
+  ];
+  
+  const isCompatible = compatiblePairs.some(
+    ([a, b]) =>
+      (userIntent === a && matchIntent === b) ||
+      (userIntent === b && matchIntent === a)
+  );
+  
+  if (isCompatible) return 'compatible';
+  
+  // Weak overlaps (10 points)
+  const weakPairs = [
+    ['long_term', 'casual'],
+    ['long_term', 'friendship'],
+    ['casual', 'friendship'],
+  ];
+  
+  const isWeak = weakPairs.some(
+    ([a, b]) =>
+      (userIntent === a && matchIntent === b) ||
+      (userIntent === b && matchIntent === a)
+  );
+  
+  if (isWeak) return 'weak';
+  
+  return 'none';
+};
+
+/**
+ * Get common interests between two users
+ * Returns array of shared interests
+ */
+export const getCommonInterests = (
+  userInterests: string[],
+  matchInterests: string[]
+): string[] => {
+  if (!userInterests.length || !matchInterests.length) return [];
+  return userInterests.filter((interest) => matchInterests.includes(interest));
+};
+
+/**
+ * Format relationship intent for display
+ */
+export const formatIntent = (intent: string | null): string => {
+  if (!intent) return '';
+  
+  const intentMap: { [key: string]: string } = {
+    'long_term': 'Long Term',
+    'casual': 'Casual',
+    'hookups': 'Hookups',
+    'friendship': 'Friendship',
+    'unsure': 'Not sure yet',
+  };
+  
+  return intentMap[intent] || intent;
 };

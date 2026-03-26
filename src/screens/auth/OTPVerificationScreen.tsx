@@ -8,7 +8,11 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  ImageBackground,
+  Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import auth, { getAuth, signInWithPhoneNumber, PhoneAuthProvider, signInWithCredential } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
@@ -31,6 +35,8 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef<Array<TextInput | null>>([]);
+  const insets = useSafeAreaInsets();
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -104,7 +110,7 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
         console.log('Account exists?:', accountDoc.exists);
         
         // Only treat as existing if document actually has data
-        isExistingUser = accountDoc.exists && accountDoc.data() !== undefined;
+        isExistingUser = accountDoc.exists() && accountDoc.data() != null;
         console.log('Is existing user?:', isExistingUser);
         
       } catch (firestoreError: any) {
@@ -129,7 +135,13 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           return;
         }
         
-        // Login successful
+        // Login successful - check account role to determine correct dashboard
+        const loginAccountDoc = await firestore().collection('accounts').doc(userId).get();
+        const loginSignupStep = loginAccountDoc.data()?.signupStep;
+        const isHost =
+          loginSignupStep === 'individual_host_complete' ||
+          loginSignupStep === 'merchant_complete';
+
         setLoading(false);
         Toast.show({
           type: 'success',
@@ -138,11 +150,11 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           visibilityTime: 3000,
         });
         
-        // Navigate to main app
+        // Navigate to the correct dashboard based on account role
         setTimeout(() => {
           navigation.reset({
             index: 0,
-            routes: [{ name: 'MainTabs' as never }],
+            routes: [{ name: (isHost ? 'HostTabs' : 'MainTabs') as never }],
           });
         }, 1500);
         return;
@@ -150,17 +162,67 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
       
       // Handle SIGNUP flow
       if (isExistingUser) {
-        // User already registered - sign out and show error
+        // User already has account - check their signup progress
+        const accountData = (await firestore().collection('accounts').doc(userId).get()).data();
+        const signupStep = accountData?.signupStep;
+        
+        if (signupStep && signupStep !== 'complete') {
+          // User has incomplete signup - let them continue
+          setLoading(false);
+          Toast.show({
+            type: 'info',
+            text1: 'Welcome Back!',
+            text2: 'Let\'s continue setting up your profile',
+            visibilityTime: 2000,
+          });
+          
+          // Navigate based on signupStep
+          const screenMap: Record<string, string> = {
+            'basic_info': 'ProfileSetup',
+            'photos': 'PhotoUpload',
+            'liveness': 'LivenessVerification',
+            'preferences': 'DatingPreferences',
+            'interests': 'InterestsSelection',
+            'permissions': 'Permissions',
+          };
+          
+          const targetScreen = screenMap[signupStep] || 'ProfileSetup';
+          navigation.navigate(targetScreen as never, accountType === 'creator' ? undefined : { phoneNumber });
+          return;
+        }
+        
+        // Signup is complete - this is a duplicate signup attempt
         await auth().signOut();
         setLoading(false);
         Toast.show({
           type: 'error',
           text1: 'Phone Number Already Registered',
-          text2: 'This phone number is already linked to an account',
+          text2: 'This phone number is already linked to an account. Please log in.',
           visibilityTime: 4000,
         });
         navigation.goBack();
         return;
+      }
+      
+      // NEW USER: Create account document with signupStep
+      try {
+        await firestore().collection('accounts').doc(userId).set({
+          authUid: userId,
+          // Phone number NOT stored here - available via auth().currentUser.phoneNumber
+          role: accountType === 'creator' ? 'event_creator' : 'user',
+          creatorType: null,
+          status: 'pending_verification',
+          phoneVerified: true,
+          emailVerified: false,
+          identityVerified: false,
+          bankVerified: false,
+          signupStep: accountType === 'creator' ? 'creator_basic_info' : 'basic_info',
+          createdAt: firestore.FieldValue.serverTimestamp(),
+        });
+        console.log('Account document created with signupStep:', accountType === 'creator' ? 'creator_basic_info' : 'basic_info');
+      } catch (createError) {
+        console.error('Error creating account document:', createError);
+        // Continue anyway - the signup screens will handle this
       }
       
       setLoading(false);
@@ -229,18 +291,33 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
+
+        {/* Funmate Logo — centred in header */}
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage as any} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+
+        {/* Spacer to balance back button */}
+        <View style={styles.backButton} />
       </View>
 
       {/* Content */}
@@ -261,12 +338,15 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
               style={[
                 styles.otpBox,
                 digit && styles.otpBoxFilled,
+                focusedIndex === index && styles.otpBoxFocused,
               ]}
               value={digit}
               onChangeText={(value) => handleOtpChange(value, index)}
               onKeyPress={({ nativeEvent }) =>
                 handleKeyPress(nativeEvent.key, index)
               }
+              onFocus={() => setFocusedIndex(index)}
+              onBlur={() => setFocusedIndex(null)}
               keyboardType="number-pad"
               maxLength={1}
               selectTextOnFocus
@@ -276,19 +356,22 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
 
         {/* Verify Button */}
         <TouchableOpacity
-          style={[
-            styles.verifyButton,
-            otp.join('').length !== 6 && styles.verifyButtonDisabled,
-          ]}
           onPress={handleVerify}
           disabled={otp.join('').length !== 6 || loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.verifyButtonText}>Verify & Continue</Text>
-          )}
+          <LinearGradient
+            colors={otp.join('').length !== 6 || loading ? ['rgba(139,43,226,0.25)', 'rgba(6,182,212,0.25)'] : ['#8B2BE2', '#06B6D4']}
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.verifyButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.verifyButtonText}>Verify & Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         {/* Resend Code */}
@@ -303,39 +386,66 @@ const OTPVerificationScreen = ({ navigation, route }: OTPVerificationScreenProps
           )}
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13, 11, 30, 0.62)',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 40,
     paddingBottom: 10,
   },
   backButton: {
-    fontSize: 32,
-    color: '#1A1A1A',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 18,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+    position: 'absolute',
+    left: -36,
+  },
+  appName: {
+    fontSize: 30,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingTop: 100,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
+    color: 'rgba(255,255,255,0.55)',
     marginBottom: 40,
+    fontFamily: 'Inter-Regular',
   },
   otpContainer: {
     flexDirection: 'row',
@@ -345,40 +455,39 @@ const styles = StyleSheet.create({
   otpBox: {
     width: 50,
     height: 56,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#F5F5F5',
+    backgroundColor: 'rgba(30, 28, 45, 0.88)',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
     fontSize: 24,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     textAlign: 'center',
+    fontFamily: 'Inter-Bold',
   },
   otpBoxFilled: {
-    borderColor: '#FF4458',
-    backgroundColor: '#FFF5F6',
+    borderColor: 'rgba(139, 92, 246, 0.60)',
+  },
+  otpBoxFocused: {
+    borderColor: 'rgba(139, 92, 246, 0.90)',
+    borderWidth: 2,
   },
   verifyButton: {
-    backgroundColor: '#FF4458',
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
+    justifyContent: 'center',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
     marginBottom: 24,
-  },
-  verifyButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
   resendContainer: {
     flexDirection: 'row',
@@ -387,17 +496,18 @@ const styles = StyleSheet.create({
   },
   resendText: {
     fontSize: 15,
-    color: '#666666',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-Regular',
   },
   resendLink: {
     fontSize: 15,
-    color: '#FF4458',
-    fontWeight: '600',
+    color: '#22D3EE',
+    fontFamily: 'Inter-SemiBold',
   },
   resendTimer: {
     fontSize: 15,
-    color: '#999999',
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
 });
 

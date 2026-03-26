@@ -8,15 +8,17 @@ import {
   StatusBar,
   ScrollView,
   ActivityIndicator,
-  Alert,
-  Modal,
   Image,
+  ImageBackground,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import DatePicker from 'react-native-date-picker';
-import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
@@ -26,16 +28,71 @@ interface GoogleProfileSetupScreenProps {
 }
 
 const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScreenProps) => {
-  const { googleUser } = route.params;
-  const [fullName, setFullName] = useState(googleUser.displayName || '');
+  const insets = useSafeAreaInsets();
+  const [isLoadingUserData, setIsLoadingUserData] = useState(true);
+  const [googleUser, setGoogleUser] = useState<any>(null);
+  const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
-  const [dob, setDob] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [gender, setGender] = useState('');
-  const [showGenderPicker, setShowGenderPicker] = useState(false);
-  const [loading, setLoading] = useState(false);
+
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+
+  // 🔥 FIX: Load Google user data with proper null checks and loading state
+  useEffect(() => {
+    const loadGoogleUserData = async () => {
+      try {
+        // First check route params
+        if (route.params?.googleUser) {
+          setGoogleUser(route.params.googleUser);
+          setFullName(route.params.googleUser.displayName || '');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Wait for Firebase Auth to initialize
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.error('No authenticated user found');
+          setIsLoadingUserData(false);
+          return;
+        }
+
+        // Find Google provider in providerData
+        const googleProvider = currentUser.providerData?.find(
+          provider => provider?.providerId === 'google.com'
+        );
+
+        if (googleProvider) {
+          const userData = {
+            uid: currentUser.uid,
+            email: googleProvider.email || currentUser.email || '',
+            displayName: googleProvider.displayName || currentUser.displayName || '',
+            photoURL: googleProvider.photoURL || currentUser.photoURL || null,
+          };
+          setGoogleUser(userData);
+          setFullName(userData.displayName);
+        } else {
+          // No Google provider found - shouldn't happen, but handle gracefully
+          console.warn('No Google provider found in providerData');
+          const fallbackData = {
+            uid: currentUser.uid,
+            email: currentUser.email || '',
+            displayName: currentUser.displayName || '',
+            photoURL: currentUser.photoURL || null,
+          };
+          setGoogleUser(fallbackData);
+          setFullName(fallbackData.displayName);
+        }
+      } catch (error) {
+        console.error('Error loading Google user data:', error);
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    loadGoogleUserData();
+  }, [route.params]);
 
   // Check username availability with debounce
   useEffect(() => {
@@ -65,25 +122,6 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
     return () => clearTimeout(timeoutId);
   }, [username]);
 
-  const formatDate = (date: Date) => {
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  const calculateAge = (dobString: string) => {
-    const [day, month, year] = dobString.split('/').map(Number);
-    const birthDate = new Date(year, month - 1, day);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
   const validateForm = () => {
     if (!fullName.trim()) {
       Toast.show({
@@ -112,121 +150,98 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
       });
       return false;
     }
-    if (!dob) {
-      Toast.show({
-        type: 'error',
-        text1: 'Date of Birth Required',
-        text2: 'Please select your date of birth',
-        visibilityTime: 3000,
-      });
-      return false;
-    }
-    if (!gender) {
-      Toast.show({
-        type: 'error',
-        text1: 'Gender Required',
-        text2: 'Please select your gender',
-        visibilityTime: 3000,
-      });
-      return false;
-    }
     return true;
   };
 
-  const handleContinue = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
+  const handleLogout = async () => {
     try {
-      const user = auth().currentUser;
-      if (!user) {
-        throw new Error('No authenticated user');
-      }
-
-      const accountId = user.uid;
-      const age = calculateAge(formatDate(dob!));
-
-      // Create account document (Google users are auto-verified)
-      await firestore().collection('accounts').doc(accountId).set({
-        authUid: user.uid,
-        role: 'user',
-        creatorType: null,
-        status: 'active',
-        phoneVerified: true, // Phone was verified first
-        emailVerified: true, // Google accounts are verified
-        identityVerified: false,
-        bankVerified: false,
-        createdAt: firestore.FieldValue.serverTimestamp(),
+      await auth().signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
       });
-
-      // Create user document
-      await firestore().collection('users').doc(accountId).set({
-        accountId,
-        username: username.toLowerCase(),
-        name: fullName,
-        age,
-        gender: gender.toLowerCase(),
-        bio: '',
-        relationshipIntent: 'unsure',
-        interestedIn: [],
-        matchRadiusKm: 50,
-        interests: [],
-        location: null,
-        photos: [], // User will upload photos later
-        isVerified: false,
-        premiumStatus: 'free',
-        premiumExpiresAt: null,
-        premiumFeatures: {
-          unlimitedSwipes: false,
-          seeWhoLikedYou: false,
-          audioVideoCalls: false,
-          priorityListing: false,
-        },
-        creatorDetails: null,
-        createdAt: firestore.FieldValue.serverTimestamp(),
-        lastActiveAt: firestore.FieldValue.serverTimestamp(),
-      });
-
-      setLoading(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Profile Created!',
-        text2: 'Your Google account is verified and ready',
-        visibilityTime: 3000,
-      });
-      
-      setTimeout(() => {
-        navigation.navigate('PhotoUpload');
-      }, 1000);
-    } catch (error: any) {
-      setLoading(false);
-      console.error('Profile creation error:', error);
+    } catch (error) {
+      console.error('Logout error:', error);
       Toast.show({
         type: 'error',
-        text1: 'Setup Failed',
-        text2: error.message || 'Failed to create profile',
-        visibilityTime: 4000,
+        text1: 'Logout Failed',
+        text2: 'Please try again',
+        visibilityTime: 3000,
       });
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+  const handleContinue = () => {
+    if (!validateForm()) return;
+    navigation.navigate('GoogleProfileDOBSelection', { fullName, username });
+  };
 
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+  // Show loading screen while fetching user data
+  if (isLoadingUserData || !googleUser) {
+    return (
+      <ImageBackground
+        source={require('../../assets/images/bg_splash.webp')}
+        style={styles.bg}
+        blurRadius={6}
       >
-        {/* Header with Google Info */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
+        <View style={styles.overlay} />
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#A855F7" />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  return (
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.bg}
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+      {/* Funmate Logo Header */}
+      <View style={[styles.topHeader, { paddingTop: insets.top + 8 }]}>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            style={styles.headerBtn}
             onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+        <View style={styles.headerBtn} />
+      </View>
+
+      <TouchableWithoutFeedback 
+        onPress={() => {
+          Keyboard.dismiss();
+          setFocusedInput(null);
+        }}
+      >
+        <View style={{ flex: 1 }}>
+          <ScrollView 
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Page title + Google account info */}
+        <View style={styles.pageHeader}>
           <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Just a few more details</Text>
 
@@ -250,12 +265,14 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
           <View>
             <Text style={styles.label}>Name</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, focusedInput === 'fullName' && styles.inputFocused]}
               value={fullName}
               onChangeText={setFullName}
               placeholder="Your Name"
-              placeholderTextColor="#999999"
+              placeholderTextColor="#7F93AA"
               autoCapitalize="words"
+              onFocus={() => setFocusedInput('fullName')}
+              onBlur={() => setFocusedInput(null)}
             />
           </View>
 
@@ -263,17 +280,19 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
             <Text style={styles.label}>Username</Text>
             <View style={styles.usernameContainer}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedInput === 'username' && styles.inputFocused]}
                 value={username}
                 onChangeText={setUsername}
                 placeholder="@username"
-                placeholderTextColor="#999999"
+                placeholderTextColor="#7F93AA"
                 autoCapitalize="none"
+                onFocus={() => setFocusedInput('username')}
+                onBlur={() => setFocusedInput(null)}
               />
               {username.length >= 3 && (
                 <View style={styles.usernameStatus}>
                   {checkingUsername ? (
-                    <ActivityIndicator size="small" color="#FF4458" />
+                    <ActivityIndicator size="small" color="#A855F7" />
                   ) : usernameAvailable === true ? (
                     <Text style={styles.availableText}>✓ Available</Text>
                   ) : usernameAvailable === false ? (
@@ -284,186 +303,172 @@ const GoogleProfileSetupScreen = ({ navigation, route }: GoogleProfileSetupScree
             </View>
           </View>
 
-          <View>
-            <Text style={styles.label}>Date of Birth</Text>
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => setShowDatePicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={dob ? styles.inputText : styles.placeholderText}>
-                {dob ? formatDate(dob) : 'DD/MM/YYYY'}
-              </Text>
-            </TouchableOpacity>
-          </View>
 
-          <DatePicker
-            modal
-            open={showDatePicker}
-            date={dob || new Date(2000, 0, 1)}
-            mode="date"
-            maximumDate={new Date()}
-            minimumDate={new Date(1950, 0, 1)}
-            onConfirm={(date) => {
-              setShowDatePicker(false);
-              setDob(date);
-            }}
-            onCancel={() => setShowDatePicker(false)}
-          />
-
-          <View>
-            <Text style={styles.label}>Gender</Text>
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => setShowGenderPicker(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={gender ? styles.inputText : styles.placeholderText}>
-                {gender || 'Select Gender'}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Continue Button */}
         <TouchableOpacity
-          style={styles.continueButton}
           onPress={handleContinue}
-          disabled={loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
+          <LinearGradient
+            colors={['#8B2BE2', '#06B6D4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.continueButton, { marginBottom: Math.max(32, insets.bottom + 16) }]}
+          >
             <Text style={styles.continueButtonText}>Continue</Text>
-          )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
 
-      {/* Gender Picker Modal */}
-      <Modal
-        visible={showGenderPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowGenderPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowGenderPicker(false)}
-        >
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Gender</Text>
-            {['Male', 'Female', 'Non-Binary', 'Prefer not to say'].map((g) => (
-              <TouchableOpacity
-                key={g}
-                style={styles.genderOption}
-                onPress={() => {
-                  setGender(g);
-                  setShowGenderPicker(false);
-                }}
-              >
-                <Text style={styles.genderOptionText}>{g}</Text>
-                {gender === g && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    </View>
+
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,11,30,0.62)',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.60)',
+    fontFamily: 'Inter-Regular',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  headerBtn: {
+    width: 42,
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
   },
   scrollView: {
     flex: 1,
   },
-  header: {
+  pageHeader: {
     paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingTop: 58,
     paddingBottom: 24,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
     marginBottom: 8,
+    lineHeight: 36,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.50)',
     marginBottom: 20,
+    fontFamily: 'Inter-Regular',
   },
   googleInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    backgroundColor: 'rgba(30,28,45,0.88)',
+    borderRadius: 14,
     padding: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   googleAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     marginRight: 12,
   },
   googleTextContainer: {
     flex: 1,
   },
   googleLabel: {
-    fontSize: 12,
-    color: '#666666',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.45)',
     marginBottom: 2,
+    fontFamily: 'Inter-Regular',
   },
   googleEmail: {
-    fontSize: 14,
-    color: '#1A1A1A',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   form: {
     paddingHorizontal: 32,
     gap: 20,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontSize: 13,
+    fontFamily: 'Inter-Medium',
+    color: 'rgba(255,255,255,0.55)',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(45,43,58,0.85)',
+    borderRadius: 14,
+    paddingHorizontal: 18,
     paddingVertical: 16,
     fontSize: 16,
-    color: '#1A1A1A',
-    height: 56,
+    color: '#FFFFFF',
+    height: 54,
     justifyContent: 'center',
+    fontFamily: 'Inter-Regular',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.30)',
   },
-  bioInput: {
-    height: 100,
-    paddingTop: 16,
+  inputFocused: {
+    borderColor: 'rgba(139,92,246,0.80)',
+    shadowColor: '#8B2BE2',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
   },
   inputText: {
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Regular',
   },
   placeholderText: {
     fontSize: 16,
-    color: '#999999',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
   usernameContainer: {
     position: 'relative',
@@ -476,69 +481,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   availableText: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#2ECC71',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
   },
   unavailableText: {
-    color: '#FF4458',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  genderOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-  },
-  genderOptionText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-  },
-  checkmark: {
-    fontSize: 20,
-    color: '#FF4458',
-    fontWeight: 'bold',
+    color: '#FF4D6D',
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
   },
   continueButton: {
-    backgroundColor: '#FF4458',
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     marginHorizontal: 32,
-    marginTop: 24,
-    elevation: 2,
-    shadowColor: '#FF4458',
+    marginTop: 32,
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
   },
   continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
   bottomSpacer: {
     height: 40,

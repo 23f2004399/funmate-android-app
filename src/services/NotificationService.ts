@@ -8,9 +8,10 @@
 import messaging, {
   FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
-import {Platform, PermissionsAndroid, Alert} from 'react-native';
+import {Platform, PermissionsAndroid} from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import Toast from 'react-native-toast-message';
 
 // Types for notification data
 export interface NotificationData {
@@ -268,15 +269,14 @@ class NotificationService {
       return;
     }
 
-    // Use Toast instead of ugly Alert
-    // Import Toast at the top if not already imported
-    Alert.alert(
-      notification.title || 'New Notification',
-      notification.body || '',
-      [
-        {text: 'OK', style: 'cancel'},
-      ],
-    );
+    // Use Toast for better UX in foreground
+    Toast.show({
+      type: 'info',
+      text1: notification.title || 'New Notification',
+      text2: notification.body || '',
+      visibilityTime: 4000,
+      position: 'top',
+    });
   }
 
   /**

@@ -8,7 +8,7 @@
  * This component always shows data[0] as the top card.
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,11 +20,11 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.25;
-const SWIPE_OUT_DURATION = 250;
+const SWIPE_OUT_DURATION = 300; // Slightly slower for smoother feel
 
 interface CardSwiperProps {
   data: any[];
-  renderCard: (item: any, index: number) => React.ReactElement | null;
+  renderCard: (item: any, index: number, swipeProgress?: { direction: 'left' | 'right' | 'none', progress: number }) => React.ReactElement | null;
   onSwipeRight?: (index: number) => void;
   onSwipeLeft?: (index: number) => void;
   onSwipedAll?: () => void;
@@ -43,18 +43,43 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
 }) => {
   // Use refs to avoid stale closures in PanResponder
   const position = useRef(new Animated.ValueXY()).current;
+  const opacity = useRef(new Animated.Value(1)).current;
   const isSwipingRef = useRef(false);
   const callbacksRef = useRef({ onSwipeRight, onSwipeLeft, onSwipedAll });
   const dataRef = useRef(data);
+  const currentCardIdRef = useRef(data[0]?.id); // Track current top card
+  const swipeProgressValue = useRef({ direction: 'none' as 'left' | 'right' | 'none', progress: 0 });
+  const forceUpdateRef = useRef(0);
+  const [, setForceUpdate] = React.useState(0);
 
   // Keep refs updated on every render
   callbacksRef.current = { onSwipeRight, onSwipeLeft, onSwipedAll };
   dataRef.current = data;
 
+  /**
+   * KEY FIX: Reset position/opacity when the TOP CARD CHANGES
+   * This ensures we only reset AFTER React has re-rendered with new data
+   */
+  useEffect(() => {
+    const newCardId = data[0]?.id;
+    
+    // Only reset if the card actually changed (not on initial render)
+    if (newCardId !== currentCardIdRef.current) {
+      // New card is now on top - reset position immediately
+      position.setValue({ x: 0, y: 0 });
+      opacity.setValue(1);
+      isSwipingRef.current = false;
+      currentCardIdRef.current = newCardId;
+      // Reset swipe progress so new card starts with blue border
+      swipeProgressValue.current = { direction: 'none', progress: 0 };
+      setForceUpdate(prev => prev + 1);
+    }
+  }, [data, position, opacity]);
+
   const resetPosition = () => {
     Animated.spring(position, {
       toValue: { x: 0, y: 0 },
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   };
 
@@ -62,33 +87,49 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
     const { onSwipeRight, onSwipeLeft, onSwipedAll } = callbacksRef.current;
     const currentData = dataRef.current;
 
-    // Always index 0 - parent will filter the array
+    // Check if this was the last card BEFORE calling callbacks
+    const wasLastCard = currentData.length <= 1;
+
+    // Call parent callbacks to update state
+    // The useEffect watching data[0]?.id will handle resetting position
     if (direction === 'right' && onSwipeRight) {
       onSwipeRight(0);
     } else if (direction === 'left' && onSwipeLeft) {
       onSwipeLeft(0);
     }
 
-    // Check if this was the last card
-    if (currentData.length <= 1 && onSwipedAll) {
+    // Call onSwipedAll if this was the last card
+    if (wasLastCard && onSwipedAll) {
       onSwipedAll();
     }
 
-    // Reset for next card
-    position.setValue({ x: 0, y: 0 });
-    isSwipingRef.current = false;
+    // DON'T reset position here - let useEffect handle it when data changes
+    // This prevents the flash because we wait for React to re-render first
   };
 
   const forceSwipe = (direction: 'right' | 'left') => {
     if (isSwipingRef.current) return;
     isSwipingRef.current = true;
+    
+    // Reset swipe progress immediately when swipe completes
+    swipeProgressValue.current = { direction: 'none', progress: 0 };
 
     const x = direction === 'right' ? width + 100 : -width - 100;
-    Animated.timing(position, {
-      toValue: { x, y: 0 },
-      duration: SWIPE_OUT_DURATION,
-      useNativeDriver: false,
-    }).start(() => handleSwipeComplete(direction));
+    
+    // Animate position off-screen while fading out
+    // Card fades completely before swipe finishes for cleaner exit
+    Animated.parallel([
+      Animated.timing(position, {
+        toValue: { x, y: 0 },
+        duration: SWIPE_OUT_DURATION,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: SWIPE_OUT_DURATION * 0.5, // Fade out in first half
+        useNativeDriver: true,
+      }),
+    ]).start(() => handleSwipeComplete(direction));
   };
 
   // Create PanResponder once, use refs for current values
@@ -99,6 +140,17 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
         onPanResponderMove: (_, gesture) => {
           if (!isSwipingRef.current) {
             position.setValue({ x: gesture.dx, y: gesture.dy });
+            
+            // Calculate swipe progress for border animation
+            const direction = gesture.dx > 0 ? 'right' : gesture.dx < 0 ? 'left' : 'none';
+            const progress = Math.min(Math.abs(gesture.dx) / SWIPE_THRESHOLD, 1);
+            swipeProgressValue.current = { direction, progress };
+            
+            // Force re-render to update border (throttled for performance)
+            forceUpdateRef.current++;
+            if (forceUpdateRef.current % 2 === 0) {
+              setForceUpdate(prev => prev + 1);
+            }
           }
         },
         onPanResponderRelease: (_, gesture) => {
@@ -110,6 +162,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
             forceSwipe('left');
           } else {
             resetPosition();
+            // Reset swipe progress when card snaps back
+            swipeProgressValue.current = { direction: 'none', progress: 0 };
+            setForceUpdate(prev => prev + 1);
           }
         },
       }),
@@ -123,6 +178,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
     });
 
     return {
+      opacity, // Add opacity for smooth fade
       transform: [
         { translateX: position.x },
         { translateY: position.y },
@@ -163,7 +219,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
               style={[styles.card, getCardStyle(), cardStyle]}
               {...panResponder.panHandlers}
             >
-              {renderCard(item, i)}
+              {renderCard(item, i, swipeProgressValue.current)}
             </Animated.View>
           );
         }
@@ -175,9 +231,9 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
             style={[
               styles.card,
               {
-                top: 10 * i,
                 transform: [{ scale: 1 - 0.05 * i }],
-                opacity: 1 - 0.2 * i,
+                opacity: 1 - 0.3 * i,
+                zIndex: -i,
               },
               cardStyle,
             ]}
@@ -217,7 +273,7 @@ export const CardSwiper: React.FC<CardSwiperProps> = ({
           ]}
           pointerEvents="none"
         >
-          <Ionicons name="close-circle" size={100} color="#FF4458" />
+          <Ionicons name="close-circle" size={100} color="#8C8C8C" />
         </Animated.View>
       )}
     </View>

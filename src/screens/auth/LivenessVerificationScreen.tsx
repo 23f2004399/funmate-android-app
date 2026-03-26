@@ -35,6 +35,7 @@ import {
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Toast from 'react-native-toast-message';
+import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -85,6 +86,24 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [attemptsLeft, setAttemptsLeft] = useState(5);
   const [faceDetected, setFaceDetected] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await auth().signOut();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'AccountType' }],
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Logout Failed',
+        text2: 'Please try again',
+        visibilityTime: 3000,
+      });
+    }
+  };
 
   // Animation for circle overlay
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -328,6 +347,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
       identityVerified: true,
       verificationMethod: 'active_liveness',
       verifiedAt: new Date(),
+      signupStep: 'interests', // Next step is interests selection
     });
 
     // 3. Update users collection
@@ -416,13 +436,20 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
     return (
       <View style={styles.container}>
         <View style={styles.permissionContainer}>
-          <Ionicons name="camera-off" size={80} color="#FF4458" />
+          <Ionicons name="camera-off" size={80} color="#FF4D6D" />
           <Text style={styles.permissionTitle}>Camera Permission Required</Text>
           <Text style={styles.permissionText}>
             We need camera access to verify your identity
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          <TouchableOpacity onPress={requestPermission} activeOpacity={0.8}>
+            <LinearGradient
+              colors={['#378BBB', '#4FC3F7']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.permissionButton}
+            >
+              <Text style={styles.permissionButtonText}>Grant Permission</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
@@ -440,7 +467,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor="#000000" translucent={true} />
 
       {/* Camera Preview (Full Screen) */}
       <Camera
@@ -465,7 +492,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
             cx={width / 2}
             cy={height * 0.55}
             r={CIRCLE_SIZE / 2}
-            stroke={faceDetected ? '#4CAF50' : '#FF4458'}
+            stroke={faceDetected ? '#2ECC71' : '#378BBB'}
             strokeWidth={4}
             fill="none"
           />
@@ -474,13 +501,23 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="close" size={30} color="#FFFFFF" />
-        </TouchableOpacity>
+        {navigation.canGoBack() ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close" size={30} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="log-out-outline" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Instruction Card */}
@@ -488,7 +525,7 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
         <Ionicons 
           name={getChallengeIcon(currentChallenge)} 
           size={40} 
-          color="#FF4458" 
+          color="#378BBB" 
         />
         <Text style={styles.instructionText}>
           {getInstructionText(currentChallenge)}
@@ -509,16 +546,23 @@ const LivenessVerificationScreen: React.FC<LivenessVerificationScreenProps> = ({
         </View>
       </View>
 
-      {/* Auto-capture button (triggered when face is properly positioned) */}
-      {faceDetected && !isProcessing && (
+      {/* Auto-capture button (always visible, disabled when no face detected) */}
+      {!isProcessing && (
         <View style={styles.actionContainer}>
           <TouchableOpacity
-            style={styles.captureButton}
-            onPress={handleChallengeComplete}
-            activeOpacity={0.8}
+            onPress={faceDetected ? handleChallengeComplete : undefined}
+            activeOpacity={faceDetected ? 0.8 : 1}
+            disabled={!faceDetected}
           >
-            <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
-            <Text style={styles.captureButtonText}>Continue</Text>
+            <LinearGradient
+              colors={faceDetected ? ['#378BBB', '#4FC3F7'] : ['#1B2F48', '#1B2F48']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.captureButton}
+            >
+              <Ionicons name="checkmark-circle" size={32} color={faceDetected ? "#FFFFFF" : "#7F93AA"} />
+              <Text style={[styles.captureButtonText, !faceDetected && styles.captureButtonTextDisabled]}>Continue</Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
       )}
@@ -567,21 +611,36 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 25,
   },
+  logoutButton: {
+    width: 50,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 25,
+  },
   instructionCard: {
     position: 'absolute',
     top: 110,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(22, 40, 61, 0.8)',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
     zIndex: 10,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 150,
   },
   instructionText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginTop: 12,
     textAlign: 'center',
   },
@@ -594,13 +653,13 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#233B57',
   },
   progressDotCompleted: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#2ECC71',
   },
   progressDotActive: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -616,16 +675,25 @@ const styles = StyleSheet.create({
   captureButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF4458',
     paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 30,
+    borderRadius: 35,
     gap: 8,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
   },
   captureButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
+  },
+  captureButtonTextDisabled: {
+    color: '#7F93AA',
   },
   processingContainer: {
     position: 'absolute',
@@ -650,13 +718,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   attemptsText: {
-    color: '#FFFFFF',
+    color: '#7F93AA',
     fontSize: 14,
     fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
   },
   warningContainer: {
     position: 'absolute',
@@ -694,7 +758,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   permissionButton: {
-    backgroundColor: '#FF4458',
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 30,

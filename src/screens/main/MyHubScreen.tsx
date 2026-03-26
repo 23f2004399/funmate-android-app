@@ -21,7 +21,6 @@ import {
   RefreshControl,
   ScrollView,
   TextInput,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -35,6 +34,7 @@ import { isUserBlocked } from '../../services/blockService';
 import { deleteChat } from '../../services/chatService';
 import WhoLikedYouFilterModal from '../../components/WhoLikedYouFilterModal';
 import { WhoLikedYouFilters, DEFAULT_FILTERS } from '../../types/filters';
+import { useAlert } from '../../contexts/AlertContext';
 
 const { width } = Dimensions.get('window');
 const LIKER_CARD_SIZE = 120;
@@ -63,6 +63,10 @@ interface AlgoliaUser {
 
 const MyHubScreen = ({ navigation }: any) => {
   const userId = auth().currentUser?.uid;
+  const { showConfirm, showError } = useAlert();
+  
+  // Tab navigation state
+  const [activeTab, setActiveTab] = useState<'conversations' | 'likes'>('conversations');
   
   // Filter state
   const [filters, setFilters] = useState<WhoLikedYouFilters>(DEFAULT_FILTERS);
@@ -191,7 +195,7 @@ const MyHubScreen = ({ navigation }: any) => {
                 .doc(recipientId)
                 .get();
               
-              if (userDoc.exists) {
+              if (userDoc.exists()) {
                 const userData = userDoc.data() as User;
                 const primaryPhoto = userData.photos?.find(p => p.isPrimary) || userData.photos?.[0];
 
@@ -227,13 +231,25 @@ const MyHubScreen = ({ navigation }: any) => {
    * Filter conversations locally based on search query
    */
   const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) return conversations;
+    if (!searchQuery.trim() || activeTab !== 'conversations') return conversations;
     
     const query = searchQuery.toLowerCase();
     return conversations.filter(conv => 
       conv.recipientName.toLowerCase().includes(query)
     );
-  }, [conversations, searchQuery]);
+  }, [conversations, searchQuery, activeTab]);
+
+  /**
+   * Filter likers locally based on search query (only in Who Liked You tab)
+   */
+  const filteredLikers = useMemo(() => {
+    if (!searchQuery.trim() || activeTab !== 'likes') return likers;
+    
+    const query = searchQuery.toLowerCase();
+    return likers.filter(liker => 
+      liker.name.toLowerCase().includes(query)
+    );
+  }, [likers, searchQuery, activeTab]);
 
   /**
    * Check if we should show "Search Globally" button
@@ -376,27 +392,21 @@ const MyHubScreen = ({ navigation }: any) => {
    * Handle delete chat action with confirmation
    */
   const handleDeleteChat = useCallback(async (chatId: string, recipientName: string) => {
-    Alert.alert(
+    showConfirm(
       'Delete Chat',
       'Are you sure you want to delete?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!userId) return;
-              await deleteChat(chatId, userId);
-              setSelectedChatForDelete(null);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete chat. Please try again.');
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          if (!userId) return;
+          await deleteChat(chatId, userId);
+          setSelectedChatForDelete(null);
+        } catch (error) {
+          showError('Error', 'Failed to delete chat. Please try again.');
+        }
+      },
+      { confirmText: 'Delete', destructive: true, icon: 'trash' }
     );
-  }, [userId]);
+  }, [userId, showConfirm, showError]);
 
   /**
    * Deselect chat (tap elsewhere)
@@ -634,8 +644,8 @@ const MyHubScreen = ({ navigation }: any) => {
   if (loading && likers.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ActivityIndicator size="large" color="#FF4458" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+        <ActivityIndicator size="large" color="#378BBB" />
         <Text style={styles.loadingText}>Loading My Hub...</Text>
       </View>
     );
@@ -643,12 +653,64 @@ const MyHubScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="chatbubbles" size={32} color="#FF4458" />
+        <Ionicons name="chatbubbles" size={32} color="#378BBB" />
         <Text style={styles.title}>My Hub</Text>
+      </View>
+
+      {/* Tab Navigation */}
+      <View style={styles.tabNav}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'conversations' && styles.tabButtonActive
+          ]}
+          onPress={() => {
+            setActiveTab('conversations');
+            setShowGlobalResults(false);
+            setGlobalSearchResults([]);
+          }}
+        >
+          <Ionicons 
+            name={activeTab === 'conversations' ? "chatbubbles" : "chatbubbles-outline"} 
+            size={22} 
+            color={activeTab === 'conversations' ? "#378BBB" : "#7F93AA"} 
+          />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'conversations' && styles.tabTextActive
+          ]}>
+            Conversations
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === 'likes' && styles.tabButtonActive
+          ]}
+          onPress={() => {
+            setActiveTab('likes');
+            setShowGlobalResults(false);
+            setGlobalSearchResults([]);
+            setSearchQuery('');
+          }}
+        >
+          <Ionicons 
+            name={activeTab === 'likes' ? "heart" : "heart-outline"} 
+            size={22} 
+            color={activeTab === 'likes' ? "#378BBB" : "#7F93AA"} 
+          />
+          <Text style={[
+            styles.tabText,
+            activeTab === 'likes' && styles.tabTextActive
+          ]}>
+            Who Liked You
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -660,7 +722,7 @@ const MyHubScreen = ({ navigation }: any) => {
           <Ionicons name="search" size={20} color="#999999" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search conversations or people..."
+            placeholder={activeTab === 'conversations' ? "Search conversations or people..." : "Search who liked you..."}
             placeholderTextColor="#999999"
             value={searchQuery}
             onChangeText={(text) => {
@@ -724,14 +786,14 @@ const MyHubScreen = ({ navigation }: any) => {
           <RefreshControl
             refreshing={loading && likers.length > 0}
             onRefresh={refetch}
-            colors={['#FF4458']}
-            tintColor="#FF4458"
+            colors={['#378BBB']}
+            tintColor="#378BBB"
           />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Search Globally Button (when no local results) */}
-        {showSearchGloballyButton && !showGlobalResults && (
+        {showSearchGloballyButton && !showGlobalResults && activeTab === 'conversations' && (
           <TouchableOpacity
             style={styles.searchGloballyButton}
             onPress={handleGlobalSearch}
@@ -741,26 +803,58 @@ const MyHubScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         )}
 
-        {/* Who Liked You Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="heart" size={22} color="#FF4458" />
-              <Text style={styles.sectionTitle}>Who Liked You</Text>
-            </View>
-            <View style={styles.headerActions}>
-              {totalCount > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>
-                    {totalCount > 99 ? '99+' : totalCount}
+        {/* CONVERSATIONS TAB CONTENT */}
+        {activeTab === 'conversations' && (
+          <View style={styles.section}>
+            {/* Conversations List */}
+            <TouchableOpacity 
+              style={styles.conversationsList}
+              activeOpacity={1}
+              onPress={handleDeselectChat}
+            >
+              {conversationsLoading ? (
+                <View style={styles.conversationsLoading}>
+                  <ActivityIndicator size="small" color="#378BBB" />
+                </View>
+              ) : filteredConversations.length > 0 ? (
+                <>
+                  {filteredConversations.map((conv, index) => renderConversationItem(conv, index))}
+                </>
+              ) : searchQuery ? (
+                <View style={styles.noSearchResults}>
+                  <Ionicons name="search-outline" size={40} color="#7F93AA" />
+                  <Text style={styles.noSearchResultsText}>
+                    No conversations match "{searchQuery}"
                   </Text>
                 </View>
+              ) : (
+                renderEmptyConversations()
               )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* WHO LIKED YOU TAB CONTENT */}
+        {activeTab === 'likes' && (
+          <View style={styles.section}>
+            {/* Filter Button - Only in Who Liked You */}
+            <View style={styles.likesHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="heart" size={22} color="#378BBB" />
+                <Text style={styles.sectionTitle}>Who Liked You</Text>
+                {totalCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>
+                      {totalCount > 99 ? '99+' : totalCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <TouchableOpacity
                 style={styles.filterButton}
                 onPress={() => setShowFilterModal(true)}
               >
-                <Ionicons name="options-outline" size={20} color="#FF4458" />
+                <Ionicons name="options-outline" size={20} color="#378BBB" />
                 {activeFilterCount > 0 && (
                   <View style={styles.filterBadge}>
                     <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -768,75 +862,59 @@ const MyHubScreen = ({ navigation }: any) => {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Horizontal Likers List */}
-          {likers.length > 0 ? (
-            <FlatList
-              data={likers.slice(0, 20)}
-              renderItem={renderLikerCard}
-              keyExtractor={(item) => item.swipeId}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.likersListContent}
-              onEndReached={handleEndReached}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={
-                hasMore ? (
-                  <View style={styles.loadMoreContainer}>
-                    <ActivityIndicator size="small" color="#FF4458" />
-                  </View>
-                ) : null
-              }
-            />
-          ) : (
-            renderEmptyLikers()
-          )}
-        </View>
-
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Conversations Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="chatbubble-ellipses" size={22} color="#FF4458" />
-              <Text style={styles.sectionTitle}>Conversations</Text>
-            </View>
-            {filteredConversations.length > 0 && (
-              <View style={styles.conversationCountBadge}>
-                <Text style={styles.conversationCountText}>{filteredConversations.length}</Text>
+            {/* Vertical Grid - 2 Cards Per Row */}
+            {filteredLikers.length > 0 ? (
+              <View style={styles.likersGrid}>
+                {filteredLikers.map((liker, index) => (
+                  <TouchableOpacity
+                    key={liker.swipeId}
+                    style={styles.likerGridCard}
+                    onPress={() => handleLikerPress(liker, index)}
+                    activeOpacity={0.8}
+                  >
+                    {liker.photos && liker.photos.length > 0 ? (
+                      <Image 
+                        source={{ uri: liker.photos[0].url }} 
+                        style={styles.likerGridPhoto}
+                      />
+                    ) : (
+                      <View style={[styles.likerGridPhoto, styles.noPhotoPlaceholder]}>
+                        <Ionicons name="person" size={40} color="#7F93AA" />
+                      </View>
+                    )}
+                    
+                    {/* Match Badge */}
+                    {liker.matchScore && (
+                      <View style={styles.gridMatchBadge}>
+                        <Text style={styles.matchBadgeText}>{Math.round(liker.matchScore)}%</Text>
+                      </View>
+                    )}
+                    
+                    {/* Name and Age */}
+                    <View style={styles.likerGridInfo}>
+                      <Text style={styles.likerGridName} numberOfLines={1}>
+                        {liker.name}, {liker.age}
+                      </Text>
+                      {liker.isVerified && (
+                        <Ionicons name="checkmark-circle" size={16} color="#378BBB" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
-            )}
-          </View>
-
-          {/* Conversations List */}
-          <TouchableOpacity 
-            style={styles.conversationsList}
-            activeOpacity={1}
-            onPress={handleDeselectChat}
-          >
-            {conversationsLoading ? (
-              <View style={styles.conversationsLoading}>
-                <ActivityIndicator size="small" color="#FF4458" />
-              </View>
-            ) : filteredConversations.length > 0 ? (
-              <>
-                {filteredConversations.map((conv, index) => renderConversationItem(conv, index))}
-              </>
             ) : searchQuery ? (
               <View style={styles.noSearchResults}>
-                <Ionicons name="search-outline" size={40} color="#E0E0E0" />
+                <Ionicons name="search-outline" size={40} color="#7F93AA" />
                 <Text style={styles.noSearchResultsText}>
-                  No conversations match "{searchQuery}"
+                  No one matches "{searchQuery}"
                 </Text>
               </View>
             ) : (
-              renderEmptyConversations()
+              renderEmptyLikers()
             )}
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
       </ScrollView>
 
       {/* Delete Bubble Popup */}
@@ -881,18 +959,18 @@ const MyHubScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0E1621',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666666',
+    color: '#7F93AA',
   },
   header: {
     flexDirection: 'row',
@@ -900,15 +978,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#0E1621',
+    borderBottomWidth: 2,
+    borderBottomColor: '#0E1621',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
     gap: 12,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+  },
+  tabNav: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#0E1621',
+    gap: 12,
+    marginTop: 8,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#16283D',
+    gap: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    borderWidth: 1,
+    borderColor: '#378BBB',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#7F93AA',
+  },
+  tabTextActive: {
+    color: '#378BBB',
   },
   scrollView: {
     flex: 1,
@@ -934,7 +1049,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+  },
+  likesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   headerActions: {
     flexDirection: 'row',
@@ -944,14 +1066,14 @@ const styles = StyleSheet.create({
   filterButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     position: 'relative',
   },
   filterBadge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -965,7 +1087,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   countBadge: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -984,10 +1106,10 @@ const styles = StyleSheet.create({
     height: LIKER_CARD_SIZE * 1.3,
     borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    backgroundColor: '#16283D',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -997,7 +1119,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   noPhotoPlaceholder: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1016,7 +1138,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
@@ -1047,14 +1169,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 80,
     paddingHorizontal: 20,
     gap: 8,
+    marginTop: 60,
   },
   emptyLikersText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#999999',
+    color: '#7F93AA',
   },
   loadMoreContainer: {
     width: 60,
@@ -1062,9 +1185,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  likersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  likerGridCard: {
+    width: (width - 44) / 2, // 2 cards per row with gap
+    backgroundColor: '#16283D',
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 12,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  likerGridPhoto: {
+    width: '100%',
+    height: (width - 44) / 2 * 1.3, // Same aspect ratio as before
+    resizeMode: 'cover',
+  },
+  gridMatchBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#378BBB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  likerGridInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  likerGridName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
   divider: {
     height: 8,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: '#1B2F48',
     marginVertical: 8,
   },
 
@@ -1072,14 +1240,15 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    backgroundColor: '#0E1621',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#1B2F48',
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#16283D',
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1088,20 +1257,20 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   searchInputContainerFocused: {
-    borderColor: '#FF4458',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#378BBB',
+    backgroundColor: '#1B2F48',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     padding: 0,
   },
   searchGloballyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     marginHorizontal: 16,
     marginTop: 12,
     paddingVertical: 12,
@@ -1122,7 +1291,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0E1621',
     zIndex: 100,
   },
   globalSearchHeader: {
@@ -1132,16 +1301,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#1B2F48',
   },
   globalSearchTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   globalSearchClose: {
     fontSize: 14,
-    color: '#FF4458',
+    color: '#378BBB',
     fontWeight: '500',
   },
   globalSearchLoading: {
@@ -1153,7 +1322,7 @@ const styles = StyleSheet.create({
   },
   globalSearchLoadingText: {
     fontSize: 15,
-    color: '#666666',
+    color: '#7F93AA',
   },
   globalSearchList: {
     flex: 1,
@@ -1165,7 +1334,7 @@ const styles = StyleSheet.create({
   },
   globalSearchEmptyText: {
     fontSize: 16,
-    color: '#999999',
+    color: '#7F93AA',
     marginTop: 12,
   },
 
@@ -1176,7 +1345,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#1B2F48',
     gap: 12,
   },
   searchResultPhoto: {
@@ -1185,7 +1354,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   searchResultPhotoPlaceholder: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#16283D',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1200,32 +1369,32 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
   },
   searchResultBio: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     marginTop: 2,
   },
   searchResultAction: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   // Conversation styles
   conversationCountBadge: {
-    backgroundColor: '#E8E8E8',
+    backgroundColor: '#1B2F48',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   conversationCountText: {
     fontSize: 12,
-    color: '#666666',
+    color: '#7F93AA',
     fontWeight: '500',
   },
   conversationsLoading: {
@@ -1238,13 +1407,13 @@ const styles = StyleSheet.create({
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     padding: 12,
     borderRadius: 16,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
     gap: 12,
@@ -1265,13 +1434,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '45%',
     alignSelf: 'center',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    shadowColor: '#000',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.5,
     shadowRadius: 12,
     elevation: 8,
     zIndex: 1000,
@@ -1294,7 +1463,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
   },
   conversationPhotoPlaceholder: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1310,13 +1479,13 @@ const styles = StyleSheet.create({
   conversationName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
   },
   conversationTime: {
     fontSize: 12,
-    color: '#999999',
+    color: '#7F93AA',
   },
   conversationPreviewRow: {
     flexDirection: 'row',
@@ -1325,15 +1494,15 @@ const styles = StyleSheet.create({
   },
   conversationPreview: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     flex: 1,
   },
   conversationPreviewMuted: {
-    color: '#999999',
+    color: '#7F93AA',
     fontStyle: 'italic',
   },
   pendingBadge: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     padding: 4,
     borderRadius: 8,
   },
@@ -1345,7 +1514,7 @@ const styles = StyleSheet.create({
   },
   noSearchResultsText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     marginTop: 12,
     textAlign: 'center',
   },
@@ -1372,12 +1541,12 @@ const styles = StyleSheet.create({
   emptyConversationsTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   emptyConversationsSubtext: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
@@ -1385,7 +1554,7 @@ const styles = StyleSheet.create({
   emptyConversationsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,
@@ -1407,12 +1576,12 @@ const styles = StyleSheet.create({
   placeholderTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666666',
+    color: '#B8C7D9',
     marginTop: 16,
   },
   placeholderSubtext: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,

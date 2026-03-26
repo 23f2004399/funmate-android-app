@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,13 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  Alert,
+  Animated,
+  Pressable,
+  ImageBackground,
+  Image,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import auth, { getAuth } from '@react-native-firebase/auth';
@@ -21,12 +26,21 @@ interface EmailVerificationScreenProps {
 }
 
 const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenProps) => {
+  const insets = useSafeAreaInsets();
   const { phoneNumber, fullName, email, username, dob, gender, password } = route.params;
   const [loading, setLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const [checking, setChecking] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<number | null>(null);
+  
+  const scaleAnim1 = useRef(new Animated.Value(1)).current;
+  const scaleAnim2 = useRef(new Animated.Value(1)).current;
+  const scaleAnim3 = useRef(new Animated.Value(1)).current;
+  const flipAnim1 = useRef(new Animated.Value(0)).current;
+  const flipAnim2 = useRef(new Animated.Value(0)).current;
+  const flipAnim3 = useRef(new Animated.Value(0)).current;
 
   // Countdown timer for resend
   useEffect(() => {
@@ -55,6 +69,12 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       if (updatedUser?.emailVerified) {
         setIsVerified(true);
         setChecking(false);
+        Toast.show({
+          type: 'success',
+          text1: '✓ Email Verified!',
+          text2: 'You can now continue to the next step',
+          visibilityTime: 3000,
+        });
         return true;
       } else {
         setChecking(false);
@@ -91,6 +111,61 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
     return age;
   };
 
+  const toggleCard = (cardNumber: number) => {
+    const scaleAnim = cardNumber === 1 ? scaleAnim1 : cardNumber === 2 ? scaleAnim2 : scaleAnim3;
+    const flipAnim = cardNumber === 1 ? flipAnim1 : cardNumber === 2 ? flipAnim2 : flipAnim3;
+    
+    if (expandedCard === cardNumber) {
+      // Collapse
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(flipAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setExpandedCard(null);
+    } else {
+      // Collapse previous if any
+      if (expandedCard !== null) {
+        const prevScaleAnim = expandedCard === 1 ? scaleAnim1 : expandedCard === 2 ? scaleAnim2 : scaleAnim3;
+        const prevFlipAnim = expandedCard === 1 ? flipAnim1 : expandedCard === 2 ? flipAnim2 : flipAnim3;
+        Animated.parallel([
+          Animated.spring(prevScaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+            friction: 8,
+          }),
+          Animated.timing(prevFlipAnim, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+      
+      // Expand new
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1.15,
+          useNativeDriver: true,
+          friction: 8,
+        }),
+        Animated.timing(flipAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setExpandedCard(cardNumber);
+    }
+  };
+
   const saveUserData = async () => {
     const user = auth().currentUser;
     if (!user) throw new Error('No authenticated user');
@@ -100,7 +175,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
 
     // Email/password already linked in ProfileSetupScreen, no need to link again
 
-    // Create account document (following schema exactly)
+    // Update account document with email verified and signupStep
     await firestore().collection('accounts').doc(accountId).set({
       authUid: user.uid,
       role: 'user',
@@ -110,8 +185,9 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
       emailVerified: user.emailVerified, // From Firebase Auth
       identityVerified: false,
       bankVerified: false,
+      signupStep: 'photos', // Next step is photo upload
       createdAt: firestore.FieldValue.serverTimestamp(),
-    });
+    }, { merge: true });
 
     // Create user document (following schema exactly)
     await firestore().collection('users').doc(accountId).set({
@@ -137,6 +213,7 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
         priorityListing: false,
       },
       creatorDetails: null,
+      signupComplete: false, // User hasn't completed signup yet
       createdAt: firestore.FieldValue.serverTimestamp(),
       lastActiveAt: firestore.FieldValue.serverTimestamp(),
     });
@@ -213,17 +290,28 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.bg}
+      blurRadius={6}
+    >
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity
+          style={styles.headerBtn}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
+        <View style={styles.logoRow}>
+          <Image source={require('../../assets/logo.png')} style={styles.logoImage} />
+          <Text style={styles.appName}>Funmate</Text>
+        </View>
+        <View style={styles.headerBtn} />
       </View>
 
       <View style={styles.content}>
@@ -232,17 +320,103 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           We sent a verification link to {email}
         </Text>
 
-        <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionText}>📧 Check your email inbox</Text>
-          <Text style={styles.instructionText}>🔗 Click the verification link</Text>
-          <Text style={styles.instructionText}>✅ Come back and tap "I've Verified"</Text>
-        </View>
+        <View style={styles.instructionsRow}>
+          {/* Card 1 */}
+          <Pressable onPress={() => toggleCard(1)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim1 },
+                    {
+                      rotateY: flipAnim1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 1 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Check Inbox{"\n"}or Spam</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>1</Text>
+                  <Text style={styles.instructionText}>Step 1</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
 
-        {isVerified && (
-          <View style={styles.verifiedBadge}>
-            <Text style={styles.verifiedText}>✓ Email Verified!</Text>
-          </View>
-        )}
+          {/* Card 2 */}
+          <Pressable onPress={() => toggleCard(2)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim2 },
+                    {
+                      rotateY: flipAnim2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 2 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Click{"\n"}Verification Link</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>2</Text>
+                  <Text style={styles.instructionText}>Step 2</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
+
+          {/* Card 3 */}
+          <Pressable onPress={() => toggleCard(3)} style={{ flex: 1 }}>
+            <Animated.View
+              style={[
+                styles.instructionCard,
+                {
+                  transform: [
+                    { perspective: 1000 },
+                    { scale: scaleAnim3 },
+                    {
+                      rotateY: flipAnim3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ['0deg', '180deg'],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {expandedCard === 3 ? (
+                <View style={[styles.cardContent, { transform: [{ rotateY: '180deg' }] }]}>
+                  <Text style={styles.cardBackText}>Tap I've Verified{"\n"}to Continue</Text>
+                </View>
+              ) : (
+                <View style={styles.cardContent}>
+                  <Text style={styles.instructionNumber}>3</Text>
+                  <Text style={styles.instructionText}>Step 3</Text>
+                </View>
+              )}
+            </Animated.View>
+          </Pressable>
+        </View>
 
         <TouchableOpacity
           style={styles.checkButton}
@@ -251,29 +425,32 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           activeOpacity={0.8}
         >
           {checking ? (
-            <ActivityIndicator color="#FF4458" />
+            <ActivityIndicator color="#A855F7" />
           ) : (
             <Text style={styles.checkButtonText}>Check Verification Status</Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[
-            styles.verifyButton,
-            !isVerified && styles.verifyButtonDisabled,
-          ]}
           onPress={handleVerify}
           disabled={!isVerified || loading}
           activeOpacity={0.8}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.verifyButtonText}>I've Verified - Continue</Text>
-          )}
+          <LinearGradient
+            colors={!isVerified || loading ? ['rgba(139,43,226,0.25)', 'rgba(6,182,212,0.25)'] : ['#8B2BE2', '#06B6D4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.verifyButton}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.verifyButtonText}>I've Verified - Continue</Text>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
-        <View style={styles.resendContainer}>
+        <View style={[styles.resendContainer, { marginBottom: Math.max(32, insets.bottom + 16) }]}>
           <Text style={styles.resendText}>Didn't receive email? </Text>
           {canResend ? (
             <TouchableOpacity onPress={handleResendCode} activeOpacity={0.7}>
@@ -284,120 +461,156 @@ const EmailVerificationScreen = ({ navigation, route }: EmailVerificationScreenP
           )}
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  bg: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,11,30,0.62)',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
-  backButton: {
-    width: 40,
-    height: 40,
+  headerBtn: {
+    width: 42,
+    height: 42,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logoImage: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
+  },
+  appName: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    letterSpacing: 0.3,
   },
   content: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingTop: 48,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 8,
+    fontSize: 32,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    marginBottom: 10,
+    lineHeight: 40,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 40,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.50)',
+    marginBottom: 36,
+    fontFamily: 'Inter-Regular',
   },
-  instructionsContainer: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
+  instructionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  instructionCard: {
+    backgroundColor: 'rgba(30,28,45,0.88)',
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.30)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 120,
+  },
+  cardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBackText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 16,
+    fontFamily: 'Inter-SemiBold',
+  },
+  instructionNumber: {
+    fontSize: 24,
+    fontFamily: 'Inter-Bold',
+    color: '#A855F7',
+    marginBottom: 4,
   },
   instructionText: {
-    fontSize: 16,
-    color: '#1A1A1A',
-    marginBottom: 12,
-    lineHeight: 24,
-  },
-  verifiedBadge: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  verifiedText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#4CAF50',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.50)',
+    textAlign: 'center',
+    fontFamily: 'Inter-Regular',
   },
   checkButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#FF4458',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: 'rgba(30,28,45,0.88)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.60)',
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   checkButtonText: {
-    color: '#FF4458',
+    color: '#A855F7',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   verifyButton: {
-    backgroundColor: '#FF4458',
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#FF4458',
+    justifyContent: 'center',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    marginBottom: 24,
-  },
-  verifyButtonDisabled: {
-    backgroundColor: '#FFB3BC',
-    elevation: 0,
-    shadowOpacity: 0,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 16,
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
   resendContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   resendText: {
     fontSize: 15,
-    color: '#666666',
+    color: 'rgba(255,255,255,0.50)',
+    fontFamily: 'Inter-Regular',
   },
   resendLink: {
     fontSize: 15,
-    color: '#FF4458',
-    fontWeight: '600',
+    color: '#22D3EE',
+    fontFamily: 'Inter-SemiBold',
   },
   resendTimer: {
     fontSize: 15,
-    color: '#999999',
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
 });
 

@@ -3,11 +3,13 @@
  * 
  * Custom hook to easily integrate Block & Report functionality
  * Provides all necessary states and handlers
+ * 
+ * Note: This hook throws errors instead of showing alerts.
+ * The calling component should catch errors and show appropriate UI.
  */
 
 import { useState, useCallback } from 'react';
 import auth from '@react-native-firebase/auth';
-import { Alert } from 'react-native';
 import { blockUser, unblockUser, isUserBlocked } from '../services/blockService';
 import { reportUser } from '../services/reportService';
 import { ReportReason } from '../types/database';
@@ -51,11 +53,11 @@ export const useBlockReport = ({
 
   /**
    * Block the target user
+   * Throws on error - caller should handle UI feedback
    */
   const handleBlock = useCallback(async () => {
     if (!currentUserId || !targetUserId) {
-      Alert.alert('Error', 'Unable to block user. Please try again.');
-      return;
+      throw new Error('Unable to block user. Please try again.');
     }
 
     setIsLoading(true);
@@ -63,16 +65,10 @@ export const useBlockReport = ({
       await blockUser(currentUserId, targetUserId, null);
       setIsBlocked(true);
       setShowModal(false);
-      
-      Alert.alert(
-        'Blocked',
-        `${targetUserName} has been blocked. You won't see each other's profiles.`
-      );
-      
       onBlockSuccess?.();
     } catch (error) {
       console.error('Error blocking user:', error);
-      Alert.alert('Error', 'Failed to block user. Please try again.');
+      throw new Error('Failed to block user. Please try again.');
     } finally {
       setIsLoading(false);
     }

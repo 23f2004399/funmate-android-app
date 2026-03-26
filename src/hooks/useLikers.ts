@@ -107,7 +107,10 @@ export const useLikers = (filters?: WhoLikedYouFilters): UseLikersResult => {
       
       // Calculate distance
       const likerLocation = likerData.location || null;
-      const distance = getDistance(userProfile?.location || null, likerLocation);
+      const distance = getDistance(
+        userProfile && userProfile.location ? userProfile.location : null,
+        likerLocation
+      );
       
       // Calculate match score using RecommendationEngine
       // Use actual user profile data - if no data, score will be 0

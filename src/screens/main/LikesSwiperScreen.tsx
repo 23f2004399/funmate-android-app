@@ -32,6 +32,7 @@ import MatchAnimation from '../../components/MatchAnimation';
 import WhoLikedYouFilterModal from '../../components/WhoLikedYouFilterModal';
 import { Liker } from '../../types/database';
 import { calculateProfileCompleteness } from '../../utils/profileCompleteness';
+import { getIntentCompatibilityType, getCommonInterests, formatIntent } from '../../utils/RecomendationEngine';
 import { useLikers } from '../../hooks/useLikers';
 import { WhoLikedYouFilters, DEFAULT_FILTERS } from '../../types/filters';
 
@@ -81,6 +82,8 @@ const LikesSwiperScreen = () => {
   const [swipedIds, setSwipedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [expandedSocial, setExpandedSocial] = useState<string | null>(null);
+  const [currentUserInterests, setCurrentUserInterests] = useState<string[]>([]);
+  const [currentUserIntent, setCurrentUserIntent] = useState<string | null>(null);
   
   // Match animation state
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
@@ -467,15 +470,46 @@ const LikesSwiperScreen = () => {
   /**
    * Render individual card
    */
-  const renderCard = useCallback((liker: Liker, index: number) => {
+  const renderCard = useCallback((liker: Liker, index: number, swipeProgress?: { direction: 'left' | 'right' | 'none', progress: number }) => {
     const photos = liker.photos || [];
     const photoIndex = index === currentCardIndex ? currentPhotoIndex : 0;
     const currentPhoto = photos[photoIndex]?.url || 'https://via.placeholder.com/400';
     const matchPercentage = Math.round(liker.matchScore);
     const distanceText = liker.distance !== null ? `${Math.round(liker.distance)} km away` : 'Location unknown';
 
+    // Calculate border color based on swipe progress
+    const getBorderColor = () => {
+      if (!swipeProgress || swipeProgress.progress === 0) return '#378BBB'; // Blue default
+      
+      if (swipeProgress.direction === 'right') {
+        // Interpolate from blue to red
+        const blueAmount = Math.round(55 * (1 - swipeProgress.progress));
+        const redAmount = Math.round(255 * swipeProgress.progress + 55 * (1 - swipeProgress.progress));
+        const greenAmount = Math.round(139 * (1 - swipeProgress.progress) + 77 * swipeProgress.progress);
+        const blueComponent = Math.round(187 * (1 - swipeProgress.progress) + 109 * swipeProgress.progress);
+        return `rgb(${redAmount}, ${greenAmount}, ${blueComponent})`;
+      } else if (swipeProgress.direction === 'left') {
+        // Interpolate from blue to grey for pass
+        const greyValue = Math.round(55 + (140 - 55) * swipeProgress.progress);
+        return `rgb(${greyValue}, ${greyValue}, ${greyValue})`;
+      }
+      
+      return '#378BBB';
+    };
+    
+    // Calculate shadow color (follows border)
+    const getShadowColor = () => {
+      if (!swipeProgress || swipeProgress.progress === 0) return '#378BBB';
+      if (swipeProgress.direction === 'right') return getBorderColor();
+      if (swipeProgress.direction === 'left') return getBorderColor();
+      return '#378BBB';
+    };
+
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, {
+        borderColor: getBorderColor(),
+        shadowColor: getShadowColor(),
+      }]}>
         {/* Photo */}
         <Image source={{ uri: currentPhoto }} style={styles.cardImage} />
 
@@ -506,22 +540,18 @@ const LikesSwiperScreen = () => {
           </View>
         )}
 
-        {/* "Liked You" badge */}
-        <View style={styles.likedYouBadge}>
-          <Ionicons name="heart" size={14} color="#FFFFFF" />
-          <Text style={styles.likedYouText}>Liked You</Text>
-        </View>
-
-        {/* Match percentage badge */}
-        <View style={styles.matchBadge}>
-          <Text style={styles.matchPercentage}>{matchPercentage}%</Text>
-          <Text style={styles.matchLabel}>Match</Text>
-        </View>
-
-        {/* Trust badge */}
-        <View style={styles.trustBadge}>
-          <Text style={styles.trustPercentage}>{calculateProfileCompleteness(liker)}%</Text>
-          <Text style={styles.trustLabel}>Trusted</Text>
+        {/* Stacked Micro Pills (top-right) */}
+        <View style={styles.badgesContainer}>
+          {/* Trusted Badge */}
+          <View style={styles.trustBadge}>
+            <Ionicons name="shield-checkmark" size={14} color="#2ECC71" />
+            <Text style={styles.trustLabel}>{calculateProfileCompleteness(liker)}% Trusted</Text>
+          </View>
+          {/* Match Badge */}
+          <View style={styles.matchBadge}>
+            <Ionicons name="heart" size={14} color="#FF4D6D" />
+            <Text style={styles.matchLabel}>{matchPercentage}% Match</Text>
+          </View>
         </View>
 
         {/* Card info */}
@@ -534,7 +564,7 @@ const LikesSwiperScreen = () => {
                 </Text>
               </View>
               <View style={styles.cardMeta}>
-                <Ionicons name="location-outline" size={14} color="#999999" />
+                <Ionicons name="location-outline" size={14} color="#000000" />
                 <Text style={styles.cardDistance}>{distanceText}</Text>
               </View>
             </View>
@@ -571,7 +601,7 @@ const LikesSwiperScreen = () => {
   if (loading && orderedLikers.length === 0) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
@@ -594,7 +624,7 @@ const LikesSwiperScreen = () => {
     if (!showMatchAnimationRef.current) {
       return (
         <View style={styles.container}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
           <View style={styles.header}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
               <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
@@ -616,15 +646,15 @@ const LikesSwiperScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Ionicons name="heart" size={24} color="#FF4458" />
+          <Ionicons name="heart" size={24} color="#378BBB" />
           <Text style={styles.title}>Who Liked You</Text>
         </View>
         <View style={styles.headerRight}>
@@ -635,7 +665,7 @@ const LikesSwiperScreen = () => {
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
           >
-            <Ionicons name="options-outline" size={20} color="#FF4458" />
+            <Ionicons name="options-outline" size={20} color="#378BBB" />
             {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
                 <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -686,161 +716,259 @@ const LikesSwiperScreen = () => {
             {/* Basic Info Header */}
             <View style={styles.detailHeader}>
               <Text style={styles.detailName}>{currentLiker.name}, {currentLiker.age}</Text>
-              <View style={styles.detailLocation}>
-                <Ionicons name="location-outline" size={16} color="#666666" />
-                <Text style={styles.detailLocationText}>
-                  {currentLiker.distance !== null ? `${Math.round(currentLiker.distance)} km away` : 'Location unknown'}
-                </Text>
-              </View>
             </View>
 
             {/* Bio Section */}
             <View style={styles.detailSection}>
               <Text style={styles.detailSectionTitle}>Bio</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentLiker.bio || 'No bio added yet'}
-              </Text>
+              <View style={styles.bioBox}>
+                <Text style={styles.bioBoxText}>
+                  {currentLiker.bio || 'No bio added yet'}
+                </Text>
+              </View>
             </View>
 
-            {/* Interests Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Interests</Text>
-              {currentLiker.interests && currentLiker.interests.length > 0 ? (
-                <View style={styles.interestsContainer}>
-                  {currentLiker.interests.map((interest, index) => (
-                    <View key={index} style={styles.interestChip}>
-                      <Text style={styles.interestChipText}>{interest}</Text>
-                    </View>
-                  ))}
+            {/* Match Score Section */}
+            {(() => {
+              const commonInterests = getCommonInterests(currentUserInterests, currentLiker.interests || []);
+              const intentType = getIntentCompatibilityType(currentUserIntent, currentLiker.relationshipIntent);
+              const hasLocation = currentLiker.distance !== null && currentLiker.distance >= 0;
+              const hasInterests = commonInterests.length > 0;
+              const hasIntent = intentType === 'exact' || intentType === 'compatible';
+              const hasPreviousLines = hasInterests || hasIntent;
+
+              // Only show section if there's something to display
+              if (!hasInterests && !hasIntent && !hasLocation) return null;
+
+              return (
+                <View style={styles.matchScoreSection}>
+                  <Text style={styles.matchScoreSectionTitle}>Match Score</Text>
+                  <View style={styles.matchScoreContent}>
+                    {/* Interests line */}
+                    {hasInterests && (
+                      <View style={styles.matchScoreParagraph}>
+                        <Text style={styles.matchScoreText}>
+                          You guys have some similar Interests:{' '}
+                        </Text>
+                        <View style={styles.matchScoreChips}>
+                          {commonInterests.map((interest, index) => (
+                            <View key={index} style={styles.matchScoreChip}>
+                              <Text style={styles.matchScoreChipText}>{interest}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Intent line */}
+                    {intentType === 'exact' && (
+                      <Text style={styles.matchScoreText}>
+                        You both have same relationship Intent too: <Text style={styles.matchScoreHighlight}>{formatIntent(currentLiker.relationshipIntent)}</Text>
+                      </Text>
+                    )}
+                    {intentType === 'compatible' && (
+                      <Text style={styles.matchScoreText}>
+                        You guys have compatible Intents: <Text style={styles.matchScoreHighlight}>{formatIntent(currentUserIntent)} ↔ {formatIntent(currentLiker.relationshipIntent)}</Text>
+                      </Text>
+                    )}
+
+                    {/* Distance line */}
+                    {hasLocation && currentLiker.distance !== null && (
+                      <Text style={styles.matchScoreText}>
+                        {hasPreviousLines ? 'And guess what?' : 'Guess what?'} They live only <Text style={styles.matchScoreHighlight}>{Math.round(currentLiker.distance)} kms</Text> away.
+                      </Text>
+                    )}
+                  </View>
                 </View>
-              ) : (
-                <Text style={styles.detailEmptyText}>No interests added yet</Text>
-              )}
-            </View>
+              );
+            })()}
 
-            {/* Looking For Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Looking For</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentLiker.relationshipIntent || 'Not specified'}
-              </Text>
-            </View>
+            {/* Profile Section - Contains all profile details */}
+            <View style={styles.profileSection}>
+              <Text style={styles.profileSectionTitle}>Profile</Text>
+              
+              {/* Row 1: Interests - Full Width */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Interests</Text>
+                {currentLiker.interests && currentLiker.interests.length > 0 ? (
+                  <View style={styles.interestsContainer}>
+                    {currentLiker.interests.map((interest, index) => (
+                      <View key={index} style={styles.interestChip}>
+                        <Text style={styles.interestChipText}>{interest}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.detailEmptyText}>No interests added yet</Text>
+                )}
+              </View>
 
-            {/* Interested In Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Interested In</Text>
-              {currentLiker.interestedIn && currentLiker.interestedIn.length > 0 ? (
-                <View style={styles.interestsContainer}>
-                  {currentLiker.interestedIn.map((gender, index) => (
-                    <View key={index} style={styles.preferenceChip}>
-                      <Text style={styles.preferenceChipText}>{gender}</Text>
-                    </View>
-                  ))}
+              {/* Row 2: Looking For | Interested In */}
+              <View style={styles.profileRow}>
+                {/* Looking For - Left */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Looking For</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {formatIntent(currentLiker.relationshipIntent) || 'Not specified'}
+                  </Text>
                 </View>
-              ) : (
-                <Text style={styles.detailEmptyText}>Not specified</Text>
-              )}
-            </View>
 
-            {/* Gender Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Gender</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentLiker.gender || 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Height Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Height</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentLiker.height?.value ? `${currentLiker.height.value} cm` : 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Occupation Section */}
-            <View style={styles.detailSection}>
-              <Text style={styles.detailSectionTitle}>Occupation</Text>
-              <Text style={styles.detailSectionContent}>
-                {currentLiker.occupation || 'Not specified'}
-              </Text>
-            </View>
-
-            {/* Socials Section */}
-            {currentLiker.socialHandles && (
-              currentLiker.socialHandles.instagram ||
-              currentLiker.socialHandles.linkedin ||
-              currentLiker.socialHandles.facebook ||
-              currentLiker.socialHandles.twitter
-            ) && (
-              <View style={styles.detailSection}>
-                <Text style={styles.detailSectionTitle}>Socials</Text>
-                <View style={styles.socialIconsContainer}>
-                  {currentLiker.socialHandles.instagram && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
-                      >
-                        <Ionicons name="logo-instagram" size={24} color="#E4405F" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'instagram' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.instagram}</Text>
+                {/* Interested In - Right */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Interested In</Text>
+                  {currentLiker.interestedIn && currentLiker.interestedIn.length > 0 ? (
+                    <View style={styles.interestsContainer}>
+                      {currentLiker.interestedIn.map((gender, index) => (
+                        <View key={index} style={styles.preferenceChipSmall}>
+                          <Text style={styles.preferenceChipTextSmall}>
+                            {gender.charAt(0).toUpperCase() + gender.slice(1)}
+                          </Text>
                         </View>
-                      )}
+                      ))}
                     </View>
-                  )}
-                  {currentLiker.socialHandles.linkedin && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
-                      >
-                        <Ionicons name="logo-linkedin" size={24} color="#0A66C2" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'linkedin' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.linkedin}</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {currentLiker.socialHandles.facebook && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
-                      >
-                        <Ionicons name="logo-facebook" size={24} color="#1877F2" />
-                      </TouchableOpacity>
-                      {expandedSocial === 'facebook' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.facebook}</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {currentLiker.socialHandles.twitter && (
-                    <View style={styles.socialIconWrapper}>
-                      <TouchableOpacity
-                        style={styles.socialIconButton}
-                        onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
-                      >
-                        <Text style={styles.xLogoLarge}>𝕏</Text>
-                      </TouchableOpacity>
-                      {expandedSocial === 'twitter' && (
-                        <View style={styles.socialHandlePopup}>
-                          <Text style={styles.socialHandlePopupText}>{currentLiker.socialHandles.twitter}</Text>
-                        </View>
-                      )}
-                    </View>
+                  ) : (
+                    <Text style={styles.profileRowItemText}>Not specified</Text>
                   )}
                 </View>
               </View>
-            )}
 
-            {/* Bottom padding */}
+              {/* Row 3: Height | Gender */}
+              <View style={styles.profileRow}>
+                {/* Height - Left */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Height</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {currentLiker.height ? `${currentLiker.height.value} cm` : 'Not specified'}
+                  </Text>
+                </View>
+
+                {/* Gender - Right */}
+                <View style={styles.profileRowItemHalf}>
+                  <Text style={styles.profileDetailTitle}>Gender</Text>
+                  <Text style={styles.profileRowItemText}>
+                    {currentLiker.gender ? 
+                      currentLiker.gender.charAt(0).toUpperCase() + currentLiker.gender.slice(1) 
+                      : 'Not specified'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Row 4: Occupation - Full Width */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Occupation</Text>
+                <Text style={styles.profileRowItemText}>
+                  {currentLiker.occupation || 'Not specified'}
+                </Text>
+              </View>
+
+              {/* Row 5: Social Handles Section */}
+              {currentLiker.socialHandles && (
+                currentLiker.socialHandles.instagram || 
+                currentLiker.socialHandles.linkedin || 
+                currentLiker.socialHandles.facebook || 
+                currentLiker.socialHandles.twitter
+              ) && (
+                <View style={styles.profileDetailSection}>
+                  <Text style={styles.profileDetailTitle}>Socials</Text>
+                  <View style={styles.socialIconsContainer}>
+                    {currentLiker.socialHandles.instagram && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'instagram' ? null : 'instagram')}
+                        >
+                          <Ionicons name="logo-instagram" size={28} color="#E4405F" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'instagram' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              @{currentLiker.socialHandles.instagram.replace('@', '')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentLiker.socialHandles.linkedin && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'linkedin' ? null : 'linkedin')}
+                        >
+                          <Ionicons name="logo-linkedin" size={28} color="#0A66C2" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'linkedin' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              {currentLiker.socialHandles.linkedin}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentLiker.socialHandles.facebook && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'facebook' ? null : 'facebook')}
+                        >
+                          <Ionicons name="logo-facebook" size={28} color="#1877F2" />
+                        </TouchableOpacity>
+                        {expandedSocial === 'facebook' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              {currentLiker.socialHandles.facebook}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {currentLiker.socialHandles.twitter && (
+                      <View style={styles.socialIconWrapper}>
+                        <TouchableOpacity
+                          style={styles.socialIconButton}
+                          onPress={() => setExpandedSocial(expandedSocial === 'twitter' ? null : 'twitter')}
+                        >
+                          <Text style={styles.xLogoLarge}>𝕏</Text>
+                        </TouchableOpacity>
+                        {expandedSocial === 'twitter' && (
+                          <View style={styles.socialHandlePopup}>
+                            <Text style={styles.socialHandlePopupText}>
+                              @{currentLiker.socialHandles.twitter.replace('@', '')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+
+              {/* Trust Score Section */}
+              <View style={styles.profileDetailSection}>
+                <Text style={styles.profileDetailTitle}>Trust Score</Text>
+                <View style={styles.trustScoreContainer}>
+                  <View style={styles.progressBarBackground}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { width: `${calculateProfileCompleteness(currentLiker)}%` }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.trustScorePercentage}>
+                    {calculateProfileCompleteness(currentLiker)}%
+                  </Text>
+                </View>
+                <View style={styles.trustScoreInfoContainer}>
+                  <Ionicons name="star" size={12} color="#7F93AA" />
+                  <Text style={styles.trustScoreInfoText}>
+                    Trust score is based on profile completion
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Bottom padding for scroll */}
             <View style={styles.bottomPadding} />
           </View>
         )}
@@ -871,7 +999,7 @@ const LikesSwiperScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0E1621',
   },
   header: {
     flexDirection: 'row',
@@ -880,9 +1008,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#0E1621',
+    borderBottomWidth: 2,
+    borderBottomColor: '#0E1621',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 10,
   },
   backButton: {
     padding: 4,
@@ -895,7 +1028,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
   headerRight: {
     flexDirection: 'row',
@@ -905,14 +1039,14 @@ const styles = StyleSheet.create({
   filterButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     position: 'relative',
   },
   filterBadge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -924,11 +1058,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   counter: {
     fontSize: 14,
-    color: '#666666',
+    color: '#B8C7D9',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   scrollContent: {
     flexGrow: 1,
@@ -941,17 +1077,19 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    backgroundColor: '#16283D',
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 10,
     overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
-    height: '70%',
+    height: '100%',
     resizeMode: 'cover',
   },
   leftTapArea: {
@@ -959,14 +1097,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     width: '40%',
-    height: '70%',
+    height: '100%',
   },
   rightTapArea: {
     position: 'absolute',
     top: 0,
     right: 0,
     width: '40%',
-    height: '70%',
+    height: '100%',
   },
   photoIndicators: {
     position: 'absolute',
@@ -986,62 +1124,54 @@ const styles = StyleSheet.create({
   indicatorActive: {
     backgroundColor: '#FFFFFF',
   },
-  likedYouBadge: {
+  badgesContainer: {
     position: 'absolute',
-    top: 20,
-    left: 20,
-    backgroundColor: '#FF4458',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  likedYouText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    top: 16,
+    right: 12,
+    gap: 6,
+    alignItems: 'flex-end',
   },
   matchBadge: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    backgroundColor: '#FF4458',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  matchPercentage: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  matchLabel: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  trustBadge: {
-    position: 'absolute',
-    top: 70,
-    right: 20,
-    backgroundColor: 'rgba(76, 175, 80, 0.9)',
+    backgroundColor: 'rgba(255, 77, 109, 0.15)',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 16,
-    alignItems: 'center',
+    borderRadius: 999,
+    gap: 5,
   },
-  trustPercentage: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  matchText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF4D6D',
+    fontFamily: 'Inter-Medium',
+  },
+  matchLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF4D6D',
+    fontFamily: 'Inter-Medium',
+  },
+  trustBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    gap: 5,
+  },
+  trustedText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2ECC71',
+    fontFamily: 'Inter-Medium',
   },
   trustLabel: {
-    fontSize: 9,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2ECC71',
+    fontFamily: 'Inter-Medium',
   },
   cardInfo: {
     position: 'absolute',
@@ -1049,15 +1179,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
   },
   nameRow: {
     flexDirection: 'row',
@@ -1067,39 +1195,46 @@ const styles = StyleSheet.create({
   cardName: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
+    marginBottom: 4,
+    fontFamily: 'Inter-Bold',
   },
   cardMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
     gap: 4,
   },
   cardDistance: {
     fontSize: 14,
-    color: '#999999',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   cardBio: {
     fontSize: 14,
-    color: '#666666',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
     lineHeight: 20,
-    marginBottom: 12,
+    marginTop: 8,
+    fontFamily: 'Inter-Bold',
   },
   interestsTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
+    marginTop: 8,
   },
   interestTag: {
-    backgroundColor: '#FFF0F1',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: '#1B2F48',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   interestText: {
     fontSize: 12,
-    color: '#FF4458',
-    fontWeight: '500',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   scrollIndicator: {
     alignItems: 'center',
@@ -1107,11 +1242,12 @@ const styles = StyleSheet.create({
   },
   scrollHintText: {
     fontSize: 14,
-    color: '#999999',
+    color: '#7F93AA',
     marginTop: 4,
+    fontFamily: 'Inter-Regular',
   },
   profileDetailsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#16283D',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -1119,7 +1255,7 @@ const styles = StyleSheet.create({
     marginTop: -10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -1129,8 +1265,9 @@ const styles = StyleSheet.create({
   detailName: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
   },
   detailLocation: {
     flexDirection: 'row',
@@ -1139,7 +1276,8 @@ const styles = StyleSheet.create({
   },
   detailLocationText: {
     fontSize: 15,
-    color: '#666666',
+    color: '#B8C7D9',
+    fontFamily: 'Inter-Regular',
   },
   detailSection: {
     marginBottom: 24,
@@ -1147,18 +1285,21 @@ const styles = StyleSheet.create({
   detailSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginBottom: 10,
+    fontFamily: 'Inter-SemiBold',
   },
   detailSectionContent: {
     fontSize: 16,
-    color: '#444444',
+    color: '#B8C7D9',
     lineHeight: 24,
+    fontFamily: 'Inter-Regular',
   },
   detailEmptyText: {
     fontSize: 15,
-    color: '#999999',
+    color: '#7F93AA',
     fontStyle: 'italic',
+    fontFamily: 'Inter-Italic',
   },
   interestsContainer: {
     flexDirection: 'row',
@@ -1166,30 +1307,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   interestChip: {
-    backgroundColor: '#FFF0F1',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#FFD6DA',
+    borderColor: '#378BBB',
   },
   interestChipText: {
     fontSize: 14,
-    color: '#FF4458',
+    color: '#FFFFFF',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   preferenceChip: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: 'rgba(55, 139, 187, 0.3)',
   },
   preferenceChipText: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: '#378BBB',
     fontWeight: '500',
+    fontFamily: 'Inter-Medium',
   },
   socialIconsContainer: {
     flexDirection: 'row',
@@ -1203,30 +1346,33 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#1B2F48',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   socialHandlePopup: {
     marginTop: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#16283D',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     maxWidth: 150,
+    borderWidth: 1,
+    borderColor: '#378BBB',
   },
   socialHandlePopupText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
+    fontFamily: 'Inter-Medium',
   },
   xLogoLarge: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#FFFFFF',
   },
   verificationBadge: {
     flexDirection: 'row',
@@ -1245,24 +1391,227 @@ const styles = StyleSheet.create({
   matchScoreBar: {
     flex: 1,
     height: 8,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: '#1B2F48',
     borderRadius: 4,
     overflow: 'hidden',
   },
   matchScoreFill: {
     height: '100%',
-    backgroundColor: '#FF4458',
+    backgroundColor: '#FF4D6D',
     borderRadius: 4,
   },
-  matchScoreText: {
+  matchScoreBarText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FF4458',
+    color: '#FF4D6D',
     width: 45,
     textAlign: 'right',
+    fontFamily: 'Inter-Bold',
   },
   bottomPadding: {
     height: 40,
+  },
+  bioBox: {
+    backgroundColor: '#1B2F48',
+    borderRadius: 14,
+    padding: 16,
+    minHeight: 100,
+    borderWidth: 2,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  bioBoxText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    lineHeight: 22,
+    fontFamily: 'Inter-Regular',
+  },
+  matchScoreSection: {
+    marginBottom: 24,
+    backgroundColor: '#1B2F48',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FF4D6D',
+    shadowColor: '#FF4D6D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  matchScoreContent: {
+    gap: 12,
+  },
+  matchScoreSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    fontFamily: 'Inter-Bold',
+    alignSelf: 'flex-start',
+  },
+  profileSection: {
+    marginBottom: 24,
+    backgroundColor: '#1B2F48',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#378BBB',
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  profileSectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#378BBB',
+    fontFamily: 'Inter-Bold',
+  },
+  profileDetailSection: {
+    marginBottom: 33,
+  },
+  profileDetailTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
+  },
+  profileRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  profileRowItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  profileRowItemHalf: {
+    flex: 1,
+  },
+  profileDetailTitleCentered: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
+    textAlign: 'center',
+  },
+  profileRowItemText: {
+    fontSize: 14,
+    color: '#B8C7D9',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+  },
+  profileRowItemTextCentered: {
+    fontSize: 14,
+    color: '#B8C7D9',
+    lineHeight: 20,
+    fontFamily: 'Inter-Regular',
+    textAlign: 'center',
+  },
+  preferenceChipSmall: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(55, 139, 187, 0.3)',
+    marginBottom: 4,
+  },
+  preferenceChipTextSmall: {
+    fontSize: 12,
+    color: '#378BBB',
+    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
+  },
+  matchScoreParagraph: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  matchScoreText: {
+    fontSize: 15,
+    color: '#B8C7D9',
+    lineHeight: 22,
+    fontFamily: 'Inter-Regular',
+  },
+  matchScoreHighlight: {
+    color: '#378BBB',
+    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
+  },
+  matchScoreChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  matchScoreChip: {
+    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#378BBB',
+  },
+  matchScoreChipText: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '500',
+    fontFamily: 'Inter-Medium',
+  },
+  trustScoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#233B57',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#378BBB',
+    borderRadius: 999,
+    shadowColor: '#378BBB',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  trustScorePercentage: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#378BBB',
+    fontFamily: 'Inter-Bold',
+    minWidth: 45,
+    textAlign: 'right',
+  },
+  trustScoreInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  trustScoreInfoText: {
+    fontSize: 12,
+    color: '#7F93AA',
+    fontFamily: 'Inter-Regular',
   },
   loadingContainer: {
     flex: 1,
@@ -1271,22 +1620,23 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#7F93AA',
     marginTop: 12,
+    fontFamily: 'Inter-Regular',
   },
   processingOverlay: {
     position: 'absolute',
     top: 100,
     right: 20,
     zIndex: 100,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(14, 22, 33, 0.95)',
     borderRadius: 20,
     padding: 10,
-    shadowColor: '#000',
+    shadowColor: '#378BBB',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   emptyContainer: {
     flex: 1,
@@ -1297,18 +1647,20 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: '#FFFFFF',
     marginTop: 20,
     marginBottom: 8,
+    fontFamily: 'Inter-Bold',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666666',
+    color: '#B8C7D9',
     textAlign: 'center',
     marginBottom: 24,
+    fontFamily: 'Inter-Regular',
   },
   backToHubButton: {
-    backgroundColor: '#FF4458',
+    backgroundColor: '#378BBB',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -1317,6 +1669,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
 });
 

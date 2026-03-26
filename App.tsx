@@ -14,6 +14,7 @@ import Toast from 'react-native-toast-message';
 import auth from '@react-native-firebase/auth';
 import notificationService from './src/services/NotificationService';
 import { RootStackParamList } from './src/navigation/AppNavigator';
+import { AlertProvider } from './src/contexts/AlertContext';
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -53,8 +54,10 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <AppNavigator ref={navigationRef} />
-      <Toast />
+      <AlertProvider>
+        <AppNavigator ref={navigationRef} />
+        <Toast />
+      </AlertProvider>
     </SafeAreaProvider>
   );
 }
