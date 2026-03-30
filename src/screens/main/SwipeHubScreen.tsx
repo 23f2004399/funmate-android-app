@@ -24,8 +24,11 @@ import {
   Platform,
   Linking,
   AppState,
+  ImageBackground,
 } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import CardSwiper from '../../components/CardSwiper';
 import MatchAnimation from '../../components/MatchAnimation';
@@ -88,6 +91,7 @@ interface MatchAnimationData {
 
 const SwipeHubScreen = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -849,7 +853,7 @@ const SwipeHubScreen = () => {
     // Calculate border color based on swipe progress
     const getBorderColor = () => {
       if (!swipeProgress || swipeProgress.progress === 0) return '#378BBB'; // Blue default
-      
+      // return 'rgba(139, 92, 246, 0.30)';      
       if (swipeProgress.direction === 'right') {
         // Interpolate from blue to red
         const blueAmount = Math.round(55 * (1 - swipeProgress.progress));
@@ -865,6 +869,9 @@ const SwipeHubScreen = () => {
       
       return '#378BBB';
     };
+    // const getBorderColor = () => {
+    //   return 'rgba(139, 92, 246, 0.30)';
+    // };
     
     // Calculate shadow color (follows border)
     const getShadowColor = () => {
@@ -873,6 +880,9 @@ const SwipeHubScreen = () => {
       if (swipeProgress.direction === 'left') return getBorderColor();
       return '#378BBB';
     };
+    // const getShadowColor = () => {
+    //   return '#000000';
+    // };
 
     return (
       <View style={[styles.card, {
@@ -984,11 +994,19 @@ const SwipeHubScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-        <ActivityIndicator size="large" color="#378BBB" />
-        <Text style={styles.loadingText}>Finding matches...</Text>
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/bg_party.webp')}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8B2BE2" />
+            <Text style={styles.loadingText}>Finding matches...</Text>
+          </View>
+        </View>
+      </ImageBackground>
     );
   }
 
@@ -998,72 +1016,93 @@ const SwipeHubScreen = () => {
   // Show empty state when no matches (unless showing match animation)
   if (matches.length === 0 && !showMatchAnimation) {
     return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-        
-        {/* Header */}
-        <View style={styles.header}>
-          <Ionicons name="heart" size={32} color="#378BBB" />
-          <Text style={styles.title}>Swipe Hub</Text>
-        </View>
-
-        {/* Location Banner */}
-        {showLocationBanner && (
-          <View style={styles.locationBanner}>
-            <View style={styles.locationBannerContent}>
-              <Ionicons name="location" size={20} color="#F4B400" />
-              <Text style={styles.locationBannerText}>
-                Enable location for better matches nearby
-              </Text>
-            </View>
-            <View style={styles.locationBannerActions}>
-              <TouchableOpacity
-                style={styles.enableButton}
-                onPress={handleEnableLocation}
-              >
-                <Text style={styles.enableButtonText}>Enable</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.closeBannerButton}
-                onPress={() => setShowLocationBanner(false)}
-              >
-                <Ionicons name="close" size={20} color="#F4B400" />
-              </TouchableOpacity>
-            </View>
+      <ImageBackground
+        source={require('../../assets/images/bg_party.webp')}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          
+          {/* Header */}
+          <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+            <Ionicons name="heart" size={28} color="#8B2BE2" />
+            <Text style={styles.title}>Swipe Hub</Text>
           </View>
-        )}
 
-        {/* No matches content with pull-to-refresh */}
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={['#378BBB']}
-              tintColor="#378BBB"
-            />
-          }
-          showsVerticalScrollIndicator={false}
-        >
-          <Ionicons name="people-outline" size={80} color="#7F93AA" />
-          <Text style={styles.emptyTitle}>No Matches Yet</Text>
-          <Text style={styles.emptyText}>
-            Check back later for new profiles!{'\n'}Try adjusting your preferences or radius.
-          </Text>
-          <Text style={styles.pullToRefreshHint}>Pull down to refresh</Text>
-        </ScrollView>
-      </View>
+          {/* Location Banner */}
+          {showLocationBanner && (
+            <View style={styles.locationBanner}>
+              <View style={styles.locationBannerContent}>
+                <Ionicons name="location" size={18} color="#A855F7" />
+                <Text style={styles.locationBannerText}>
+                  Enable location for better matches nearby
+                </Text>
+              </View>
+              <View style={styles.locationBannerActions}>
+                <TouchableOpacity onPress={handleEnableLocation} activeOpacity={0.8}>
+                  <LinearGradient
+                    colors={['#8B2BE2', '#06B6D4']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.enableButton}
+                  >
+                    <Text style={styles.enableButtonText}>Enable</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.closeBannerButton}
+                  onPress={() => setShowLocationBanner(false)}
+                >
+                  <Ionicons name="close" size={18} color="rgba(255,255,255,0.75)" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* No matches content with pull-to-refresh */}
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingHorizontal: 40,
+              paddingBottom: Math.max(24, insets.bottom + 12),
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#8B2BE2']}
+                tintColor="#8B2BE2"
+              />
+            }
+            showsVerticalScrollIndicator={false}
+          >
+            <Ionicons name="people-outline" size={80} color="rgba(255,255,255,0.55)" />
+            <Text style={styles.emptyTitle}>No Matches Yet</Text>
+            <Text style={styles.emptyText}>
+              Check back later for new profiles!{'\n'}Try adjusting your preferences or radius.
+            </Text>
+            <Text style={styles.pullToRefreshHint}>Pull down to refresh</Text>
+          </ScrollView>
+        </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground
+      source={require('../../assets/images/bg_party.webp')}
+      style={styles.container}
+      resizeMode="cover"
+    >
+    <View style={styles.overlay}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Ionicons name="heart" size={32} color="#378BBB" />
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <Ionicons name="heart" size={28} color="#8B2BE2" />
         <Text style={styles.title}>Swipe Hub</Text>
       </View>
 
@@ -1071,23 +1110,27 @@ const SwipeHubScreen = () => {
       {showLocationBanner && (
         <View style={styles.locationBanner}>
           <View style={styles.locationBannerContent}>
-            <Ionicons name="location" size={20} color="#F4B400" />
+            <Ionicons name="location" size={18} color="#A855F7" />
             <Text style={styles.locationBannerText}>
               Enable location for better matches nearby
             </Text>
           </View>
           <View style={styles.locationBannerActions}>
-            <TouchableOpacity
-              style={styles.enableButton}
-              onPress={handleEnableLocation}
-            >
-              <Text style={styles.enableButtonText}>Enable</Text>
+            <TouchableOpacity onPress={handleEnableLocation} activeOpacity={0.8}>
+              <LinearGradient
+                colors={['#8B2BE2', '#06B6D4']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.enableButton}
+              >
+                <Text style={styles.enableButtonText}>Enable</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.closeBannerButton}
               onPress={() => setShowLocationBanner(false)}
             >
-              <Ionicons name="close" size={20} color="#F4B400" />
+              <Ionicons name="close" size={18} color="rgba(255,255,255,0.75)" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1096,13 +1139,13 @@ const SwipeHubScreen = () => {
       {/* Main Scrollable Content - Bumble Style */}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(24, insets.bottom + 12) }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#378BBB']}
-            tintColor="#378BBB"
+            colors={['#8B2BE2']}
+            tintColor="#8B2BE2"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -1403,57 +1446,83 @@ const SwipeHubScreen = () => {
         onKeepSwiping={handleKeepSwiping}
       />
     </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+    backgroundColor: '#0D0B1E',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0E1621',
+    // backgroundColor: '#0E1621',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter-Regular',
   },
+  // header: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingHorizontal: 20,
+  //   paddingTop: 50,
+  //   paddingBottom: 20,
+  //   backgroundColor: '#0E1621',
+  //   borderBottomWidth: 2,
+  //   borderBottomColor: '#0E1621',
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.8,
+  //   shadowRadius: 8,
+  //   elevation: 10,
+  //   gap: 12,
+  // },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#0E1621',
-    borderBottomWidth: 2,
-    borderBottomColor: '#0E1621',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 10,
-    gap: 12,
+    paddingBottom: 16,
+    backgroundColor: 'transparent',
+    gap: 10,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    // fontWeight: 'bold',
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
   },
+  // locationBanner: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   backgroundColor: 'rgba(244, 180, 0, 0.15)',
+  //   paddingHorizontal: 16,
+  //   paddingVertical: 12,
+  //   borderBottomWidth: 1,
+  //   borderBottomColor: '#233B57',
+  // },
   locationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(244, 180, 0, 0.15)',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(26, 21, 48, 0.88)',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#233B57',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   locationBannerContent: {
     flexDirection: 'row',
@@ -1463,7 +1532,7 @@ const styles = StyleSheet.create({
   },
   locationBannerText: {
     fontSize: 14,
-    color: '#F4B400',
+    color: 'rgba(255,255,255,0.85)',
     flex: 1,
     fontFamily: 'Inter-Regular',
   },
@@ -1472,18 +1541,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  // enableButton: {
+  //   backgroundColor: '#378BBB',
+  //   paddingHorizontal: 16,
+  //   paddingVertical: 8,
+  //   borderRadius: 20,
+  //   minWidth: 70,
+  //   alignItems: 'center',
+  // },
   enableButton: {
-    backgroundColor: '#378BBB',
+    height: 38,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    minWidth: 70,
+    borderRadius: 19,
+    minWidth: 78,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   enableButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
+    // fontWeight: '600',
     fontFamily: 'Inter-SemiBold',
   },
   closeBannerButton: {
@@ -1503,21 +1580,35 @@ const styles = StyleSheet.create({
   pullToRefreshHint: {
     marginTop: 16,
     fontSize: 14,
-    color: '#7F93AA',
-    fontStyle: 'italic',
+    color: 'rgba(255,255,255,0.55)',
+    // fontStyle: 'italic',
     fontFamily: 'Inter-Italic',
   },
+  // card: {
+  //   width: CARD_WIDTH,
+  //   height: CARD_HEIGHT,
+  //   borderRadius: 20,
+  //   backgroundColor: '#16283D',
+  //   borderWidth: 2,
+  //   borderColor: '#378BBB',
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.8,
+  //   shadowRadius: 12,
+  //   elevation: 10,
+  //   overflow: 'hidden',
+  // },
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 20,
-    backgroundColor: '#16283D',
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
+    borderRadius: 24,
+    backgroundColor: '#1A1530',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
     elevation: 10,
     overflow: 'hidden',
   },
@@ -1542,35 +1633,57 @@ const styles = StyleSheet.create({
   },
   photoIndicators: {
     position: 'absolute',
-    top: 10,
-    left: 0,
-    right: 0,
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 4,
   },
+  // indicator: {
+  //   width: 30,
+  //   height: 3,
+  //   backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  //   borderRadius: 2,
+  // },
   indicator: {
-    width: 30,
+    flex: 1,
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 2,
   },
   indicatorActive: {
     backgroundColor: '#FFFFFF',
   },
+  // matchBadge: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   backgroundColor: 'rgba(255, 77, 109, 0.15)',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 999,
+  //   gap: 5,
+  // },
   matchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 77, 109, 0.15)',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
     gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
+  // matchText: {
+  //   fontSize: 12,
+  //   fontWeight: '500',
+  //   color: '#FF4D6D',
+  //   fontFamily: 'Inter-Medium',
+  // },
   matchText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#FF4D6D',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
   badgesContainer: {
@@ -1580,29 +1693,54 @@ const styles = StyleSheet.create({
     gap: 6,
     alignItems: 'flex-end',
   },
+  // trustedBadge: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   backgroundColor: 'rgba(46, 204, 113, 0.15)',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 999,
+  //   gap: 5,
+  // },
   trustedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
     gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
+  // trustedText: {
+  //   fontSize: 12,
+  //   fontWeight: '500',
+  //   color: '#2ECC71',
+  //   fontFamily: 'Inter-Medium',
+  // },
   trustedText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#2ECC71',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
+  // cardInfo: {
+  //   position: 'absolute',
+  //   bottom: 0,
+  //   left: 0,
+  //   right: 0,
+  //   padding: 16,
+  //   paddingBottom: 20,
+  //   backgroundColor: 'transparent',
+  // },
   cardInfo: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 20,
-    backgroundColor: 'transparent',
+    padding: 18,
+    paddingBottom: 22,
+    backgroundColor: 'rgba(13, 11, 30, 0.46)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1621,19 +1759,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  // cardDistance: {
+  //   fontSize: 14,
+  //   color: '#FFFFFF',
+  //   fontWeight: 'bold',
+  //   fontFamily: 'Inter-Bold',
+  // },
   cardDistance: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: 'Inter-Regular',
   },
+  // cardBio: {
+  //   fontSize: 14,
+  //   color: '#FFFFFF',
+  //   fontWeight: 'bold',
+  //   lineHeight: 20,
+  //   marginTop: 8,
+  //   fontFamily: 'Inter-Bold',
+  // },
   cardBio: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.90)',
     lineHeight: 20,
     marginTop: 8,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-Regular',
   },
   interestsTags: {
     flexDirection: 'row',
@@ -1641,17 +1791,25 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 8,
   },
+  // interestTag: {
+  //   backgroundColor: '#1B2F48',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 12,
+  // },
   interestTag: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   interestText: {
     fontSize: 12,
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    // fontWeight: 'bold',
+    fontFamily: 'Inter-SemiBold',
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -1689,17 +1847,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
+  // emptyTitle: {
+  //   fontSize: 22,
+  //   fontWeight: 'bold',
+  //   color: '#FFFFFF',
+  //   marginTop: 20,
+  //   marginBottom: 8,
+  //   fontFamily: 'Inter-Bold',
+  // },
   emptyTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 28,
     color: '#FFFFFF',
     marginTop: 20,
-    marginBottom: 8,
+    marginBottom: 10,
     fontFamily: 'Inter-Bold',
   },
+  // emptyText: {
+  //   fontSize: 16,
+  //   color: '#B8C7D9',
+  //   textAlign: 'center',
+  //   lineHeight: 24,
+  //   fontFamily: 'Inter-Regular',
+  // },
   emptyText: {
     fontSize: 16,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     lineHeight: 24,
     fontFamily: 'Inter-Regular',
@@ -1770,22 +1942,37 @@ const styles = StyleSheet.create({
   },
   scrollHintText: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 4,
     fontFamily: 'Inter-Regular',
   },
+  // profileDetailsContainer: {
+  //   backgroundColor: '#16283D',
+  //   borderTopLeftRadius: 24,
+  //   borderTopRightRadius: 24,
+  //   paddingHorizontal: 20,
+  //   paddingTop: 24,
+  //   marginTop: -10,
+  //   shadowColor: '#000',
+  //   shadowOffset: { width: 0, height: -2 },
+  //   shadowOpacity: 0.15,
+  //   shadowRadius: 8,
+  //   elevation: 3,
+  // },
   profileDetailsContainer: {
-    backgroundColor: '#16283D',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#1A1530',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 24,
     marginTop: -10,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.20)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
   detailHeader: {
     marginBottom: 24,
@@ -1823,79 +2010,121 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: 'Inter-Regular',
   },
+  // bioBox: {
+  //   backgroundColor: '#1B2F48',
+  //   borderRadius: 14,
+  //   padding: 16,
+  //   minHeight: 100,
+  //   borderWidth: 2,
+  //   borderColor: '#378BBB',
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.6,
+  //   shadowRadius: 12,
+  //   elevation: 8,
+  // },
   bioBox: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 14,
     padding: 16,
     minHeight: 100,
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   bioBoxText: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 22,
     fontFamily: 'Inter-Regular',
   },
   detailEmptyText: {
     fontSize: 15,
-    color: '#7F93AA',
-    fontStyle: 'italic',
-    fontFamily: 'Inter-Italic',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
+  // matchScoreSection: {
+  //   marginBottom: 24,
+  //   backgroundColor: '#1B2F48',
+  //   borderRadius: 16,
+  //   padding: 16,
+  //   borderWidth: 1,
+  //   borderColor: '#FF4D6D',
+  //   shadowColor: '#FF4D6D',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.6,
+  //   shadowRadius: 12,
+  //   elevation: 8,
+  // },
   matchScoreSection: {
     marginBottom: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#FF4D6D',
-    shadowColor: '#FF4D6D',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   matchScoreContent: {
     gap: 12,
   },
+  // matchScoreSectionTitle: {
+  //   fontSize: 20,
+  //   fontWeight: '700',
+  //   color: '#FFFFFF',
+  //   marginBottom: 16,
+  //   paddingBottom: 12,
+  //   borderBottomWidth: 2,
+  //   borderBottomColor: '#378BBB',
+  //   fontFamily: 'Inter-Bold',
+  //   alignSelf: 'flex-start',
+  // },
   matchScoreSectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
     paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     fontFamily: 'Inter-Bold',
     alignSelf: 'flex-start',
   },
+  // profileSection: {
+  //   marginBottom: 24,
+  //   backgroundColor: '#1B2F48',
+  //   borderRadius: 16,
+  //   padding: 16,
+  //   borderWidth: 1,
+  //   borderColor: '#378BBB',
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.6,
+  //   shadowRadius: 12,
+  //   elevation: 8,
+  // },
   profileSection: {
     marginBottom: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
+  // profileSectionTitle: {
+  //   fontSize: 20,
+  //   fontWeight: '700',
+  //   color: '#FFFFFF',
+  //   marginBottom: 16,
+  //   paddingBottom: 12,
+  //   borderBottomWidth: 2,
+  //   borderBottomColor: '#378BBB',
+  //   fontFamily: 'Inter-Bold',
+  // },
   profileSectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
     paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     fontFamily: 'Inter-Bold',
   },
   profileDetailSection: {
@@ -1930,7 +2159,7 @@ const styles = StyleSheet.create({
   },
   profileRowItemText: {
     fontSize: 14,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 20,
     fontFamily: 'Inter-Regular',
   },
@@ -1941,19 +2170,27 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     textAlign: 'center',
   },
+  // preferenceChipSmall: {
+  //   backgroundColor: 'rgba(55, 139, 187, 0.15)',
+  //   paddingHorizontal: 10,
+  //   paddingVertical: 4,
+  //   borderRadius: 16,
+  //   borderWidth: 1,
+  //   borderColor: 'rgba(55, 139, 187, 0.3)',
+  //   marginBottom: 4,
+  // },
   preferenceChipSmall: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)',
+    borderColor: 'rgba(139,92,246,0.25)',
     marginBottom: 4,
   },
   preferenceChipTextSmall: {
     fontSize: 12,
-    color: '#378BBB',
-    fontWeight: '500',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
   matchScoreParagraph: {
@@ -1962,13 +2199,12 @@ const styles = StyleSheet.create({
   },
   matchScoreText: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 22,
     fontFamily: 'Inter-Regular',
   },
   matchScoreHighlight: {
-    color: '#378BBB',
-    fontWeight: '600',
+    color: '#22D3EE',
     fontFamily: 'Inter-SemiBold',
   },
   matchScoreChips: {
@@ -1977,12 +2213,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   matchScoreChip: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(139,92,246,0.18)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: '#8B2BE2',
   },
   matchScoreChipText: {
     fontSize: 13,
@@ -1996,18 +2232,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   interestChip: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   interestChipText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '500',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-SemiBold',
   },
   preferenceChip: {
     backgroundColor: 'rgba(55, 139, 187, 0.15)',
@@ -2065,25 +2300,45 @@ const styles = StyleSheet.create({
   socialIconWrapper: {
     alignItems: 'center',
   },
+  // socialIconButton: {
+  //   width: 48,
+  //   height: 48,
+  //   borderRadius: 24,
+  //   backgroundColor: '#1B2F48',
+  //   justifyContent: 'center',
+  //   alignItems: 'center',
+  //   borderWidth: 2,
+  //   borderColor: 'rgba(255, 255, 255, 0.5)',
+  // },
   socialIconButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#1A1530',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
+  // socialHandlePopup: {
+  //   marginTop: 8,
+  //   backgroundColor: '#16283D',
+  //   paddingHorizontal: 12,
+  //   paddingVertical: 6,
+  //   borderRadius: 8,
+  //   maxWidth: 150,
+  //   borderWidth: 1,
+  //   borderColor: '#378BBB',
+  // },
   socialHandlePopup: {
     marginTop: 8,
-    backgroundColor: '#16283D',
+    backgroundColor: '#16112B',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     maxWidth: 150,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   socialHandlePopupText: {
     color: '#FFFFFF',
@@ -2108,24 +2363,28 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     flex: 1,
     height: 8,
-    backgroundColor: '#233B57',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     overflow: 'hidden',
   },
+  // progressBarFill: {
+  //   height: '100%',
+  //   backgroundColor: '#378BBB',
+  //   borderRadius: 999,
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.8,
+  //   shadowRadius: 8,
+  //   elevation: 8,
+  // },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#378BBB',
+    backgroundColor: '#8B2BE2',
     borderRadius: 999,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 8,
   },
   trustScorePercentage: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#378BBB',
+    color: '#22D3EE',
     fontFamily: 'Inter-Bold',
     minWidth: 45,
     textAlign: 'right',
@@ -2138,7 +2397,7 @@ const styles = StyleSheet.create({
   },
   trustScoreInfoText: {
     fontSize: 12,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter-Regular',
   },
 });
