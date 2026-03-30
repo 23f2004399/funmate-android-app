@@ -217,25 +217,27 @@ const MainTabNavigator = () => {
             </View>
           );
         },
-        tabBarActiveTintColor: '#FF4D6D',
-        tabBarInactiveTintColor: '#378BBB',
+        // tabBarActiveTintColor: '#FF4D6D',
+        tabBarActiveTintColor: '#8B2BE2',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.55)',
         tabBarStyle: {
-          backgroundColor: '#16283D',
-          borderTopWidth: 2,
-          borderTopColor: '#378BBB',
-          height: 60 + insets.bottom,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          paddingTop: 8,
-          shadowColor: '#378BBB',
+          backgroundColor: '#0D0B1E',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(139, 92, 246, 0.25)',
+          height: 64 + insets.bottom,
+          // paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          paddingBottom: Math.max(10, insets.bottom),
+          paddingTop: 6,
+          shadowColor: '#8B2BE2',
           shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.6,
-          shadowRadius: 12,
-          elevation: 15,
+          shadowOpacity: 0.22,
+          shadowRadius: 10,
+          elevation: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-          color: '#FFFFFF',
+          fontSize: 11,
+          fontWeight: '500',
+          // color: '#FFFFFF',
         },
       })}
       initialRouteName="SwipeHub"
@@ -274,11 +276,11 @@ const MainTabNavigator = () => {
 
 const styles = StyleSheet.create({
   activeIconContainer: {
-    shadowColor: '#FF4D6D',
+    shadowColor: '#8B2BE2',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });
 
