@@ -21,8 +21,11 @@ import {
   RefreshControl,
   ScrollView,
   TextInput,
+  ImageBackground,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
@@ -63,6 +66,7 @@ interface AlgoliaUser {
 
 const MyHubScreen = ({ navigation }: any) => {
   const userId = auth().currentUser?.uid;
+  const insets = useSafeAreaInsets();
   const { showConfirm, showError } = useAlert();
   
   // Tab navigation state
@@ -455,7 +459,7 @@ const MyHubScreen = ({ navigation }: any) => {
           />
         ) : (
           <View style={[styles.likerPhoto, styles.noPhotoPlaceholder]}>
-            <Ionicons name="person" size={40} color="#CCCCCC" />
+            <Ionicons name="person" size={40} color="rgba(255,255,255,0.55)" />
           </View>
         )}
 
@@ -628,12 +632,19 @@ const MyHubScreen = ({ navigation }: any) => {
       <Text style={styles.emptyConversationsSubtext}>
         When you match with someone, your{'\n'}conversations will appear here
       </Text>
-      <TouchableOpacity 
-        style={styles.emptyConversationsButton}
+      <TouchableOpacity
         onPress={() => navigation.navigate('SwipeHub')}
+        activeOpacity={0.85}
       >
-        <Ionicons name="flame" size={18} color="#FFFFFF" />
-        <Text style={styles.emptyConversationsButtonText}>Start Swiping</Text>
+        <LinearGradient
+          colors={['#8B2BE2', '#06B6D4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.emptyConversationsButton}
+        >
+          <Ionicons name="flame" size={18} color="#FFFFFF" />
+          <Text style={styles.emptyConversationsButtonText}>Start Swiping</Text>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   ), [navigation]);
@@ -643,21 +654,34 @@ const MyHubScreen = ({ navigation }: any) => {
    */
   if (loading && likers.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-        <ActivityIndicator size="large" color="#378BBB" />
-        <Text style={styles.loadingText}>Loading My Hub...</Text>
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/bg_party.webp')}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#8B2BE2" />
+            <Text style={styles.loadingText}>Loading My Hub...</Text>
+          </View>
+        </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground
+      source={require('../../assets/images/bg_party.webp')}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Ionicons name="chatbubbles" size={32} color="#378BBB" />
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <Ionicons name="chatbubbles" size={28} color="#8B2BE2" />
         <Text style={styles.title}>My Hub</Text>
       </View>
 
@@ -677,7 +701,7 @@ const MyHubScreen = ({ navigation }: any) => {
           <Ionicons 
             name={activeTab === 'conversations' ? "chatbubbles" : "chatbubbles-outline"} 
             size={22} 
-            color={activeTab === 'conversations' ? "#378BBB" : "#7F93AA"} 
+            color={activeTab === 'conversations' ? "#8B2BE2" : "rgba(255,255,255,0.55)"}
           />
           <Text style={[
             styles.tabText,
@@ -702,7 +726,7 @@ const MyHubScreen = ({ navigation }: any) => {
           <Ionicons 
             name={activeTab === 'likes' ? "heart" : "heart-outline"} 
             size={22} 
-            color={activeTab === 'likes' ? "#378BBB" : "#7F93AA"} 
+            color={activeTab === 'likes' ? "#8B2BE2" : "rgba(255,255,255,0.55)"}
           />
           <Text style={[
             styles.tabText,
@@ -719,11 +743,11 @@ const MyHubScreen = ({ navigation }: any) => {
           styles.searchInputContainer,
           searchFocused && styles.searchInputContainerFocused
         ]}>
-          <Ionicons name="search" size={20} color="#999999" />
+          <Ionicons name="search" size={20} color="rgba(255,255,255,0.55)" />
           <TextInput
             style={styles.searchInput}
             placeholder={activeTab === 'conversations' ? "Search conversations or people..." : "Search who liked you..."}
-            placeholderTextColor="#999999"
+            placeholderTextColor="rgba(255,255,255,0.35)"
             value={searchQuery}
             onChangeText={(text) => {
               setSearchQuery(text);
@@ -742,7 +766,7 @@ const MyHubScreen = ({ navigation }: any) => {
                 setGlobalSearchResults([]);
               }}
             >
-              <Ionicons name="close-circle" size={20} color="#999999" />
+              <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.55)" />
             </TouchableOpacity>
           )}
         </View>
@@ -753,7 +777,7 @@ const MyHubScreen = ({ navigation }: any) => {
         <View style={styles.globalSearchResults}>
           <View style={styles.globalSearchHeader}>
             <Text style={styles.globalSearchTitle}>
-              <Ionicons name="globe-outline" size={16} color="#FF4458" /> Global Search
+              <Ionicons name="globe-outline" size={16} color="#A855F7" /> Global Search
             </Text>
             <TouchableOpacity onPress={() => setShowGlobalResults(false)}>
               <Text style={styles.globalSearchClose}>Close</Text>
@@ -762,7 +786,7 @@ const MyHubScreen = ({ navigation }: any) => {
           
           {globalSearchLoading ? (
             <View style={styles.globalSearchLoading}>
-              <ActivityIndicator size="small" color="#FF4458" />
+              <ActivityIndicator size="small" color="#8B2BE2" />
               <Text style={styles.globalSearchLoadingText}>Searching...</Text>
             </View>
           ) : globalSearchResults.length > 0 ? (
@@ -781,13 +805,13 @@ const MyHubScreen = ({ navigation }: any) => {
       {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(24, insets.bottom + 12) }]}
         refreshControl={
           <RefreshControl
             refreshing={loading && likers.length > 0}
             onRefresh={refetch}
-            colors={['#378BBB']}
-            tintColor="#378BBB"
+            colors={['#8B2BE2']}
+            tintColor="#8B2BE2"
           />
         }
         showsVerticalScrollIndicator={false}
@@ -795,11 +819,18 @@ const MyHubScreen = ({ navigation }: any) => {
         {/* Search Globally Button (when no local results) */}
         {showSearchGloballyButton && !showGlobalResults && activeTab === 'conversations' && (
           <TouchableOpacity
-            style={styles.searchGloballyButton}
-            onPress={handleGlobalSearch}
-          >
-            <Ionicons name="globe-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.searchGloballyText}>Search Globally for "{searchQuery}"</Text>
+              onPress={handleGlobalSearch}
+              activeOpacity={0.85}
+            >
+            <LinearGradient
+              colors={['#8B2BE2', '#06B6D4']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.searchGloballyButton}
+            >
+              <Ionicons name="globe-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.searchGloballyText}>Search Globally for "{searchQuery}"</Text>
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
@@ -814,7 +845,7 @@ const MyHubScreen = ({ navigation }: any) => {
             >
               {conversationsLoading ? (
                 <View style={styles.conversationsLoading}>
-                  <ActivityIndicator size="small" color="#378BBB" />
+                  <ActivityIndicator size="small" color="#8B2BE2" />
                 </View>
               ) : filteredConversations.length > 0 ? (
                 <>
@@ -822,7 +853,7 @@ const MyHubScreen = ({ navigation }: any) => {
                 </>
               ) : searchQuery ? (
                 <View style={styles.noSearchResults}>
-                  <Ionicons name="search-outline" size={40} color="#7F93AA" />
+                  <Ionicons name="search-outline" size={40} color="rgba(255,255,255,0.55)" />
                   <Text style={styles.noSearchResultsText}>
                     No conversations match "{searchQuery}"
                   </Text>
@@ -840,7 +871,7 @@ const MyHubScreen = ({ navigation }: any) => {
             {/* Filter Button - Only in Who Liked You */}
             <View style={styles.likesHeader}>
               <View style={styles.sectionTitleRow}>
-                <Ionicons name="heart" size={22} color="#378BBB" />
+                <Ionicons name="heart" size={22} color="#8B2BE2" />
                 <Text style={styles.sectionTitle}>Who Liked You</Text>
                 {totalCount > 0 && (
                   <View style={styles.countBadge}>
@@ -854,7 +885,7 @@ const MyHubScreen = ({ navigation }: any) => {
                 style={styles.filterButton}
                 onPress={() => setShowFilterModal(true)}
               >
-                <Ionicons name="options-outline" size={20} color="#378BBB" />
+                <Ionicons name="options-outline" size={20} color="#8B2BE2" />
                 {activeFilterCount > 0 && (
                   <View style={styles.filterBadge}>
                     <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -880,7 +911,7 @@ const MyHubScreen = ({ navigation }: any) => {
                       />
                     ) : (
                       <View style={[styles.likerGridPhoto, styles.noPhotoPlaceholder]}>
-                        <Ionicons name="person" size={40} color="#7F93AA" />
+                        <Ionicons name="person" size={40} color="rgba(255,255,255,0.55)" />
                       </View>
                     )}
                     
@@ -897,7 +928,7 @@ const MyHubScreen = ({ navigation }: any) => {
                         {liker.name}, {liker.age}
                       </Text>
                       {liker.isVerified && (
-                        <Ionicons name="checkmark-circle" size={16} color="#378BBB" />
+                        <Ionicons name="checkmark-circle" size={16} color="#22D3EE" />
                       )}
                     </View>
                   </TouchableOpacity>
@@ -905,7 +936,7 @@ const MyHubScreen = ({ navigation }: any) => {
               </View>
             ) : searchQuery ? (
               <View style={styles.noSearchResults}>
-                <Ionicons name="search-outline" size={40} color="#7F93AA" />
+                <Ionicons name="search-outline" size={40} color="rgba(255,255,255,0.55)" />
                 <Text style={styles.noSearchResultsText}>
                   No one matches "{searchQuery}"
                 </Text>
@@ -953,53 +984,66 @@ const MyHubScreen = ({ navigation }: any) => {
         availableOccupations={availableOccupations}
       />
     </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+    backgroundColor: '#0D0B1E',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0E1621',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-Regular',
   },
+  // header: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   paddingHorizontal: 20,
+  //   paddingTop: 50,
+  //   paddingBottom: 20,
+  //   backgroundColor: '#0E1621',
+  //   borderBottomWidth: 2,
+  //   borderBottomColor: '#0E1621',
+  //   shadowColor: '#378BBB',
+  //   shadowOffset: { width: 0, height: 0 },
+  //   shadowOpacity: 0.8,
+  //   shadowRadius: 8,
+  //   elevation: 10,
+  //   gap: 12,
+  // },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#0E1621',
-    borderBottomWidth: 2,
-    borderBottomColor: '#0E1621',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 10,
-    gap: 12,
+    paddingBottom: 16,
+    backgroundColor: 'transparent',
+    gap: 10,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Inter-Bold',
   },
   tabNav: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#0E1621',
+    backgroundColor: 'transparent',
     gap: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   tabButton: {
     flex: 1,
@@ -1008,28 +1052,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#16283D',
+    borderRadius: 14,
+    backgroundColor: '#1A1530',
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.18)',
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(139, 92, 246, 0.18)',
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139, 92, 246, 0.80)',
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-SemiBold',
   },
   tabTextActive: {
-    color: '#378BBB',
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    flexGrow: 1,
   },
   section: {
     paddingVertical: 16,
@@ -1048,8 +1094,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   likesHeader: {
     flexDirection: 'row',
@@ -1065,15 +1111,17 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
     position: 'relative',
   },
   filterBadge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#378BBB',
+    backgroundColor: '#8B2BE2',
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -1084,18 +1132,20 @@ const styles = StyleSheet.create({
   filterBadgeText: {
     color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   countBadge: {
-    backgroundColor: '#378BBB',
+    backgroundColor: 'rgba(139,92,246,0.18)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
   },
   countBadgeText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   likersListContent: {
     paddingHorizontal: 16,
@@ -1119,7 +1169,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   noPhotoPlaceholder: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1138,15 +1188,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#378BBB',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   matchBadgeText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: 'bold',
+    fontFamily: 'Inter-Bold',
   },
   likerInfo: {
     position: 'absolute',
@@ -1176,8 +1228,8 @@ const styles = StyleSheet.create({
   },
   emptyLikersText: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-Medium',
   },
   loadMoreContainer: {
     width: 60,
@@ -1192,16 +1244,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   likerGridCard: {
-    width: (width - 44) / 2, // 2 cards per row with gap
-    backgroundColor: '#16283D',
+    width: (width - 44) / 2,
+    backgroundColor: '#1A1530',
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 12,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
+    elevation: 8,
   },
   likerGridPhoto: {
     width: '100%',
@@ -1212,22 +1266,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: '#378BBB',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   likerGridInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(13, 11, 30, 0.46)',
   },
   likerGridName: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     flex: 1,
   },
   divider: {
@@ -1240,58 +1296,59 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginTop: 10,
-    backgroundColor: '#0E1621',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1B2F48',
+    marginTop: 2,
+    backgroundColor: 'transparent',
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16283D',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    height: 54,
     gap: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   searchInputContainerFocused: {
-    borderColor: '#378BBB',
-    backgroundColor: '#1B2F48',
+    borderColor: 'rgba(139, 92, 246, 0.80)',
+    backgroundColor: '#16112B',
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: '#FFFFFF',
     padding: 0,
+    fontFamily: 'Inter-Regular',
   },
   searchGloballyButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#378BBB',
     marginHorizontal: 16,
     marginTop: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     gap: 8,
   },
   searchGloballyText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
   },
 
   // Global search results
   globalSearchResults: {
     position: 'absolute',
-    top: 180,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#0E1621',
+    top: 172,
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: '#1A1530',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+    overflow: 'hidden',
     zIndex: 100,
   },
   globalSearchHeader: {
@@ -1299,19 +1356,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1B2F48',
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   globalSearchTitle: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   globalSearchClose: {
     fontSize: 14,
-    color: '#378BBB',
-    fontWeight: '500',
+    color: '#22D3EE',
+    fontFamily: 'Inter-Medium',
   },
   globalSearchLoading: {
     flexDirection: 'row',
@@ -1322,7 +1379,8 @@ const styles = StyleSheet.create({
   },
   globalSearchLoadingText: {
     fontSize: 15,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-Regular',
   },
   globalSearchList: {
     flex: 1,
@@ -1334,8 +1392,9 @@ const styles = StyleSheet.create({
   },
   globalSearchEmptyText: {
     fontSize: 16,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 12,
+    fontFamily: 'Inter-Regular',
   },
 
   // Search result item
@@ -1345,7 +1404,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1B2F48',
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     gap: 12,
   },
   searchResultPhoto: {
@@ -1354,7 +1413,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   searchResultPhotoPlaceholder: {
-    backgroundColor: '#16283D',
+    backgroundColor: '#16112B',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1368,19 +1427,22 @@ const styles = StyleSheet.create({
   },
   searchResultName: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
+    fontFamily: 'Inter-SemiBold',
   },
   searchResultBio: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 2,
+    fontFamily: 'Inter-Regular',
   },
   searchResultAction: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(139,92,246,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1407,15 +1469,17 @@ const styles = StyleSheet.create({
   conversationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16283D',
+    backgroundColor: '#1A1530',
     padding: 12,
     borderRadius: 16,
-    marginBottom: 8,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.20,
+    shadowRadius: 18,
+    elevation: 6,
     gap: 12,
   },
   // Delete bubble popup
@@ -1434,14 +1498,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '45%',
     alignSelf: 'center',
-    backgroundColor: '#378BBB',
-    borderRadius: 16,
+    backgroundColor: '#1A1530',
+    borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
     elevation: 8,
     zIndex: 1000,
   },
@@ -1455,7 +1521,7 @@ const styles = StyleSheet.create({
   deleteBubbleText: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   conversationPhoto: {
     width: 56,
@@ -1463,7 +1529,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
   },
   conversationPhotoPlaceholder: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1478,14 +1544,15 @@ const styles = StyleSheet.create({
   },
   conversationName: {
     fontSize: 16,
-    fontWeight: '600',
     color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
+    fontFamily: 'Inter-SemiBold',
   },
   conversationTime: {
     fontSize: 12,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Inter-Regular',
   },
   conversationPreviewRow: {
     flexDirection: 'row',
@@ -1494,17 +1561,20 @@ const styles = StyleSheet.create({
   },
   conversationPreview: {
     fontSize: 14,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     flex: 1,
+    fontFamily: 'Inter-Regular',
   },
   conversationPreviewMuted: {
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     fontStyle: 'italic',
   },
   pendingBadge: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(139,92,246,0.18)',
     padding: 4,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   noSearchResults: {
     alignItems: 'center',
@@ -1514,9 +1584,10 @@ const styles = StyleSheet.create({
   },
   noSearchResultsText: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 12,
     textAlign: 'center',
+    fontFamily: 'Inter-Regular',
   },
 
   // Empty conversations state
@@ -1540,30 +1611,31 @@ const styles = StyleSheet.create({
   },
   emptyConversationsTitle: {
     fontSize: 20,
-    fontWeight: '600',
     color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'Inter-SemiBold',
   },
   emptyConversationsSubtext: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
+    fontFamily: 'Inter-Regular',
   },
   emptyConversationsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#378BBB',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    height: 54,
     paddingHorizontal: 24,
-    borderRadius: 25,
+    borderRadius: 30,
     gap: 8,
   },
   emptyConversationsButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
 
   // Legacy placeholder styles (kept for compatibility)
@@ -1575,16 +1647,17 @@ const styles = StyleSheet.create({
   },
   placeholderTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     marginTop: 16,
+    fontFamily: 'Inter-SemiBold',
   },
   placeholderSubtext: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,
+    fontFamily: 'Inter-Regular',
   },
 });
 
