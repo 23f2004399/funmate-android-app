@@ -20,8 +20,11 @@ import {
   Dimensions,
   ScrollView,
   ActivityIndicator,
+  ImageBackground,
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import LinearGradient from 'react-native-linear-gradient';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
@@ -55,6 +58,7 @@ interface MatchData {
 
 const LikesSwiperScreen = () => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const route = useRoute<RouteProp<LikesSwiperRouteParams, 'LikesSwiper'>>();
   const { clickedUserId } = route.params;
 
@@ -511,7 +515,11 @@ const LikesSwiperScreen = () => {
         shadowColor: getShadowColor(),
       }]}>
         {/* Photo */}
-        <Image source={{ uri: currentPhoto }} style={styles.cardImage} />
+        <Image
+          source={{ uri: currentPhoto, cache: 'force-cache' }}
+          style={styles.cardImage}
+          resizeMode="cover"
+        />
 
         {/* Photo navigation areas */}
         <TouchableOpacity
@@ -543,14 +551,14 @@ const LikesSwiperScreen = () => {
         {/* Stacked Micro Pills (top-right) */}
         <View style={styles.badgesContainer}>
           {/* Trusted Badge */}
-          <View style={styles.trustBadge}>
+          <View style={styles.trustedBadge}>
             <Ionicons name="shield-checkmark" size={14} color="#2ECC71" />
-            <Text style={styles.trustLabel}>{calculateProfileCompleteness(liker)}% Trusted</Text>
+            <Text style={styles.trustedText}>{calculateProfileCompleteness(liker)}% Trusted</Text>
           </View>
           {/* Match Badge */}
           <View style={styles.matchBadge}>
             <Ionicons name="heart" size={14} color="#FF4D6D" />
-            <Text style={styles.matchLabel}>{matchPercentage}% Match</Text>
+            <Text style={styles.matchText}>{matchPercentage}% Match</Text>
           </View>
         </View>
 
@@ -599,21 +607,31 @@ const LikesSwiperScreen = () => {
 
   // Loading state
   if (loading && orderedLikers.length === 0) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-        <View style={styles.header}>
+  return (
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>Who Liked You</Text>
+          <View style={styles.headerTitleContainer}>
+            <Ionicons name="heart" size={24} color="#8B2BE2" />
+            <Text style={styles.title}>Who Liked You</Text>
+          </View>
+          <View style={styles.headerRight} />
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF4458" />
+          <ActivityIndicator size="large" color="#8B2BE2" />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </View>
-    );
+    </ImageBackground>
+  );
   }
 
   // Empty state - only show if NO animation is pending or showing
@@ -623,40 +641,66 @@ const LikesSwiperScreen = () => {
     // This handles the timing gap between ref update and state update
     if (!showMatchAnimationRef.current) {
       return (
-        <View style={styles.container}>
-          <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={28} color="#1A1A1A" />
-            </TouchableOpacity>
-            <Text style={styles.title}>Who Liked You</Text>
+        <ImageBackground
+          source={require('../../assets/images/bg_splash.webp')}
+          style={styles.container}
+          resizeMode="cover"
+        >
+          <View style={styles.overlay}>
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+            <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+              <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+                <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              <View style={styles.headerTitleContainer}>
+                <Ionicons name="heart" size={24} color="#8B2BE2" />
+                <Text style={styles.title}>Who Liked You</Text>
+              </View>
+              <View style={styles.headerRight} />
+            </View>
+
+            <View style={styles.emptyContainer}>
+              <Ionicons name="heart-outline" size={80} color="rgba(255,255,255,0.55)" />
+              <Text style={styles.emptyTitle}>All Caught Up!</Text>
+              <Text style={styles.emptyText}>You've responded to all your likes</Text>
+
+              <TouchableOpacity onPress={handleBack} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={['#8B2BE2', '#06B6D4']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.backToHubButton}
+                >
+                  <Text style={styles.backToHubText}>Back to My Hub</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.emptyContainer}>
-            <Ionicons name="heart-outline" size={80} color="#E0E0E0" />
-            <Text style={styles.emptyTitle}>All Caught Up!</Text>
-            <Text style={styles.emptyText}>You've responded to all your likes</Text>
-            <TouchableOpacity style={styles.backToHubButton} onPress={handleBack}>
-              <Text style={styles.backToHubText}>Back to My Hub</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </ImageBackground>
       );
     }
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
+
         <View style={styles.headerTitleContainer}>
-          <Ionicons name="heart" size={24} color="#378BBB" />
+          <Ionicons name="heart" size={24} color="#8B2BE2" />
           <Text style={styles.title}>Who Liked You</Text>
         </View>
+
         <View style={styles.headerRight}>
           <Text style={styles.counter}>
             {orderedLikers.length} remaining
@@ -665,7 +709,7 @@ const LikesSwiperScreen = () => {
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
           >
-            <Ionicons name="options-outline" size={20} color="#378BBB" />
+            <Ionicons name="options-outline" size={20} color="#A855F7" />
             {activeFilterCount > 0 && (
               <View style={styles.filterBadge}>
                 <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -678,14 +722,14 @@ const LikesSwiperScreen = () => {
       {/* Processing indicator */}
       {isProcessing && (
         <View style={styles.processingOverlay}>
-          <ActivityIndicator size="small" color="#FF4458" />
+          <ActivityIndicator size="small" color="#8B2BE2" />
         </View>
       )}
 
       {/* Main Scrollable Content */}
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(24, insets.bottom + 12) }]}
         showsVerticalScrollIndicator={false}
         bounces={true}
       >
@@ -993,29 +1037,26 @@ const LikesSwiperScreen = () => {
         availableOccupations={availableOccupations}
       />
     </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+    backgroundColor: '#0D0B1E',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 50,
+    paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#0E1621',
-    borderBottomWidth: 2,
-    borderBottomColor: '#0E1621',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 10,
+    backgroundColor: 'transparent',
   },
   backButton: {
     padding: 4,
@@ -1026,8 +1067,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 24,
     color: '#FFFFFF',
     fontFamily: 'Inter-Bold',
   },
@@ -1038,15 +1078,17 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    borderRadius: 12,
+    backgroundColor: 'rgba(26, 21, 48, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
     position: 'relative',
   },
   filterBadge: {
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#378BBB',
+    backgroundColor: '#8B2BE2',
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -1062,8 +1104,7 @@ const styles = StyleSheet.create({
   },
   counter: {
     fontSize: 14,
-    color: '#B8C7D9',
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter-Medium',
   },
   scrollContent: {
@@ -1076,14 +1117,14 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 20,
-    backgroundColor: '#16283D',
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
+    borderRadius: 24,
+    backgroundColor: '#1A1530',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 18,
     elevation: 10,
     overflow: 'hidden',
   },
@@ -1108,17 +1149,17 @@ const styles = StyleSheet.create({
   },
   photoIndicators: {
     position: 'absolute',
-    top: 10,
-    left: 0,
-    right: 0,
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 4,
   },
   indicator: {
-    width: 30,
+    flex: 1,
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     borderRadius: 2,
   },
   indicatorActive: {
@@ -1134,16 +1175,17 @@ const styles = StyleSheet.create({
   matchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 77, 109, 0.15)',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
     gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   matchText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#FF4D6D',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
   matchLabel: {
@@ -1152,19 +1194,20 @@ const styles = StyleSheet.create({
     color: '#FF4D6D',
     fontFamily: 'Inter-Medium',
   },
-  trustBadge: {
+  trustedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(46, 204, 113, 0.15)',
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 999,
     gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   trustedText: {
     fontSize: 12,
-    fontWeight: '500',
-    color: '#2ECC71',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
   trustLabel: {
@@ -1178,9 +1221,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 16,
-    paddingBottom: 20,
-    backgroundColor: 'transparent',
+    padding: 18,
+    paddingBottom: 22,
+    backgroundColor: 'rgba(13, 11, 30, 0.46)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1206,17 +1249,15 @@ const styles = StyleSheet.create({
   },
   cardDistance: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: 'Inter-Regular',
   },
   cardBio: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
+    color: 'rgba(255,255,255,0.90)',
     lineHeight: 20,
     marginTop: 8,
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-Regular',
   },
   interestsTags: {
     flexDirection: 'row',
@@ -1225,16 +1266,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   interestTag: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   interestText: {
     fontSize: 12,
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontFamily: 'Inter-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   scrollIndicator: {
     alignItems: 'center',
@@ -1242,22 +1284,24 @@ const styles = StyleSheet.create({
   },
   scrollHintText: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     marginTop: 4,
     fontFamily: 'Inter-Regular',
   },
   profileDetailsContainer: {
-    backgroundColor: '#16283D',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#1A1530',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: 20,
     paddingTop: 24,
     marginTop: -10,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.20)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
   detailHeader: {
     marginBottom: 24,
@@ -1297,9 +1341,8 @@ const styles = StyleSheet.create({
   },
   detailEmptyText: {
     fontSize: 15,
-    color: '#7F93AA',
-    fontStyle: 'italic',
-    fontFamily: 'Inter-Italic',
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter-Regular',
   },
   interestsContainer: {
     flexDirection: 'row',
@@ -1307,18 +1350,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   interestChip: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   interestChipText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
-    fontWeight: '500',
-    fontFamily: 'Inter-Medium',
+    fontFamily: 'Inter-SemiBold',
   },
   preferenceChip: {
     backgroundColor: 'rgba(55, 139, 187, 0.15)',
@@ -1346,21 +1388,21 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#1A1530',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   socialHandlePopup: {
     marginTop: 8,
-    backgroundColor: '#16283D',
+    backgroundColor: '#16112B',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 10,
     maxWidth: 150,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   socialHandlePopupText: {
     color: '#FFFFFF',
@@ -1412,72 +1454,55 @@ const styles = StyleSheet.create({
     height: 40,
   },
   bioBox: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 14,
     padding: 16,
     minHeight: 100,
-    borderWidth: 2,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   bioBoxText: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 22,
     fontFamily: 'Inter-Regular',
   },
   matchScoreSection: {
     marginBottom: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#FF4D6D',
-    shadowColor: '#FF4D6D',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   matchScoreContent: {
     gap: 12,
   },
   matchScoreSectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
     paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     fontFamily: 'Inter-Bold',
     alignSelf: 'flex-start',
   },
   profileSection: {
     marginBottom: 24,
-    backgroundColor: '#1B2F48',
+    backgroundColor: '#16112B',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   profileSectionTitle: {
     fontSize: 20,
-    fontWeight: '700',
     color: '#FFFFFF',
     marginBottom: 16,
     paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
     fontFamily: 'Inter-Bold',
   },
   profileDetailSection: {
@@ -1512,7 +1537,7 @@ const styles = StyleSheet.create({
   },
   profileRowItemText: {
     fontSize: 14,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 20,
     fontFamily: 'Inter-Regular',
   },
@@ -1524,18 +1549,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   preferenceChipSmall: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)',
+    borderColor: 'rgba(139,92,246,0.25)',
     marginBottom: 4,
   },
   preferenceChipTextSmall: {
     fontSize: 12,
-    color: '#378BBB',
-    fontWeight: '500',
+    color: '#FFFFFF',
     fontFamily: 'Inter-Medium',
   },
   matchScoreParagraph: {
@@ -1544,13 +1568,12 @@ const styles = StyleSheet.create({
   },
   matchScoreText: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.82)',
     lineHeight: 22,
     fontFamily: 'Inter-Regular',
   },
   matchScoreHighlight: {
-    color: '#378BBB',
-    fontWeight: '600',
+    color: '#22D3EE',
     fontFamily: 'Inter-SemiBold',
   },
   matchScoreChips: {
@@ -1559,12 +1582,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   matchScoreChip: {
-    backgroundColor: 'rgba(55, 139, 187, 0.15)',
+    backgroundColor: 'rgba(139,92,246,0.18)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#378BBB',
+    borderColor: '#8B2BE2',
   },
   matchScoreChipText: {
     fontSize: 13,
@@ -1580,24 +1603,18 @@ const styles = StyleSheet.create({
   progressBarBackground: {
     flex: 1,
     height: 8,
-    backgroundColor: '#233B57',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#378BBB',
+    backgroundColor: '#8B2BE2',
     borderRadius: 999,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 8,
   },
   trustScorePercentage: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#378BBB',
+    color: '#22D3EE',
     fontFamily: 'Inter-Bold',
     minWidth: 45,
     textAlign: 'right',
@@ -1610,7 +1627,7 @@ const styles = StyleSheet.create({
   },
   trustScoreInfoText: {
     fontSize: 12,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter-Regular',
   },
   loadingContainer: {
@@ -1619,9 +1636,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
+    marginTop: 16,
     fontSize: 16,
-    color: '#7F93AA',
-    marginTop: 12,
+    color: 'rgba(255,255,255,0.55)',
     fontFamily: 'Inter-Regular',
   },
   processingOverlay: {
@@ -1629,12 +1646,12 @@ const styles = StyleSheet.create({
     top: 100,
     right: 20,
     zIndex: 100,
-    backgroundColor: 'rgba(14, 22, 33, 0.95)',
+    backgroundColor: 'rgba(13, 11, 30, 0.95)',
     borderRadius: 20,
     padding: 10,
-    shadowColor: '#378BBB',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
@@ -1645,29 +1662,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 28,
     color: '#FFFFFF',
     marginTop: 20,
-    marginBottom: 8,
+    marginBottom: 10,
     fontFamily: 'Inter-Bold',
   },
   emptyText: {
     fontSize: 16,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     marginBottom: 24,
     fontFamily: 'Inter-Regular',
   },
   backToHubButton: {
-    backgroundColor: '#378BBB',
+    height: 54,
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 180,
   },
   backToHubText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
     color: '#FFFFFF',
     fontFamily: 'Inter-SemiBold',
   },
