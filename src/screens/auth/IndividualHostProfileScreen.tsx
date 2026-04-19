@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#16112B',
+    backgroundColor: 'rgba(66, 66, 66, 0.7)',
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: 'rgba(139, 92, 246, 0.30)',
@@ -650,6 +650,7 @@ const styles = StyleSheet.create({
   inputMultiline: {
     paddingVertical: 6,
     minHeight: 96,
+    backgroundColor: 'rgba(66, 66, 66, 0.7)',
   },
   characterCount: {
     fontSize: 12,
