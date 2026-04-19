@@ -22,6 +22,7 @@ import {
   StatusBar,
   ActivityIndicator,
   ScrollView,
+  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
@@ -119,190 +120,199 @@ const CreatorTypeSelectionScreen: React.FC<CreatorTypeSelectionScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Content */}
-        <View style={styles.content}>
-          <Text style={styles.title}>Choose Your Creator Type</Text>
-          <Text style={styles.subtitle}>
-            Select how you'll be hosting events on Funmate
-          </Text>
-
-          {/* Individual Host Card */}
-          <TouchableOpacity
-            style={[
-              styles.optionCard,
-              selectedType === 'individual' && styles.optionCardSelected,
-            ]}
-            onPress={() => setSelectedType('individual')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.optionHeader}>
-              <View style={styles.iconContainer}>
-                <Ionicons 
-                  name="person" 
-                  size={32} 
-                  color={selectedType === 'individual' ? '#378BBB' : '#7F93AA'} 
-                />
-              </View>
-              <View style={[
-                styles.radioButton,
-                selectedType === 'individual' && styles.radioButtonSelected,
-              ]}>
-                {selectedType === 'individual' && (
-                  <View style={styles.radioButtonInner} />
-                )}
-              </View>
-            </View>
-
-            <Text style={[
-              styles.optionTitle,
-              selectedType === 'individual' && styles.optionTitleSelected,
-            ]}>
-              Individual Host
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
+            <Text style={styles.title}>Choose Your Creator Type</Text>
+            <Text style={styles.subtitle}>
+              Select how you'll be hosting events on Funmate
             </Text>
 
-            <Text style={styles.optionDescription}>
-              Perfect for freelance event organizers, DJs, performers, and independent hosts
-            </Text>
-
-          </TouchableOpacity>
-
-          {/* Merchant Organizer Card */}
-          <TouchableOpacity
-            style={[
-              styles.optionCard,
-              selectedType === 'merchant' && styles.optionCardSelected,
-            ]}
-            onPress={() => setSelectedType('merchant')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.optionHeader}>
-              <View style={styles.iconContainer}>
-                <Ionicons 
-                  name="business" 
-                  size={32} 
-                  color={selectedType === 'merchant' ? '#378BBB' : '#7F93AA'} 
-                />
-              </View>
-              <View style={[
-                styles.radioButton,
-                selectedType === 'merchant' && styles.radioButtonSelected,
-              ]}>
-                {selectedType === 'merchant' && (
-                  <View style={styles.radioButtonInner} />
-                )}
-              </View>
-            </View>
-
-            <Text style={[
-              styles.optionTitle,
-              selectedType === 'merchant' && styles.optionTitleSelected,
-            ]}>
-              Merchant Organizer
-            </Text>
-
-            <Text style={styles.optionDescription}>
-              For businesses, venues, brands, and registered organizations
-            </Text>
-          </TouchableOpacity>
-
-          {/* Continue Button */}
-          <TouchableOpacity
-            onPress={handleContinue}
-            disabled={!selectedType || loading}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={selectedType ? ['#378BBB', '#4FC3F7'] : ['transparent', 'transparent']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
+            <TouchableOpacity
               style={[
-                styles.continueButton,
-                !selectedType && styles.continueButtonDisabled,
-                { marginBottom: Math.max(32, insets.bottom + 16) },
+                styles.optionCard,
+                selectedType === 'individual' && styles.optionCardSelected,
               ]}
+              onPress={() => setSelectedType('individual')}
+              activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.continueButtonText}>Continue</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </View>
+              <View style={styles.optionHeader}>
+                <View style={styles.iconContainer}>
+                  <Ionicons
+                    name="person"
+                    size={30}
+                    color={selectedType === 'individual' ? '#A855F7' : 'rgba(255,255,255,0.72)'}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.radioButton,
+                    selectedType === 'individual' && styles.radioButtonSelected,
+                  ]}
+                >
+                  {selectedType === 'individual' && <View style={styles.radioButtonInner} />}
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.optionTitle,
+                  selectedType === 'individual' && styles.optionTitleSelected,
+                ]}
+              >
+                Individual Host
+              </Text>
+
+              <Text style={styles.optionDescription}>
+                Perfect for freelance event organizers, DJs, performers, and independent hosts
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.optionCard,
+                selectedType === 'merchant' && styles.optionCardSelected,
+              ]}
+              onPress={() => setSelectedType('merchant')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.optionHeader}>
+                <View style={styles.iconContainer}>
+                  <Ionicons
+                    name="business"
+                    size={30}
+                    color={selectedType === 'merchant' ? '#A855F7' : 'rgba(255,255,255,0.72)'}
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.radioButton,
+                    selectedType === 'merchant' && styles.radioButtonSelected,
+                  ]}
+                >
+                  {selectedType === 'merchant' && <View style={styles.radioButtonInner} />}
+                </View>
+              </View>
+
+              <Text
+                style={[
+                  styles.optionTitle,
+                  selectedType === 'merchant' && styles.optionTitleSelected,
+                ]}
+              >
+                Merchant Organizer
+              </Text>
+
+              <Text style={styles.optionDescription}>
+                For businesses, venues, brands, and registered organizations
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleContinue}
+              disabled={!selectedType || loading}
+              activeOpacity={0.85}
+              style={{ marginTop: 8 }}
+            >
+              <LinearGradient
+                colors={selectedType ? ['#8B2BE2', '#06B6D4'] : ['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.10)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[
+                  styles.continueButton,
+                  !selectedType && styles.continueButtonDisabled,
+                  { marginBottom: Math.max(32, insets.bottom + 16) },
+                ]}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.continueButtonText}>Continue</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    justifyContent: 'flex-start',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
     color: '#FFFFFF',
-    marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    marginBottom: 10,
+    fontFamily: 'Inter-Bold',
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: 16,
-    color: '#B8C7D9',
-    marginBottom: 32,
+    color: 'rgba(255, 255, 255, 0.55)',
+    marginBottom: 30,
     lineHeight: 24,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   optionCard: {
-    backgroundColor: '#16283D',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#233B57',
-    elevation: 2,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 18,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   optionCardSelected: {
-    borderColor: '#378BBB',
-    backgroundColor: '#1B2F48',
-    elevation: 4,
-    shadowColor: '#378BBB',
-    shadowOpacity: 0.3,
+    borderColor: '#8B2BE2',
+    backgroundColor: 'rgba(139, 92, 246, 0.18)',
+    shadowColor: '#8B2BE2',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 80,
   },
   optionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#233B57',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.22)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -311,69 +321,64 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#7F93AA',
+    borderColor: 'rgba(255,255,255,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioButtonSelected: {
-    borderColor: '#378BBB',
+    borderColor: '#8B2BE2',
   },
   radioButtonInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#378BBB',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#8B2BE2',
   },
   optionTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-Bold',
   },
   optionTitleSelected: {
-    color: '#378BBB',
+    color: '#FFFFFF',
   },
   optionDescription: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255, 255, 255, 0.55)',
     lineHeight: 22,
-    marginBottom: 16,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   featuresList: {
     gap: 8,
   },
   featureItem: {
     fontSize: 14,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.45)',
     lineHeight: 20,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   continueButton: {
-    backgroundColor: 'transparent',
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
-    marginTop: 12,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
+    shadowColor: '#8B2BE2',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 6,
   },
   continueButtonDisabled: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#233B57',
-    elevation: 0,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
     shadowOpacity: 0,
+    elevation: 0,
   },
   continueButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
 });
 
