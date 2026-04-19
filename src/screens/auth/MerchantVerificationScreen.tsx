@@ -837,12 +837,12 @@ const MerchantVerificationScreen: React.FC<Props> = ({ navigation }) => {
               Verify your business credentials to start hosting events and receive payouts
             </Text>
 
-            <View style={styles.infoCard}>
+            {/* <View style={styles.infoCard}>
               <Ionicons name="shield-checkmark" size={22} color="#A855F7" />
               <Text style={styles.infoText}>
                 We use Digio API to verify your business documents securely. All data is encrypted.
               </Text>
-            </View>
+            </View> */}
 
             {/* GST Verification */}
             <View style={styles.section}>
