@@ -25,11 +25,12 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
-  ScrollView,
   Animated,
+  ImageBackground,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import Toast from 'react-native-toast-message';
@@ -68,7 +69,7 @@ const GlowInput = ({ iconName, style, ...inputProps }: GlowInputProps) => {
   // Interpolate border color from default to glow
   const borderColor = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#233B57', '#378BBB'],
+    outputRange: ['rgba(139, 92, 246, 0.30)', 'rgba(139, 92, 246, 0.80)'],
   });
 
   return (
@@ -76,7 +77,7 @@ const GlowInput = ({ iconName, style, ...inputProps }: GlowInputProps) => {
       <Ionicons
         name={iconName}
         size={20}
-        color="#7F93AA"
+        color="rgba(255, 255, 255, 0.55)"
         style={styles.inputIcon}
       />
       <TextInput
@@ -94,6 +95,7 @@ interface IndividualVerificationScreenProps {
 }
 
 const IndividualVerificationScreen: React.FC<IndividualVerificationScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [aadhaarNumber, setAadhaarNumber] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [loading, setLoading] = useState(false);
@@ -236,12 +238,12 @@ const IndividualVerificationScreen: React.FC<IndividualVerificationScreenProps> 
    */
   const handleVerify = async () => {
     try {
-      // Validation: At least one document required
-      if (!aadhaarNumber && !panNumber) {
+      // Validation: Both documents required
+      if (!aadhaarNumber || !panNumber) {
         Toast.show({
           type: 'error',
-          text1: 'Document Required',
-          text2: 'Please enter Aadhaar or PAN number',
+          text1: 'Both Documents Required',
+          text2: 'Please enter both Aadhaar and PAN number',
           visibilityTime: 3000,
         });
         return;
@@ -320,182 +322,208 @@ const IndividualVerificationScreen: React.FC<IndividualVerificationScreenProps> 
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" translucent={true} />
+    <ImageBackground
+      source={require('../../assets/images/bg_party.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor="transparent"
+          translucent={true}
+        />
 
-      <KeyboardAwareScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid={true}
-        extraScrollHeight={20}
-      >
-        {/* Header - Only show when navigation history exists */}
         {canGoBack && (
-          <View style={styles.header}>
-            <TouchableOpacity 
+          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+            <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
               activeOpacity={0.7}
             >
-              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Content */}
-        <View style={[styles.content, !canGoBack && styles.contentNoHeader]}>
-          <Text style={styles.title}>Verify Your Identity</Text>
-          <Text style={styles.subtitle}>
-            Required for hosting events and receiving payouts
-          </Text>
+        <KeyboardAwareScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: canGoBack ? insets.top + 54 : 0,
+              paddingBottom: Math.max(32, insets.bottom + 20),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          extraScrollHeight={20}
+        >
 
-          {/* Info Banner */}
-          <View style={styles.infoBanner}>
-            <Ionicons name="shield-checkmark" size={24} color="#2ECC71" />
-            <View style={styles.infoBannerText}>
-              <Text style={styles.infoBannerTitle}>Secure Verification</Text>
-              <Text style={styles.infoBannerSubtitle}>
-                We use Digio for secure identity verification. Your documents are never stored.
+          <View
+            style={[
+              styles.content,
+              !canGoBack && { paddingTop: insets.top + 32 },
+            ]}
+          >
+            <Text style={styles.title}>Verify Your Identity</Text>
+            <Text style={styles.subtitle}>
+              Required for hosting events and receiving payouts
+            </Text>
+
+            <View style={styles.infoBanner}>
+              <Ionicons name="shield-checkmark" size={22} color="#A855F7" />
+              <View style={styles.infoBannerText}>
+                <Text style={styles.infoBannerTitle}>Secure Verification</Text>
+                <Text style={styles.infoBannerSubtitle}>
+                  We use Digio for secure identity verification. Your documents are never stored.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Aadhaar Number <Text style={styles.optional}>(Required)</Text>
+              </Text>
+              <GlowInput
+                iconName="card"
+                value={aadhaarNumber}
+                onChangeText={(text) => setAadhaarNumber(text.replace(/\D/g, ''))}
+                placeholder="Enter 12-digit Aadhaar"
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                keyboardType="numeric"
+                maxLength={12}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {aadhaarNumber.length > 0 && !validateAadhaar(aadhaarNumber) && (
+                <Text style={styles.errorText}>Aadhaar must be 12 digits</Text>
+              )}
+            </View>
+
+            <View style={styles.orDivider}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>and</Text>
+              <View style={styles.orLine} />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                PAN Card <Text style={styles.optional}>(Required)</Text>
+              </Text>
+              <GlowInput
+                iconName="card-outline"
+                value={panNumber}
+                onChangeText={(text) => setPanNumber(text.toUpperCase())}
+                placeholder="Enter PAN (ABCDE1234F)"
+                placeholderTextColor="rgba(255,255,255,0.35)"
+                maxLength={10}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              {panNumber.length > 0 && !validatePAN(panNumber) && (
+                <Text style={styles.errorText}>PAN format: ABCDE1234F</Text>
+              )}
+            </View>
+
+            <View style={styles.helpBox}>
+              <Ionicons name="information-circle" size={20} color="#06B6D4" />
+              <Text style={styles.helpText}>
+                Please provide both Aadhaar and PAN to continue.
               </Text>
             </View>
-          </View>
 
-          {/* Aadhaar Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Aadhaar Number <Text style={styles.optional}>(Recommended)</Text>
-            </Text>
-            <GlowInput
-              iconName="card"
-              value={aadhaarNumber}
-              onChangeText={(text) => setAadhaarNumber(text.replace(/\D/g, ''))}
-              placeholder="Enter 12-digit Aadhaar"
-              placeholderTextColor="#7F93AA"
-              keyboardType="numeric"
-              maxLength={12}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {aadhaarNumber.length > 0 && !validateAadhaar(aadhaarNumber) && (
-              <Text style={styles.errorText}>Aadhaar must be 12 digits</Text>
-            )}
-          </View>
-
-          {/* OR Divider */}
-          <View style={styles.orDivider}>
-            <View style={styles.orLine} />
-            <Text style={styles.orText}>OR</Text>
-            <View style={styles.orLine} />
-          </View>
-
-          {/* PAN Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              PAN Card <Text style={styles.optional}>(Alternative)</Text>
-            </Text>
-            <GlowInput
-              iconName="card-outline"
-              value={panNumber}
-              onChangeText={(text) => setPanNumber(text.toUpperCase())}
-              placeholder="Enter PAN (ABCDE1234F)"
-              placeholderTextColor="#7F93AA"
-              maxLength={10}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
-            {panNumber.length > 0 && !validatePAN(panNumber) && (
-              <Text style={styles.errorText}>PAN format: ABCDE1234F</Text>
-            )}
-          </View>
-
-          {/* Help Text */}
-          <View style={styles.helpBox}>
-            <Ionicons name="information-circle" size={20} color="#378BBB" />
-            <Text style={styles.helpText}>
-              You can provide Aadhaar, PAN, or both for faster approval
-            </Text>
-          </View>
-
-          {/* Verify Button */}
-          <TouchableOpacity
-            onPress={handleVerify}
-            disabled={(!aadhaarNumber && !panNumber) || loading}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={(!aadhaarNumber && !panNumber) || loading ? ['#1B2F48', '#1B2F48'] : ['#378BBB', '#4FC3F7']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
-              style={styles.verifyButton}
+            <TouchableOpacity
+              onPress={handleVerify}
+              disabled={(!aadhaarNumber || !panNumber) || loading}
+              activeOpacity={0.85}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.verifyButtonText}>Verify Identity</Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAwareScrollView>
-    </View>
+              <LinearGradient
+                colors={
+                  (!aadhaarNumber || !panNumber) || loading
+                    ? ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.14)']
+                    : ['#8B2BE2', '#06B6D4']
+                }
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.verifyButton}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify Identity</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareScrollView>
+      </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+    backgroundColor: '#0D0B1E',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
   },
   header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
     paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 20,
-  },
-  contentNoHeader: {
-    paddingTop: 60,
+    paddingTop: 18,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 32,
     color: '#FFFFFF',
     marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-Bold',
   },
   subtitle: {
     fontSize: 16,
-    color: '#B8C7D9',
+    color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 24,
     lineHeight: 24,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   infoBanner: {
     flexDirection: 'row',
-    backgroundColor: '#16283D',
-    borderRadius: 12,
+    backgroundColor: '#1A1530',
+    borderRadius: 16,
     padding: 16,
     marginBottom: 24,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: '#233B57',
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   infoBannerText: {
     flex: 1,
@@ -503,66 +531,70 @@ const styles = StyleSheet.create({
   },
   infoBannerTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#2ECC71',
+    color: '#FFFFFF',
     marginBottom: 4,
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-SemiBold',
   },
   infoBannerSubtitle: {
     fontSize: 13,
-    color: '#B8C7D9',
+    color: 'rgba(255, 255, 255, 0.55)',
     lineHeight: 18,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.55)',
     marginBottom: 8,
-    fontFamily: 'Inter_24pt-Bold',
+    fontFamily: 'Inter-Medium',
   },
   optional: {
     fontSize: 13,
-    fontWeight: '400',
-    color: '#7F93AA',
-    fontFamily: 'Inter_24pt-Regular',
+    color: 'rgba(255, 255, 255, 0.35)',
+    fontFamily: 'Inter-Regular',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#233B57',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#1B2F48',
+    height: 54,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    backgroundColor: 'rgba(66, 66, 66, 0.7)',
+    borderColor: 'rgba(53, 53, 53, 0.22)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    opacity: 0.8,
+    elevation: 4,
   },
   inputContainerFocused: {
-    borderColor: '#378BBB',
-    shadowColor: '#378BBB',
+    borderColor: 'rgba(255,255,255,0.38)',
+    shadowColor: '#FFFFFF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.12,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 5,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    paddingVertical: 14,
     fontSize: 16,
     color: '#FFFFFF',
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
+    paddingVertical: 0,
   },
   errorText: {
     fontSize: 13,
-    color: '#FF4D6D',
+    color: '#FF6B81',
     marginTop: 6,
     marginLeft: 4,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   orDivider: {
     flexDirection: 'row',
@@ -572,49 +604,43 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#233B57',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   orText: {
-    fontSize: 14,
-    color: '#7F93AA',
-    marginHorizontal: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.40)',
+    marginHorizontal: 14,
+    fontFamily: 'Inter-Regular',
   },
   helpBox: {
     flexDirection: 'row',
-    backgroundColor: '#16283D',
-    borderRadius: 12,
+    backgroundColor: '#1A1530',
+    borderRadius: 16,
     padding: 14,
-    marginBottom: 24,
+    marginBottom: 28,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#233B57',
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   helpText: {
     flex: 1,
     fontSize: 13,
-    color: '#B8C7D9',
+    color: 'rgba(255, 255, 255, 0.55)',
     marginLeft: 10,
     lineHeight: 18,
-    fontFamily: 'Inter_24pt-Regular',
+    fontFamily: 'Inter-Regular',
   },
   verifyButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 54,
+    borderRadius: 30,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: '#378BBB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   verifyButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_24pt-Bold',
+    fontSize: 17,
+    fontFamily: 'Inter-SemiBold',
   },
 });
 
