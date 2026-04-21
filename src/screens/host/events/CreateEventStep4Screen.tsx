@@ -16,11 +16,12 @@ import {
   Alert,
   ActivityIndicator,
   ImageBackground,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { launchImageLibrary } from 'react-native-image-picker';
+import ImageCropPicker from 'react-native-image-crop-picker';
 import storage from '@react-native-firebase/storage';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
@@ -50,11 +51,33 @@ const CreateEventStep4Screen = () => {
   const [photos, setPhotos] = useState<MediaItem[]>([]);
   const [video, setVideo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [tempImage, setTempImage] = useState<any>(null);
+  const [tempImageTarget, setTempImageTarget] = useState<'banner' | 'photo' | null>(null);
 
   const pickBanner = async () => {
-    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
-    if (result.assets && result.assets[0]?.uri) {
-      setBanner(result.assets[0].uri);
+    try {
+      const image = await ImageCropPicker.openPicker({
+        mediaType: 'photo',
+        cropping: false,
+        compressImageQuality: 0.8,
+        width: 1600,
+        height: 900,
+      });
+
+      setTempImage(image);
+      setTempImageTarget('banner');
+      setShowImageModal(true);
+    } catch (error: any) {
+      if (error?.code === 'E_PICKER_CANCELLED') {
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Image Selection Error',
+        text2: 'Failed to select banner image',
+      });
     }
   };
 
@@ -63,24 +86,94 @@ const CreateEventStep4Screen = () => {
       Alert.alert('Limit Reached', 'You can add up to 5 additional photos');
       return;
     }
-    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, selectionLimit: 5 - photos.length });
-    if (result.assets) {
-      const newPhotos: MediaItem[] = result.assets
-        .filter(a => a.uri)
-        .map(a => ({ localUri: a.uri!, type: 'image' }));
-      setPhotos(prev => [...prev, ...newPhotos].slice(0, 5));
+
+    try {
+      const image = await ImageCropPicker.openPicker({
+        mediaType: 'photo',
+        cropping: false,
+        compressImageQuality: 0.8,
+        width: 1080,
+        height: 1080,
+      });
+
+      setTempImage(image);
+      setTempImageTarget('photo');
+      setShowImageModal(true);
+    } catch (error: any) {
+      if (error?.code === 'E_PICKER_CANCELLED') {
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Image Selection Error',
+        text2: 'Failed to select photo',
+      });
     }
   };
 
   const pickVideo = async () => {
-    const result = await launchImageLibrary({ mediaType: 'video' });
-    if (result.assets && result.assets[0]?.uri) {
-      setVideo(result.assets[0].uri);
+    try {
+      const selectedVideo = await ImageCropPicker.openPicker({
+        mediaType: 'video',
+      });
+
+      if (selectedVideo?.path) {
+        setVideo(selectedVideo.path);
+      }
+    } catch (error: any) {
+      if (error?.code === 'E_PICKER_CANCELLED') {
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Video Selection Error',
+        text2: 'Failed to select video',
+      });
     }
   };
 
   const removePhoto = (index: number) => {
     setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const applySelectedImage = (path: string, target: 'banner' | 'photo') => {
+    if (target === 'banner') {
+      setBanner(path);
+    } else {
+      setPhotos(prev => [...prev, { localUri: path, type: 'image' }].slice(0, 5));
+    }
+  };
+
+  const cropSelectedImage = async () => {
+    if (!tempImage?.path || !tempImageTarget) return;
+
+    try {
+      const cropped = await ImageCropPicker.openCropper({
+        path: tempImage.path,
+        width: tempImageTarget === 'banner' ? 1600 : 1080,
+        height: tempImageTarget === 'banner' ? 900 : 1080,
+        cropperToolbarTitle: tempImageTarget === 'banner' ? 'Crop Banner' : 'Crop Photo',
+        includeBase64: false,
+        compressImageQuality: 0.8,
+      });
+
+      applySelectedImage(cropped.path, tempImageTarget);
+      setShowImageModal(false);
+      setTempImage(null);
+      setTempImageTarget(null);
+    } catch (error: any) {
+      if (error?.code === 'E_PICKER_CANCELLED') {
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Crop Failed',
+        text2: 'Please try again',
+      });
+    }
   };
 
   const uploadFile = async (localUri: string, remotePath: string): Promise<string> => {
@@ -419,6 +512,76 @@ const CreateEventStep4Screen = () => {
         </View>
       )}
     </View>
+      <Modal
+        visible={showImageModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowImageModal(false);
+          setTempImage(null);
+          setTempImageTarget(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>
+              {tempImageTarget === 'banner' ? 'Use this banner?' : 'Use this photo?'}
+            </Text>
+
+            {tempImage?.path && (
+              <Image
+                source={{ uri: tempImage.path }}
+                style={[
+                  styles.modalPreviewImage,
+                  tempImageTarget === 'banner' && styles.modalPreviewBannerImage,
+                ]}
+                resizeMode="cover"
+              />
+            )}
+
+            <Text style={styles.modalSubtitle}>
+              You can crop it first or continue with the full image
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => {
+                  setShowImageModal(false);
+                  setTempImage(null);
+                  setTempImageTarget(null);
+                }}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSecondary}
+                onPress={() => {
+                  if (!tempImage?.path || !tempImageTarget) return;
+                  applySelectedImage(tempImage.path, tempImageTarget);
+                  setShowImageModal(false);
+                  setTempImage(null);
+                  setTempImageTarget(null);
+                }}
+              >
+                <Text style={styles.modalSecondaryText}>Use As Is</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={cropSelectedImage}>
+                <LinearGradient
+                  colors={['#8B2BE2', '#06B6D4']}
+                  style={styles.modalPrimary}
+                >
+                  <Text style={styles.modalPrimaryText}>
+                    {tempImageTarget === 'banner' ? 'Crop Banner' : 'Crop Photo'}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 };
@@ -713,6 +876,87 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter-Regular',
     color: 'rgba(255,255,255,0.70)',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(7, 10, 18, 0.78)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    backgroundColor: '#1A1530',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.22)',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  modalPreviewImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: 18,
+    marginBottom: 14,
+  },
+  modalPreviewBannerImage: {
+    height: 180,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.60)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  modalActions: {
+    gap: 10,
+  },
+  modalCancel: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontFamily: 'Inter-SemiBold',
+    color: 'rgba(255,255,255,0.78)',
+  },
+  modalSecondary: {
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(139, 92, 246, 0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSecondaryText: {
+    fontSize: 15,
+    fontFamily: 'Inter-SemiBold',
+    color: '#C4B5FD',
+  },
+  modalPrimary: {
+    height: 50,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryText: {
+    fontSize: 15,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
   },
 });
 
