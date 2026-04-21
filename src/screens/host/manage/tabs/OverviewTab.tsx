@@ -14,11 +14,14 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ImageBackground,
 } from 'react-native';
 import Video from 'react-native-video';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
+import LinearGradient from 'react-native-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';;
 
 const SCREEN_W = Dimensions.get('window').width;
 const CAROUSEL_H = 240;
@@ -123,7 +126,7 @@ const ImageSlide = React.memo(({ url }: { url: string }) => {
       />
       {!loaded && (
         <View style={carouselStyles.shimmer}>
-          <Ionicons name="image-outline" size={36} color="#1E3347" />
+          <Ionicons name="image-outline" size={36} color="rgba(255,255,255,0.35)" />
         </View>
       )}
     </View>
@@ -131,7 +134,7 @@ const ImageSlide = React.memo(({ url }: { url: string }) => {
 });
 
 const slideStyles = StyleSheet.create({
-  container: { width: SCREEN_W, height: CAROUSEL_H, backgroundColor: '#132232' },
+  container: { width: SCREEN_W, height: CAROUSEL_H, backgroundColor: '#1A1530' },
   image:     { width: SCREEN_W, height: CAROUSEL_H },
 });
 
@@ -154,9 +157,9 @@ const AnimatedDot = React.memo(({
   const bgColor = scrollX.interpolate({
     inputRange,
     outputRange: [
-      isVideo ? 'rgba(255,159,10,0.25)' : 'rgba(55,139,187,0.25)',
-      isVideo ? '#FF9F0A' : '#378BBB',
-      isVideo ? 'rgba(255,159,10,0.25)' : 'rgba(55,139,187,0.25)',
+      isVideo ? 'rgba(255,159,10,0.25)' : 'rgba(139,92,246,0.25)',
+      isVideo ? '#FF9F0A' : '#8B2BE2',
+      isVideo ? 'rgba(255,159,10,0.25)' : 'rgba(139,92,246,0.25)',
     ],
     extrapolate: 'clamp',
   });
@@ -264,7 +267,7 @@ const MediaCarousel = ({ media }: { media: MediaItem[] }) => {
   if (items.length === 0) {
     return (
       <View style={carouselStyles.placeholder}>
-        <Ionicons name="image-outline" size={44} color="#2E4A63" />
+        <Ionicons name="image-outline" size={44} color="rgba(255,255,255,0.35)" />
         <Text style={carouselStyles.placeholderText}>No media uploaded</Text>
       </View>
     );
@@ -331,36 +334,54 @@ const MediaCarousel = ({ media }: { media: MediaItem[] }) => {
 
 const carouselStyles = StyleSheet.create({
   placeholder: {
-    width: '100%', height: CAROUSEL_H,
-    backgroundColor: '#132232',
-    alignItems: 'center', justifyContent: 'center', gap: 8,
+    width: '100%',
+    height: CAROUSEL_H,
+    backgroundColor: 'rgba(26, 21, 48, 0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
   },
-  placeholderText: { fontSize: 13, fontFamily: 'Inter-Regular', color: '#2E4A63' },
+  placeholderText: { fontSize: 13, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)' },
   shimmer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center', justifyContent: 'center',
   },
   slide: { width: SCREEN_W, height: CAROUSEL_H },
   videoPoster: {
-    width: SCREEN_W, height: CAROUSEL_H,
-    backgroundColor: '#08111C',
-    alignItems: 'center', justifyContent: 'center', gap: 14,
+    width: SCREEN_W,
+    height: CAROUSEL_H,
+    backgroundColor: 'rgba(26, 21, 48, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
   },
   playCircle: {
-    width: 68, height: 68, borderRadius: 34,
-    backgroundColor: 'rgba(55,139,187,0.75)',
-    alignItems: 'center', justifyContent: 'center',
-    // nudge play icon visually centred
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(139, 43, 226, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingLeft: 4,
   },
   videoLabel: {
-    fontSize: 13, fontFamily: 'Inter-SemiBold',
-    color: 'rgba(184,199,217,0.7)', letterSpacing: 0.3,
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: 'rgba(255,255,255,0.70)',
+    letterSpacing: 0.3,
   },
   dots: {
-    flexDirection: 'row', justifyContent: 'center',
-    alignItems: 'center', gap: 6,
-    paddingVertical: 10, backgroundColor: '#0E1621',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(13, 11, 30, 0.92)',
   },
 });
 
@@ -368,6 +389,7 @@ const carouselStyles = StyleSheet.create({
 
 const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [event,    setEvent]    = useState<EventDoc | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -415,18 +437,36 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#378BBB" />
-      </View>
+        <ImageBackground
+          source={require('../../../../assets/images/bg_splash.webp')}
+          style={styles.backgroundImage}
+          imageStyle={styles.backgroundImageStyle}
+          blurRadius={6}
+        >
+          <View style={styles.backgroundOverlay}>
+            <View style={styles.centered}>
+              <ActivityIndicator size="large" color="#8B2BE2" />
+            </View>
+          </View>
+        </ImageBackground>
     );
   }
 
   if (!event) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={40} color="#506A85" />
-        <Text style={styles.errorText}>Could not load event.</Text>
-      </View>
+        <ImageBackground
+          source={require('../../../../assets/images/bg_splash.webp')}
+          style={styles.backgroundImage}
+          imageStyle={styles.backgroundImageStyle}
+          blurRadius={6}
+        >
+          <View style={styles.backgroundOverlay}>
+            <View style={styles.centered}>
+              <Ionicons name="alert-circle-outline" size={40} color="rgba(255,255,255,0.55)" />
+              <Text style={styles.errorText}>Could not load event.</Text>
+            </View>
+          </View>
+        </ImageBackground>
     );
   }
 
@@ -451,15 +491,24 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
     : null;
 
   return (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
+    <ImageBackground
+      source={require('../../../../assets/images/bg_splash.webp')}
+      style={styles.backgroundImage}
+      imageStyle={styles.backgroundImageStyle}
+      blurRadius={6}
     >
-      {/* ── Media Carousel ── */}
-      <MediaCarousel media={event.media} />
+      <View style={styles.backgroundOverlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
-      <View style={styles.body}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Media Carousel ── */}
+          <MediaCarousel media={event.media} />
+
+          <View style={styles.body}>
 
         {/* ── Title & Description ── */}
         <Text style={styles.title}>{event.title}</Text>
@@ -497,7 +546,7 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
           {/* Venue */}
           <View style={styles.infoRow}>
             <View style={styles.infoIconWrap}>
-              <Ionicons name="location-outline" size={16} color="#378BBB" />
+              <Ionicons name="location-outline" size={16} color="#06B6D4" />
             </View>
             <View style={styles.infoTextWrap}>
               <Text style={styles.infoLabel}>Venue</Text>
@@ -523,14 +572,14 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
           {total !== null && (
             <View style={styles.infoRow}>
               <View style={styles.infoIconWrap}>
-                <Ionicons name="people-outline" size={16} color="#378BBB" />
+                <Ionicons name="people-outline" size={16} color="#8B2BE2" />
               </View>
               <View style={styles.infoTextWrap}>
                 <Text style={styles.infoLabel}>Capacity</Text>
                 <Text style={styles.infoValue}>
                   {booked} / {total} booked
                   {'  '}
-                  <Text style={{ color: spotsLeft === 0 ? '#FF3B30' : '#34C759', fontSize: 12 }}>
+                  <Text style={{ color: spotsLeft === 0 ? '#FF6B6B' : '#22C55E', fontSize: 12, fontFamily: 'Inter-SemiBold' }}>
                     ({spotsLeft === 0 ? 'Sold out' : `${spotsLeft} left`})
                   </Text>
                 </Text>
@@ -573,7 +622,7 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
             <View style={styles.tagsSection}>
               {!!event.category && (
                 <View style={styles.categoryChip}>
-                  <Ionicons name="grid-outline" size={12} color="#378BBB" />
+                  <Ionicons name="grid-outline" size={12} color="#06B6D4" />
                   <Text style={styles.categoryChipText}>{event.category}</Text>
                 </View>
               )}
@@ -591,7 +640,7 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
         {/* ── Stats ── */}
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
-            <Ionicons name="ticket-outline" size={20} color="#378BBB" />
+            <Ionicons name="ticket-outline" size={20} color="#8B2BE2" />
             <Text style={styles.statValue}>
               {total ? `${booked} / ${total}` : `${booked}`}
             </Text>
@@ -628,43 +677,55 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
                   eventStatus: eventStatus === 'draft' ? 'draft' : 'live',
                 })}
               >
-                <Ionicons name="create-outline" size={17} color="#378BBB" />
+                <Ionicons name="create-outline" size={17} color="#06B6D4" />
                 <Text style={styles.btnOutlineText}>Edit Event</Text>
               </TouchableOpacity>
 
               {/* Draft → Make Live */}
               {status === 'draft' && (
                 <TouchableOpacity
-                  style={[styles.btnFilled, { backgroundColor: '#34C759' }]}
                   activeOpacity={0.8}
                   disabled={updating}
                   onPress={() =>
                     updateStatus('live', 'This will publish your event and make it visible to attendees.')
                   }
                 >
-                  {updating
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="radio-button-on" size={17} color="#FFFFFF" />
-                  }
-                  <Text style={styles.btnFilledText}>Make Live</Text>
+                  <LinearGradient
+                    colors={['#4ded18', '#8cd406']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.btnFilled}
+                  >
+                    {updating
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="radio-button-on" size={17} color="#FFFFFF" />
+                    }
+                    <Text style={styles.btnFilledText}>Make Live</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
 
               {/* Live → End Event */}
               {status === 'live' && (
                 <TouchableOpacity
-                  style={[styles.btnFilled, { backgroundColor: '#FF3B30' }]}
                   activeOpacity={0.8}
                   disabled={updating}
                   onPress={() =>
                     updateStatus('ended', 'This will mark the event as ended. This cannot be undone.')
                   }
                 >
-                  {updating
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="stop-circle-outline" size={17} color="#FFFFFF" />
-                  }
-                  <Text style={styles.btnFilledText}>End Event</Text>
+                  <LinearGradient
+                    colors={['#e22b2b', '#d42f06']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.btnFilled}
+                  >
+                    {updating
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="stop-circle-outline" size={17} color="#FFFFFF" />
+                    }
+                    <Text style={styles.btnFilledText}>End Event</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               )}
 
@@ -674,92 +735,153 @@ const OverviewTab = ({ eventId, eventStatus, onStatusChange }: Props) => {
 
       </View>
     </ScrollView>
+    </View>
+  </ImageBackground>
   );
 };
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#0E1621' },
-  scrollContent: { paddingBottom: 40 },
-  centered: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    gap: 12, backgroundColor: '#0E1621',
+  backgroundImage: {
+    flex: 1,
+    backgroundColor: '#0D0B1E',
   },
-  errorText: { fontSize: 14, fontFamily: 'Inter-Regular', color: '#506A85' },
+  backgroundImageStyle: {
+    resizeMode: 'cover',
+  },
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
+  },
+  scroll: { flex: 1, backgroundColor: 'transparent' },
+  scrollContent: { paddingBottom: 0 },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: 'transparent',
+  },
+  errorText: { fontSize: 14, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)' },
 
   // body
-  body: { padding: 20, gap: 0 },
+  body: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 0,
+  },
   title: {
-    fontSize: 22, fontFamily: 'Inter-Bold', color: '#FFFFFF',
-    lineHeight: 30, marginBottom: 8,
+    fontSize: 26,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+    lineHeight: 34,
+    marginBottom: 8,
   },
   description: {
-    fontSize: 14, fontFamily: 'Inter-Regular', color: '#B8C7D9',
-    lineHeight: 22, marginBottom: 4,
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 24,
+    marginBottom: 4,
   },
 
   divider: {
-    height: 1, backgroundColor: 'rgba(55,139,187,0.15)',
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     marginVertical: 20,
   },
-
   // info rows
-  infoSection: { gap: 14 },
+  infoSection: { gap: 12 },
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   infoIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: 'rgba(55,139,187,0.1)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   infoTextWrap: { flex: 1, gap: 2 },
-  infoLabel: { fontSize: 11, fontFamily: 'Inter-SemiBold', color: '#506A85', textTransform: 'uppercase', letterSpacing: 0.5 },
-  infoValue: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
+  infoLabel: {
+    fontSize: 11,
+    fontFamily: 'Inter-SemiBold',
+    color: 'rgba(255,255,255,0.55)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: { fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
 
   infoSubValue: {
-    fontSize: 12, fontFamily: 'Inter-Regular', color: '#506A85', marginTop: 1,
+    fontSize: 12,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 2,
   },
-
   // category & tags
   tagsSection: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   categoryChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(55,139,187,0.12)',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(55,139,187,0.25)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(6,182,212,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(6,182,212,0.28)',
   },
-  categoryChipText: { fontSize: 12, fontFamily: 'Inter-SemiBold', color: '#378BBB' },
+  categoryChipText: { fontSize: 12, fontFamily: 'Inter-SemiBold', color: '#06B6D4' },
   tagChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
-  tagChipText: { fontSize: 12, fontFamily: 'Inter-Regular', color: '#7F93AA' },
-
+  tagChipText: { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.75)' },
   // stats
   statsGrid: { flexDirection: 'row', gap: 10 },
   statCard: {
-    flex: 1, backgroundColor: '#1B2F48',
-    borderRadius: 14, padding: 14,
-    alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: 'rgba(55,139,187,0.15)',
+    flex: 1,
+    backgroundColor: 'rgba(26, 21, 48, 0.88)',
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.22)',
   },
   statValue: { fontSize: 18, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
-  statLabel: { fontSize: 11, fontFamily: 'Inter-Regular', color: '#506A85', textAlign: 'center' },
+  statLabel: { fontSize: 11, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
 
   // buttons
   actions: { gap: 12 },
   btnOutline: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderWidth: 1.5, borderColor: '#378BBB', borderRadius: 12,
-    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(6,182,212,0.60)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    paddingVertical: 15,
   },
-  btnOutlineText: { fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#378BBB' },
+  btnOutlineText: { fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#06B6D4' },
   btnFilled: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 12, paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 30,
+    paddingVertical: 15,
   },
-  btnFilledText: { fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
+  btnFilledText: { fontSize: 16, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
 });
 
 export default OverviewTab;
