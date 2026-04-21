@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Switch,
+  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -18,6 +19,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Step1Data } from './CreateEventStep1Screen';
 import { Step2Data } from './CreateEventStep2Screen';
+import LinearGradient from 'react-native-linear-gradient';
 
 export type Step3Data = {
   price: number;
@@ -111,39 +113,45 @@ const CreateEventStep3Screen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground
+      source={require('../../../assets/images/bg_party.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Event</Text>
-        <View style={styles.backButton} />
-      </View>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Create Event</Text>
+          <View style={styles.backButton} />
+        </View>
 
-      {/* Step Indicator */}
-      <View style={styles.stepContainer}>
-        {[1, 2, 3, 4].map(step => (
-          <View key={step} style={styles.stepWrapper}>
-            <View style={[styles.stepBar, step <= 3 && styles.stepBarActive]} />
-            <Text style={[styles.stepText, step === 3 && styles.stepTextActive]}>{step}</Text>
-          </View>
-        ))}
-      </View>
+        {/* Step Indicator */}
+        <View style={styles.stepContainer}>
+          {[1, 2, 3, 4].map(step => (
+            <View key={step} style={styles.stepWrapper}>
+              <View style={[styles.stepBar, step <= 3 && styles.stepBarActive]} />
+              <Text style={[styles.stepText, step === 3 && styles.stepTextActive]}>{step}</Text>
+            </View>
+          ))}
+        </View>
 
-      <KeyboardAwareScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        enableOnAndroid
-        extraScrollHeight={220}
-        enableAutomaticScroll
-      >
-        <Text style={styles.stepTitle}>Pricing & Capacity</Text>
-        <Text style={styles.stepSubtitle}>Set ticket price and attendee limits</Text>
+        <KeyboardAwareScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.content, { paddingBottom: Math.max(120, insets.bottom + 104) }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          enableOnAndroid
+          extraScrollHeight={220}
+          enableAutomaticScroll
+        >
+          <Text style={styles.stepTitle}>Pricing & Capacity</Text>
+          <Text style={styles.stepSubtitle}>Set ticket price and attendee limits</Text>
 
         {/* Free Event Toggle */}
         <View style={styles.toggleRow}>
@@ -154,7 +162,7 @@ const CreateEventStep3Screen = () => {
           <Switch
             value={isFree}
             onValueChange={v => { setIsFree(v); if (v) setErrors(e => ({ ...e, price: '' })); }}
-            trackColor={{ false: 'rgba(55, 139, 187, 0.3)', true: '#FF4D6D' }}
+            trackColor={{ false: 'rgba(139, 92, 246, 0.30)', true: '#06B6D4' }}
             thumbColor="#FFFFFF"
           />
         </View>
@@ -235,7 +243,7 @@ const CreateEventStep3Screen = () => {
             <Switch
               value={hasAgeRestriction}
               onValueChange={setHasAgeRestriction}
-              trackColor={{ false: 'rgba(55, 139, 187, 0.3)', true: '#378BBB' }}
+              trackColor={{ false: 'rgba(139, 92, 246, 0.30)', true: '#06B6D4' }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -281,8 +289,8 @@ const CreateEventStep3Screen = () => {
             </View>
             <Switch
               value={hasGenderRestriction}
-              onValueChange={v => { setHasGenderRestriction(v); if (!v) setSelectedGenders([]); }}
-              trackColor={{ false: 'rgba(55, 139, 187, 0.3)', true: '#378BBB' }}
+              onValueChange={setHasGenderRestriction}
+              trackColor={{ false: 'rgba(139, 92, 246, 0.30)', true: '#06B6D4' }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -337,13 +345,13 @@ const CreateEventStep3Screen = () => {
 
           <View style={[styles.bookingTypeRow, styles.bookingTypeRowLocked]}>
             <View style={styles.bookingTypeLeft}>
-              <Ionicons name="person-outline" size={18} color="#506A85" />
+              <Ionicons name="person-outline" size={18} color="rgba(255,255,255,0.35)" />
               <View>
                 <Text style={styles.bookingTypeLabel}>Solo</Text>
                 <Text style={styles.bookingTypeSub}>Always enabled</Text>
               </View>
             </View>
-            <Ionicons name="checkmark-circle" size={22} color="#378BBB" />
+            <Ionicons name="checkmark-circle" size={22} color="#06B6D4" />
           </View>
 
           <TouchableOpacity
@@ -352,13 +360,13 @@ const CreateEventStep3Screen = () => {
             activeOpacity={0.8}
           >
             <View style={styles.bookingTypeLeft}>
-              <Ionicons name="people-outline" size={18} color={bookingDuo ? '#378BBB' : '#506A85'} />
+              <Ionicons name="people-outline" size={18} color={bookingDuo ? '#8B2BE2' : 'rgba(255,255,255,0.35)'} />
               <View>
                 <Text style={[styles.bookingTypeLabel, bookingDuo && { color: '#FFFFFF' }]}>Duo</Text>
                 <Text style={styles.bookingTypeSub}>Two people, one shared code</Text>
               </View>
             </View>
-            <Ionicons name={bookingDuo ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={bookingDuo ? '#378BBB' : '#506A85'} />
+            <Ionicons name={bookingDuo ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={bookingDuo ? '#8B2BE2' : 'rgba(255,255,255,0.35)'} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -367,13 +375,13 @@ const CreateEventStep3Screen = () => {
             activeOpacity={0.8}
           >
             <View style={styles.bookingTypeLeft}>
-              <Ionicons name="people-circle-outline" size={18} color={bookingGroup ? '#AF52DE' : '#506A85'} />
+              <Ionicons name="people-circle-outline" size={18} color={bookingGroup ? '#06B6D4' : 'rgba(255,255,255,0.35)'} />
               <View>
                 <Text style={[styles.bookingTypeLabel, bookingGroup && { color: '#FFFFFF' }]}>Group</Text>
                 <Text style={styles.bookingTypeSub}>3 or more people, one code</Text>
               </View>
             </View>
-            <Ionicons name={bookingGroup ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={bookingGroup ? '#AF52DE' : '#506A85'} />
+            <Ionicons name={bookingGroup ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={bookingGroup ? '#06B6D4' : 'rgba(255,255,255,0.35)'} />
           </TouchableOpacity>
 
           {bookingGroup && (
@@ -393,127 +401,238 @@ const CreateEventStep3Screen = () => {
         </View>
       </KeyboardAwareScrollView>
 
-      {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.85}>
-          <Text style={styles.nextButtonText}>Next</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        {/* Footer */}
+        <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
+          <TouchableOpacity onPress={handleNext} activeOpacity={0.9}>
+            <LinearGradient
+              colors={['#8B2BE2', '#06B6D4']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.nextButton}
+            >
+              <Text style={styles.nextButtonText}>Next</Text>
+              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E1621' },
+  container: { flex: 1 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
+  },
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    backgroundColor: 'transparent',
   },
   backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
-  stepContainer: { flexDirection: 'row', paddingHorizontal: 20, gap: 8, marginBottom: 8 },
+  headerTitle: { fontSize: 20, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
+  stepContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 12,
+  },
   stepWrapper: { flex: 1, alignItems: 'center', gap: 4 },
-  stepBar: { height: 4, width: '100%', borderRadius: 2, backgroundColor: '#1B2F48' },
-  stepBarActive: { backgroundColor: '#FF4D6D' },
-  stepText: { fontSize: 11, fontFamily: 'Inter-Regular', color: '#506A85' },
-  stepTextActive: { color: '#FF4D6D', fontFamily: 'Inter-SemiBold' },
+  stepBar: { height: 3, width: '100%', borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.12)' },
+  stepBarActive: { backgroundColor: '#8B2BE2' },
+  stepText: { fontSize: 11, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.40)' },
+  stepTextActive: { color: '#FFFFFF', fontFamily: 'Inter-SemiBold' },
   scrollView: { flex: 1 },
-  content: { padding: 20, paddingBottom: 16 },
-  stepTitle: { fontSize: 24, fontFamily: 'Inter-Bold', color: '#FFFFFF', marginBottom: 6 },
-  stepSubtitle: { fontSize: 14, fontFamily: 'Inter-Regular', color: '#B8C7D9', marginBottom: 24 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
+  stepTitle: { fontSize: 28, fontFamily: 'Inter-Bold', color: '#FFFFFF', marginBottom: 8 },
+  stepSubtitle: {
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
   field: { marginBottom: 20 },
-  label: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#FFFFFF', marginBottom: 8 },
-  fieldHint: { fontSize: 12, fontFamily: 'Inter-Regular', color: '#506A85', marginBottom: 10 },
-  required: { color: '#FF4D6D' },
+  label: { fontSize: 13, fontFamily: 'Inter-Medium', color: 'rgba(255,255,255,0.55)', marginBottom: 8 },
+  fieldHint: { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.35)', marginBottom: 10, lineHeight: 18 },
+  required: { color: '#22D3EE' },
   input: {
-    backgroundColor: '#1B2F48', borderRadius: 12, borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, fontFamily: 'Inter-Regular', color: '#FFFFFF',
+    height: 54,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    paddingHorizontal: 18,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
   },
   inputError: { borderColor: '#FF5252' },
   errorText: { fontSize: 12, fontFamily: 'Inter-Regular', color: '#FF5252', marginTop: 4 },
   toggleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 12, marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 8,
   },
   toggleLabel: { fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
-  toggleSubLabel: { fontSize: 12, fontFamily: 'Inter-Regular', color: '#B8C7D9', marginTop: 2 },
+  toggleSubLabel: { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+
   priceRow: { flexDirection: 'row', gap: 0 },
   currencyBadge: {
-    backgroundColor: 'rgba(55, 139, 187, 0.2)', borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', borderRightWidth: 0,
-    borderTopLeftRadius: 12, borderBottomLeftRadius: 12,
-    paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center',
+    height: 54,
+    backgroundColor: '#16112B',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    borderRightWidth: 0,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  currencyText: { fontSize: 18, fontFamily: 'Inter-Bold', color: '#378BBB' },
+  currencyText: { fontSize: 18, fontFamily: 'Inter-Bold', color: '#06B6D4' },
   priceInput: {
-    flex: 1, backgroundColor: '#1B2F48', borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', borderLeftWidth: 0,
-    borderTopRightRadius: 12, borderBottomRightRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 18, fontFamily: 'Inter-SemiBold', color: '#FFFFFF',
+    flex: 1,
+    height: 54,
+    backgroundColor: '#16112B',
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    borderLeftWidth: 0,
+    borderTopRightRadius: 14,
+    borderBottomRightRadius: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
   },
+
   capacityRow: { flexDirection: 'row', gap: 12 },
   capacityOption: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#1B2F48', borderRadius: 12, borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', paddingHorizontal: 16, paddingVertical: 14,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 54,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
-  capacityOptionActive: { borderColor: '#378BBB', backgroundColor: 'rgba(55, 139, 187, 0.1)' },
+  capacityOptionActive: {
+    borderColor: '#8B2BE2',
+    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+  },
   radioCircle: {
-    width: 20, height: 20, borderRadius: 10, borderWidth: 2,
-    borderColor: '#378BBB', alignItems: 'center', justifyContent: 'center',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#06B6D4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#378BBB' },
-  capacityLabel: { fontSize: 14, fontFamily: 'Inter-Regular', color: '#B8C7D9' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#06B6D4' },
+  capacityLabel: { fontSize: 14, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)' },
   capacityLabelActive: { color: '#FFFFFF', fontFamily: 'Inter-SemiBold' },
-  divider: { height: 1, backgroundColor: 'rgba(55, 139, 187, 0.1)', marginVertical: 4, marginBottom: 12 },
+
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 20 },
   restrictionBlock: { marginBottom: 8 },
+
   ageRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
   ageField: { flex: 1 },
-  ageLabel: { fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#B8C7D9', marginBottom: 6 },
+  ageLabel: { fontSize: 13, fontFamily: 'Inter-Medium', color: 'rgba(255,255,255,0.55)', marginBottom: 8 },
   ageInput: {
-    backgroundColor: '#1B2F48', borderRadius: 12, borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 16, fontFamily: 'Inter-SemiBold', color: '#FFFFFF', textAlign: 'center',
+    height: 54,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    paddingHorizontal: 18,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   ageDash: { paddingTop: 24, alignItems: 'center' },
-  ageDashText: { fontSize: 20, color: '#506A85', fontFamily: 'Inter-Bold' },
+  ageDashText: { fontSize: 20, color: 'rgba(255,255,255,0.35)', fontFamily: 'Inter-Bold' },
+
   genderRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   genderChip: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    borderWidth: 1, borderColor: 'rgba(55, 139, 187, 0.3)', backgroundColor: '#1B2F48',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
   },
-  genderChipActive: { backgroundColor: 'rgba(55, 139, 187, 0.2)', borderColor: '#378BBB' },
-  genderChipText: { fontSize: 13, fontFamily: 'Inter-Regular', color: '#B8C7D9' },
-  genderChipTextActive: { color: '#378BBB', fontFamily: 'Inter-SemiBold' },
+  genderChipActive: {
+    backgroundColor: 'rgba(139,92,246,0.18)',
+    borderColor: '#8B2BE2',
+  },
+  genderChipText: { fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
+  genderChipTextActive: { color: '#FFFFFF', fontFamily: 'Inter-SemiBold' },
+
   codeLengthRow: { flexDirection: 'row', gap: 12 },
   codeOption: {
-    flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1,
-    borderColor: 'rgba(55, 139, 187, 0.3)', backgroundColor: '#1B2F48', alignItems: 'center',
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    backgroundColor: '#16112B',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  codeOptionActive: { backgroundColor: '#378BBB', borderColor: '#378BBB' },
-  codeOptionText: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#B8C7D9' },
+  codeOptionActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.18)',
+    borderColor: '#8B2BE2',
+  },
+  codeOptionText: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: 'rgba(255,255,255,0.55)' },
   codeOptionTextActive: { color: '#FFFFFF' },
+
   bookingTypeRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#1B2F48', borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(55,139,187,0.2)',
-    padding: 14, marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.25)',
+    padding: 14,
+    marginBottom: 8,
   },
-  bookingTypeRowLocked:     { opacity: 0.55 },
-  bookingTypeRowActive:     { borderColor: '#378BBB', backgroundColor: 'rgba(55,139,187,0.08)' },
-  bookingTypeRowGroupActive:{ borderColor: '#AF52DE', backgroundColor: 'rgba(175,82,222,0.08)' },
-  bookingTypeLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bookingTypeLabel: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#B8C7D9' },
-  bookingTypeSub:   { fontSize: 12, fontFamily: 'Inter-Regular',  color: '#506A85', marginTop: 1 },
-  footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: '#0E1621' },
+  bookingTypeRowLocked: { opacity: 0.55 },
+  bookingTypeRowActive: {
+    borderColor: '#8B2BE2',
+    backgroundColor: 'rgba(139,92,246,0.12)',
+  },
+  bookingTypeRowGroupActive: {
+    borderColor: '#06B6D4',
+    backgroundColor: 'rgba(6,182,212,0.10)',
+  },
+  bookingTypeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bookingTypeLabel: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: 'rgba(255,255,255,0.55)' },
+  bookingTypeSub: { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.35)', marginTop: 1 },
+
+  footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: 'transparent' },
   nextButton: {
-    backgroundColor: '#FF4D6D', borderRadius: 14, paddingVertical: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    height: 54,
+    borderRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  nextButtonText: { fontSize: 16, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
+  nextButtonText: { fontSize: 17, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
 });
 
 export default CreateEventStep3Screen;
