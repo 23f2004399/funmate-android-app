@@ -10,6 +10,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -17,6 +18,7 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { useNavigation } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
+import LinearGradient from 'react-native-linear-gradient';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +56,7 @@ const DetailRow = React.memo(({ icon, label, value }: {
 }) => (
   <View style={rowStyles.row}>
     <View style={rowStyles.iconWrap}>
-      <Ionicons name={icon} size={16} color="#506A85" />
+      <Ionicons name={icon} size={16} color="rgba(255,255,255,0.55)" />
     </View>
     <View style={rowStyles.content}>
       <Text style={rowStyles.label}>{label}</Text>
@@ -69,7 +71,7 @@ const rowStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(55,139,187,0.1)',
+    borderBottomColor: 'rgba(255,255,255,0.10)',
   },
   iconWrap: {
     width: 32,
@@ -82,7 +84,7 @@ const rowStyles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontFamily: 'Inter-Regular',
-    color: '#506A85',
+    color: 'rgba(255,255,255,0.55)',
     marginBottom: 2,
     letterSpacing: 0.3,
   },
@@ -218,10 +220,14 @@ const HostBankAccountScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
-        <ActivityIndicator size="large" color="#378BBB" />
-      </View>
+      <ImageBackground source={require('../../assets/images/bg_splash.webp')} style={styles.container} blurRadius={8} resizeMode="cover">
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#06B6D4" />
+          </View>
+        </View>
+      </ImageBackground>
     );
   }
 
@@ -229,8 +235,9 @@ const HostBankAccountScreen = () => {
 
   if (noAccount) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+      <ImageBackground source={require('../../assets/images/bg_splash.webp')} style={styles.container} blurRadius={8} resizeMode="cover">
+        <View style={[styles.overlay, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
         <View style={styles.navBar}>
           <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
@@ -239,13 +246,14 @@ const HostBankAccountScreen = () => {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.emptyContainer}>
-          <Ionicons name="card-outline" size={52} color="#378BBB" />
+          <Ionicons name="card-outline" size={52} color="#06B6D4" />
           <Text style={styles.emptyTitle}>No Bank Account</Text>
           <Text style={styles.emptySubtitle}>
             No bank account has been linked to your profile yet.
           </Text>
         </View>
       </View>
+      </ImageBackground>
     );
   }
 
@@ -257,33 +265,35 @@ const HostBankAccountScreen = () => {
 
   if (editMode) {
     return (
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground source={require('../../assets/images/bg_splash.webp')} style={styles.container} blurRadius={8} resizeMode="cover">
+      <View style={styles.overlay}>
+        <KeyboardAvoidingView
+          style={styles.keyboardContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-        <View style={[styles.navBar, { paddingTop: insets.top + 12, borderBottomWidth: 1, borderBottomColor: 'rgba(55,139,187,0.12)' }]}>
+        <View style={[styles.navBar, { paddingTop: insets.top + 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.12)' }]}>
           <TouchableOpacity onPress={cancelEdit} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={styles.cancelBtn}>Cancel</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>Update Bank Account</Text>
           <TouchableOpacity onPress={handleSave} disabled={saving} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             {saving
-              ? <ActivityIndicator size="small" color="#378BBB" />
+              ? <ActivityIndicator size="small" color="#06B6D4" />
               : <Text style={styles.saveBtnText}>Save</Text>
             }
           </TouchableOpacity>
         </View>
 
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(40, insets.bottom + 40) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
           {/* Re-verification notice */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle-outline" size={16} color="#378BBB" style={{ marginTop: 1 }} />
+            <Ionicons name="information-circle-outline" size={16} color="#06B6D4" style={{ marginTop: 1 }} />
             <Text style={styles.infoText}>
               After saving, your account will be marked as pending re-verification. Payouts will pause briefly until verified.
             </Text>
@@ -297,7 +307,7 @@ const HostBankAccountScreen = () => {
               value={holderName}
               onChangeText={setHolderName}
               placeholder="As on bank records"
-              placeholderTextColor="#3A5068"
+              placeholderTextColor="rgba(255,255,255,0.35)"
             />
           </View>
 
@@ -309,7 +319,7 @@ const HostBankAccountScreen = () => {
               value={accountNo}
               onChangeText={setAccountNo}
               placeholder="Enter full account number"
-              placeholderTextColor="#3A5068"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               keyboardType="number-pad"
               secureTextEntry
             />
@@ -323,7 +333,7 @@ const HostBankAccountScreen = () => {
               value={confirmNo}
               onChangeText={setConfirmNo}
               placeholder="Re-enter account number"
-              placeholderTextColor="#3A5068"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               keyboardType="number-pad"
             />
           </View>
@@ -336,7 +346,7 @@ const HostBankAccountScreen = () => {
               value={ifsc}
               onChangeText={t => setIfsc(t.toUpperCase())}
               placeholder="e.g. SBIN0001234"
-              placeholderTextColor="#3A5068"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               autoCapitalize="characters"
               maxLength={11}
             />
@@ -350,7 +360,7 @@ const HostBankAccountScreen = () => {
               value={bankName}
               onChangeText={setBankName}
               placeholder="e.g. State Bank of India"
-              placeholderTextColor="#3A5068"
+              placeholderTextColor="rgba(255,255,255,0.35)"
             />
           </View>
 
@@ -374,6 +384,8 @@ const HostBankAccountScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      </View>
+      </ImageBackground>
     );
   }
 
@@ -382,8 +394,9 @@ const HostBankAccountScreen = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground source={require('../../assets/images/bg_splash.webp')} style={styles.container} blurRadius={8} resizeMode="cover">
+      <View style={styles.overlay}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <View style={[styles.navBar, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -394,7 +407,7 @@ const HostBankAccountScreen = () => {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(32, insets.bottom + 32) }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Status badge ── */}
@@ -434,7 +447,7 @@ const HostBankAccountScreen = () => {
           />
           <View style={[rowStyles.row, { borderBottomWidth: 0 }]}>
             <View style={rowStyles.iconWrap}>
-              <Ionicons name="wallet-outline" size={16} color="#506A85" />
+              <Ionicons name="wallet-outline" size={16} color="rgba(255,255,255,0.55)" />
             </View>
             <View style={rowStyles.content}>
               <Text style={rowStyles.label}>Account Type</Text>
@@ -467,11 +480,19 @@ const HostBankAccountScreen = () => {
           activeOpacity={0.8}
           onPress={enterEdit}
         >
-          <Ionicons name="pencil-outline" size={17} color="#FFFFFF" />
-          <Text style={styles.updateButtonText}>Update Bank Account</Text>
+          <LinearGradient
+            colors={['#8B2BE2', '#06B6D4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.updateButtonGradient}
+          >
+            <Ionicons name="pencil-outline" size={17} color="#FFFFFF" />
+            <Text style={styles.updateButtonText}>Update Bank Account</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
     </View>
+    </ImageBackground>
   );
 };
 
@@ -480,11 +501,17 @@ const HostBankAccountScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+    backgroundColor: '#0D0B1E',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0E1621',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -494,7 +521,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#0E1621',
+    backgroundColor: 'transparent',
   },
   navTitle: {
     fontSize: 17,
@@ -528,24 +555,24 @@ const styles = StyleSheet.create({
   verifiedDate: {
     fontSize: 12,
     fontFamily: 'Inter-Regular',
-    color: '#506A85',
+    color: 'rgba(255,255,255,0.55)',
   },
   // ── Card ──
   card: {
-    backgroundColor: '#16283D',
-    borderRadius: 14,
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
+    borderRadius: 18,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.15)',
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   sectionLabel: {
     fontSize: 11,
     fontFamily: 'Inter-SemiBold',
-    color: '#506A85',
+    color: 'rgba(255,255,255,0.55)',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 8,
   },
   // ── Mismatch note ──
   mismatchCard: {
@@ -582,18 +609,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: 'Inter-Regular',
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.75)',
     lineHeight: 20,
   },
   // ── Update button ──
   updateButton: {
+    borderRadius: 30,
+    overflow: 'hidden',
+  },
+  updateButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#378BBB',
-    borderRadius: 12,
+    borderRadius: 30,
     paddingVertical: 14,
+    minHeight: 54,
   },
   updateButtonText: {
     fontSize: 15,
@@ -604,29 +635,29 @@ const styles = StyleSheet.create({
   cancelBtn: {
     fontSize: 15,
     fontFamily: 'Inter-Regular',
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.75)',
   },
   saveBtnText: {
     fontSize: 15,
     fontFamily: 'Inter-SemiBold',
-    color: '#378BBB',
+    color: '#06B6D4',
   },
   infoCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: 'rgba(55,139,187,0.1)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(6,182,212,0.10)',
+    borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.25)',
+    borderColor: 'rgba(6,182,212,0.25)',
     marginBottom: 20,
   },
   infoText: {
     flex: 1,
     fontSize: 13,
     fontFamily: 'Inter-Regular',
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.75)',
     lineHeight: 19,
   },
   fieldGroup: {
@@ -635,17 +666,17 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontFamily: 'Inter-SemiBold',
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.75)',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#16283D',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 11,
-    fontSize: 15,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139,92,246,0.30)',
+    paddingHorizontal: 18,
+    paddingVertical: Platform.OS === 'ios' ? 15 : 12,
+    fontSize: 16,
     fontFamily: 'Inter-Regular',
     color: '#FFFFFF',
   },
@@ -657,22 +688,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.2)',
-    backgroundColor: '#16283D',
-  },
+    borderColor: 'rgba(139,92,246,0.25)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    },
   typeChipActive: {
-    backgroundColor: 'rgba(55,139,187,0.2)',
-    borderColor: '#378BBB',
+      backgroundColor: 'rgba(139,92,246,0.18)',
+      borderColor: '#8B2BE2',
   },
   typeChipText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
-    color: '#506A85',
+    color: 'rgba(255,255,255,0.55)',
   },
   typeChipTextActive: {
-    color: '#378BBB',
+    color: '#FFFFFF',
     fontFamily: 'Inter-SemiBold',
   },
   // ── Empty state ──
@@ -692,7 +723,7 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: 14,
     fontFamily: 'Inter-Regular',
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     lineHeight: 22,
   },
