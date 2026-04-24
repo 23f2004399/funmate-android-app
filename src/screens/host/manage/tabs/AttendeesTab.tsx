@@ -4,9 +4,11 @@ import React, {
 import {
   ActivityIndicator, FlatList, Image, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
-} from 'react-native';
+  ImageBackground, StatusBar,
+} from 'react-native';  
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -39,8 +41,8 @@ type Props = { eventId: string };
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  '#FF4D6D', '#FF9F0A', '#34C759', '#378BBB', '#AF52DE',
-  '#FF6B35', '#00C896', '#5856D6', '#FF2D55', '#007AFF',
+  '#FF4D6D', '#FF9F0A', '#34C759', '#06B6D4', '#8B2BE2',
+  '#FF6B35', '#22D3EE', '#5856D6', '#FF2D55', '#A855F7',
 ];
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -56,9 +58,9 @@ const ENTRY_CFG: Record<string, { label: string; color: string; bg: string }> = 
 };
 
 const TYPE_CFG: Record<string, { label: string; color: string; bg: string }> = {
-  solo:  { label: 'Solo',  color: '#7F93AA', bg: 'rgba(127,147,170,0.12)' },
-  duo:   { label: 'Duo',   color: '#378BBB', bg: 'rgba(55,139,187,0.15)'  },
-  group: { label: 'Group', color: '#AF52DE', bg: 'rgba(175,82,222,0.15)'  },
+  solo:  { label: 'Solo',  color: 'rgba(255,255,255,0.55)', bg: 'rgba(255,255,255,0.08)' },
+  duo:   { label: 'Duo',   color: '#06B6D4', bg: 'rgba(6,182,212,0.16)' },
+  group: { label: 'Group', color: '#A855F7', bg: 'rgba(139,43,226,0.18)' },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -155,7 +157,7 @@ const DetailRow = ({
   valueColor?: string; iconColor?: string;
 }) => (
   <View style={rStyles.detailRow}>
-    <Ionicons name={icon as any} size={14} color={iconColor ?? '#506A85'} />
+    <Ionicons name={icon as any} size={14} color={iconColor ?? 'rgba(255,255,255,0.45)'} />
     <Text style={rStyles.detailLabel}>{label}</Text>
     <Text style={[rStyles.detailValue, valueColor ? { color: valueColor } : undefined]}>
       {value}
@@ -236,7 +238,7 @@ const BookingRow = React.memo(({
             <Ionicons
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={14}
-              color="#506A85"
+              color="rgba(255,255,255,0.45)"
             />
           </View>
 
@@ -292,9 +294,9 @@ const BookingRow = React.memo(({
 
           {payLoading ? (
             <View style={rStyles.detailRow}>
-              <Ionicons name="card-outline" size={14} color="#506A85" />
+              <Ionicons name="card-outline" size={14} color="rgba(255,255,255,0.45)" />
               <Text style={rStyles.detailLabel}>Payment</Text>
-              <ActivityIndicator size="small" color="#378BBB" />
+              <ActivityIndicator size="small" color="#06B6D4" />
             </View>
           ) : (
             <DetailRow
@@ -312,33 +314,34 @@ const BookingRow = React.memo(({
 
 const rStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#132232',
-    borderRadius: 12,
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
+    borderRadius: 18,
     padding: 14,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: 'rgba(139,92,246,0.18)',
   },
   cardExpanded: {
-    borderColor: 'rgba(55,139,187,0.25)',
+    borderColor: 'rgba(6,182,212,0.45)',
+    backgroundColor: 'rgba(26, 21, 48, 0.92)',
   },
   row:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   info:     { flex: 1 },
   nameRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   name:     { flex: 1, fontSize: 15, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
-  nameCanc: { color: '#506A85' },
-  meta:     { fontSize: 12, fontFamily: 'Inter-Regular', color: '#B8C7D9', marginTop: 2 },
-  code:     { fontSize: 12, fontFamily: 'Inter-Regular', color: '#7F93AA', marginTop: 3 },
-  codeVal:  { fontFamily: 'Inter-SemiBold', color: '#B8C7D9', letterSpacing: 1 },
+  nameCanc: { color: 'rgba(255,255,255,0.35)' },
+  meta:     { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+  code:     { fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.40)', marginTop: 3 },
+  codeVal:  { fontFamily: 'Inter-SemiBold', color: '#22D3EE', letterSpacing: 1 },
   badges:   { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 7 },
   badge:    { borderRadius: 20, paddingVertical: 3, paddingHorizontal: 8 },
   badgeText:{ fontSize: 11, fontFamily: 'Inter-SemiBold' },
-  // Expanded
+
   expandedSection: { marginTop: 4 },
-  divider:    { height: 1, backgroundColor: 'rgba(55,139,187,0.1)', marginVertical: 10 },
+  divider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.10)', marginVertical: 10 },
   detailRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  detailLabel:{ fontSize: 12, fontFamily: 'Inter-Regular', color: '#506A85', flex: 1 },
-  detailValue:{ fontSize: 12, fontFamily: 'Inter-SemiBold', color: '#B8C7D9', textAlign: 'right', flex: 2 },
+  detailLabel:{ fontSize: 12, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.45)', flex: 1 },
+  detailValue:{ fontSize: 12, fontFamily: 'Inter-SemiBold', color: 'rgba(255,255,255,0.75)', textAlign: 'right', flex: 2 },
 });
 
 // ─── Main Tab ────────────────────────────────────────────────────────────────
@@ -351,6 +354,7 @@ const AttendeesTab = ({ eventId }: Props) => {
   const [search,     setSearch]     = useState('');
   const [filter,     setFilter]     = useState<FilterKey>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
   // Real-time bookings listener
   useEffect(() => {
@@ -413,14 +417,30 @@ const AttendeesTab = ({ eventId }: Props) => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#378BBB" />
-      </View>
+      <ImageBackground
+        source={require('../../../../assets/images/bg_splash.webp')}
+        style={styles.backgroundImage}
+        imageStyle={styles.backgroundImageStyle}
+        blurRadius={6}
+      >
+        <View style={styles.backgroundOverlay}>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color="#8B2BE2" />
+          </View>
+        </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <ImageBackground
+      source={require('../../../../assets/images/bg_splash.webp')}
+      style={styles.backgroundImage}
+      imageStyle={styles.backgroundImageStyle}
+      blurRadius={6}
+    >
+      <View style={styles.backgroundOverlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* ── Summary stats ── */}
       <View style={styles.statsBar}>
@@ -442,11 +462,11 @@ const AttendeesTab = ({ eventId }: Props) => {
 
       {/* ── Search ── */}
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={16} color="#506A85" />
+        <Ionicons name="search-outline" size={16} color="rgba(255,255,255,0.45)" />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by name…"
-          placeholderTextColor="#506A85"
+          placeholderTextColor="rgba(255,255,255,0.35)"
           value={search}
           onChangeText={setSearch}
           returnKeyType="search"
@@ -457,7 +477,7 @@ const AttendeesTab = ({ eventId }: Props) => {
             onPress={() => setSearch('')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="close-circle" size={16} color="#506A85" />
+            <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.45)" />
           </TouchableOpacity>
         )}
       </View>
@@ -480,7 +500,7 @@ const AttendeesTab = ({ eventId }: Props) => {
       {/* ── List or empty state ── */}
       {filtered.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="people-outline" size={44} color="#2E4A63" />
+          <Ionicons name="people-outline" size={44} color="rgba(255,255,255,0.35)" />
           <Text style={styles.emptyTitle}>
             {bookings.length === 0 ? 'No Attendees Yet' : 'No Results'}
           </Text>
@@ -496,7 +516,7 @@ const AttendeesTab = ({ eventId }: Props) => {
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           extraData={expandedId}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(32, insets.bottom + 24) }]}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
           windowSize={5}
@@ -507,58 +527,120 @@ const AttendeesTab = ({ eventId }: Props) => {
         />
       )}
     </View>
+    </ImageBackground>
   );
 };
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E1621' },
-  center:    { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0E1621' },
+  backgroundImage: {
+    flex: 1,
+    backgroundColor: '#0D0B1E',
+  },
+  backgroundImageStyle: {
+    resizeMode: 'cover',
+  },
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.72)',
+  },
+  container: {
+    flex: 1,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
-  // Stats bar
   statsBar: {
     flexDirection: 'row',
-    marginHorizontal: 16, marginTop: 14, marginBottom: 10,
-    backgroundColor: '#132232',
-    borderRadius: 12, padding: 16,
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 10,
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
+    borderRadius: 18,
+    padding: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.20)',
   },
   statItem:    { flex: 1, alignItems: 'center' },
   statNum:     { fontSize: 22, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
-  statLbl:     { fontSize: 11, fontFamily: 'Inter-Regular', color: '#506A85', marginTop: 2 },
-  statDivider: { width: 1, height: 36, backgroundColor: 'rgba(55,139,187,0.15)' },
+  statLbl:     { fontSize: 11, fontFamily: 'Inter-Regular', color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+  statDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.12)' },
 
-  // Search
   searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    marginHorizontal: 16, marginBottom: 10,
-    backgroundColor: '#132232',
-    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: 'rgba(22, 17, 43, 0.72)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
   },
   searchInput: {
-    flex: 1, fontSize: 14, fontFamily: 'Inter-Regular', color: '#FFFFFF', padding: 0,
+    flex: 1,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+    padding: 0,
   },
 
-  // Filters
-  filterBar:        { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12, gap: 8 },
-  filterChip:       {
-    borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14,
-    backgroundColor: 'rgba(55,139,187,0.08)',
-    borderWidth: 1, borderColor: 'rgba(55,139,187,0.12)',
+  filterBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 8,
   },
-  filterChipActive: { backgroundColor: '#378BBB', borderColor: '#378BBB' },
-  filterText:       { fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#506A85' },
-  filterTextActive: { color: '#FFFFFF' },
+  filterChip: {
+    borderRadius: 20,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(139,43,226,0.28)',
+    borderColor: '#8B2BE2',
+  },
+  filterText: {
+    fontSize: 13,
+    fontFamily: 'Inter-SemiBold',
+    color: 'rgba(255,255,255,0.55)',
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
 
-  // List
-  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  listContent: {
+    paddingHorizontal: 16,
+  },
 
-  // Empty
-  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 18, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
-  emptySub:   { fontSize: 13, fontFamily: 'Inter-Regular', color: '#506A85', textAlign: 'center' },
+  empty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-Bold',
+    color: '#FFFFFF',
+  },
+  emptySub: {
+    fontSize: 13,
+    fontFamily: 'Inter-Regular',
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+  },
 });
 
 export default AttendeesTab;
