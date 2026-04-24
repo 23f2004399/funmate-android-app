@@ -17,11 +17,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  SafeAreaView,
+  StatusBar,
+  ImageBackground,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import notificationService from '../../services/NotificationService';
 import { useAlert } from '../../contexts/AlertContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NotificationSettings {
   likes: boolean;
@@ -38,6 +40,7 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
   navigation,
 }) => {
   const { showError } = useAlert();
+  const insets = useSafeAreaInsets();
   const [settings, setSettings] = useState<NotificationSettings>({
     likes: true,
     matches: true,
@@ -103,9 +106,9 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
       <Switch
         value={value}
         onValueChange={(newValue) => handleToggle(settingKey, newValue)}
-        trackColor={{false: '#1B2F48', true: '#378BBB'}}
-        thumbColor={value ? '#FFFFFF' : '#f4f3f4'}
-        ios_backgroundColor="#1B2F48"
+        trackColor={{false: 'rgba(255,255,255,0.18)', true: '#8B2BE2'}}
+        thumbColor={value ? '#06B6D4' : '#FFFFFF'}
+        ios_backgroundColor="rgba(255,255,255,0.18)"
         disabled={saving}
       />
     </View>
@@ -113,108 +116,130 @@ const NotificationSettingsScreen: React.FC<NotificationSettingsScreenProps> = ({
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#378BBB" />
-          <Text style={styles.loadingText}>Loading settings...</Text>
+      <ImageBackground
+        source={require('../../assets/images/bg_party.webp')}
+        style={styles.container}
+        resizeMode="cover"
+      >
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#06B6D4" />
+            <Text style={styles.loadingText}>Loading settings...</Text>
+          </View>
         </View>
-      </SafeAreaView>
+      </ImageBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
+    <ImageBackground
+      source={require('../../assets/images/bg_party.webp')}
+      style={styles.container}
+      resizeMode="cover"
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <View style={styles.headerRight} />
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: Math.max(32, insets.bottom + 24) }]}
+          showsVerticalScrollIndicator={false}
         >
-          <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={styles.headerRight} />
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Section Header */}
-        <Text style={styles.sectionHeader}>Manage Preferences</Text>
-        <Text style={styles.sectionSubheader}>
-          Choose which notifications you want to receive
-        </Text>
-
-        {/* Settings */}
-        <View style={styles.settingsCard}>
-          <SettingRow
-            title="Likes"
-            description="When someone likes your profile"
-            value={settings.likes}
-            settingKey="likes"
-            iconName="heart"
-            iconColor="#FF4D6D"
-          />
-
-          <View style={styles.divider} />
-
-          <SettingRow
-            title="Matches"
-            description="When you match with someone"
-            value={settings.matches}
-            settingKey="matches"
-            iconName="heart-circle"
-            iconColor="#FF4D6D"
-          />
-
-          <View style={styles.divider} />
-
-          <SettingRow
-            title="Messages"
-            description="When you receive a new message"
-            value={settings.messages}
-            settingKey="messages"
-            iconName="chatbubbles"
-            iconColor="#378BBB"
-          />
-
-          <View style={styles.divider} />
-
-          <SettingRow
-            title="Events"
-            description="Event reminders and updates"
-            value={settings.events}
-            settingKey="events"
-            iconName="calendar"
-            iconColor="#378BBB"
-          />
-        </View>
-
-        {/* Info Section */}
-        <View style={styles.infoSection}>
-          <Ionicons name="information-circle" size={20} color="#378BBB" style={styles.infoIconStyle} />
-          <Text style={styles.infoText}>
-            You can also manage notification settings in your device's system
-            settings. Some notifications like security alerts cannot be
-            disabled.
+          {/* Section Header */}
+          <Text style={styles.sectionHeader}>Manage Preferences</Text>
+          <Text style={styles.sectionSubheader}>
+            Choose which notifications you want to receive
           </Text>
-        </View>
 
-        {/* Saving Indicator */}
-        {saving && (
-          <View style={styles.savingIndicator}>
-            <ActivityIndicator size="small" color="#FF4458" />
-            <Text style={styles.savingText}>Saving...</Text>
+          {/* Settings */}
+          <View style={styles.settingsCard}>
+            <SettingRow
+              title="Likes"
+              description="When someone likes your profile"
+              value={settings.likes}
+              settingKey="likes"
+              iconName="heart"
+              iconColor="#FF4D6D"
+            />
+
+            <View style={styles.divider} />
+
+            <SettingRow
+              title="Matches"
+              description="When you match with someone"
+              value={settings.matches}
+              settingKey="matches"
+              iconName="heart-circle"
+              iconColor="#A855F7"
+            />
+
+            <View style={styles.divider} />
+
+            <SettingRow
+              title="Messages"
+              description="When you receive a new message"
+              value={settings.messages}
+              settingKey="messages"
+              iconName="chatbubbles"
+              iconColor="#06B6D4"
+            />
+
+            <View style={styles.divider} />
+
+            <SettingRow
+              title="Events"
+              description="Event reminders and updates"
+              value={settings.events}
+              settingKey="events"
+              iconName="calendar"
+              iconColor="#06B6D4"
+            />
           </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* Info Section */}
+          <View style={styles.infoSection}>
+            <Ionicons name="information-circle" size={20} color="#22D3EE" style={styles.infoIconStyle} />
+            <Text style={styles.infoText}>
+              You can also manage notification settings in your device's system
+              settings. Some notifications like security alerts cannot be
+              disabled.
+            </Text>
+          </View>
+
+          {/* Saving Indicator */}
+          {saving && (
+            <View style={styles.savingIndicator}>
+              <ActivityIndicator size="small" color="#06B6D4" />
+              <Text style={styles.savingText}>Saving...</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0F15',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   loadingContainer: {
     flex: 1,
@@ -225,16 +250,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 12,
     fontSize: 16,
+    fontFamily: 'Inter-Regular',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   backButton: {
     width: 40,
@@ -245,34 +270,37 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
   },
   headerRight: {
     width: 40,
   },
   content: {
     flex: 1,
+  },
+  contentContainer: {
     padding: 16,
   },
   sectionHeader: {
     color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontSize: 26,
+    fontFamily: 'Inter-Bold',
+    marginBottom: 6,
   },
   sectionSubheader: {
-    color: '#B8C7D9',
-    fontSize: 14,
-    marginBottom: 20,
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    marginBottom: 22,
   },
   settingsCard: {
-    backgroundColor: '#0F1A26',
-    borderRadius: 16,
+    backgroundColor: 'rgba(26,21,48,0.78)',
+    borderRadius: 20,
     padding: 4,
     marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#378BBB',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
   },
   settingRow: {
     flexDirection: 'row',
@@ -282,11 +310,13 @@ const styles = StyleSheet.create({
   settingIcon: {
     width: 44,
     height: 44,
-    backgroundColor: '#131F2E',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.25)',
   },
   settingInfo: {
     flex: 1,
@@ -295,36 +325,38 @@ const styles = StyleSheet.create({
   settingTitle: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontFamily: 'Inter-SemiBold',
+    marginBottom: 3,
   },
   settingDescription: {
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 13,
+    fontFamily: 'Inter-Regular',
   },
   divider: {
     height: 1,
-    backgroundColor: '#233B57',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     marginLeft: 72,
   },
   infoSection: {
     flexDirection: 'row',
-    backgroundColor: '#0F1A26',
-    borderRadius: 12,
+    backgroundColor: 'rgba(26,21,48,0.78)',
+    borderRadius: 16,
     padding: 16,
     alignItems: 'flex-start',
-    borderWidth: 2,
-    borderColor: '#378BBB',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.30)',
   },
   infoIconStyle: {
     marginRight: 12,
     marginTop: 2,
   },
   infoText: {
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 13,
     lineHeight: 18,
     flex: 1,
+    fontFamily: 'Inter-Regular',
   },
   savingIndicator: {
     flexDirection: 'row',
@@ -333,9 +365,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   savingText: {
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 14,
     marginLeft: 8,
+    fontFamily: 'Inter-Medium',
   },
 });
 

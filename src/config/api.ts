@@ -22,7 +22,7 @@ import { Platform } from 'react-native';
  * Your computer's WiFi IP address (for physical device testing)
  * Update this when you change WiFi networks
  */
-const LOCAL_WIFI_IP = '10.42.242.114';
+const LOCAL_WIFI_IP = '10.42.242.112';
 
 /**
  * Production backend URL (update when deployed)
