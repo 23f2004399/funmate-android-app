@@ -14,8 +14,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
-  SafeAreaView,
   Modal,
+  StatusBar,
+  ImageBackground,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import firestore from '@react-native-firebase/firestore';
@@ -23,12 +24,14 @@ import auth from '@react-native-firebase/auth';
 import { BlockedUser, User } from '../../types/database';
 import { getBlockedUsers, unblockUser } from '../../services/blockService';
 import { useAlert } from '../../contexts/AlertContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BlockedUserWithDetails extends BlockedUser {
   userDetails?: User;
 }
 
 export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const { showError } = useAlert();
   const [blockedUsers, setBlockedUsers] = useState<BlockedUserWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -164,7 +167,7 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconContainer}>
-        <Ionicons name="ban" size={64} color="#378BBB" />
+        <Ionicons name="ban" size={64} color="#06B6D4" />
       </View>
       <Text style={styles.emptyTitle}>No Blocked Users</Text>
       <Text style={styles.emptySubtitle}>
@@ -175,16 +178,33 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
 
   if (isLoading && blockedUsers.length === 0) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#378BBB" />
-      </View>
+      <ImageBackground
+        source={require('../../assets/images/bg_splash.webp')}
+        style={styles.container}
+        resizeMode="cover"
+        blurRadius={10}
+      >
+        <View style={styles.overlay}>
+          <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#06B6D4" />
+          </View>
+        </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ImageBackground
+      source={require('../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={10}
+    >
+      <View style={styles.overlay}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation?.goBack()}
@@ -200,9 +220,10 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
         data={blockedUsers}
         renderItem={renderBlockedUser}
         keyExtractor={(item) => item.id || item.blockedUserId}
-        contentContainerStyle={
-          blockedUsers.length === 0 ? styles.emptyListContainer : styles.listContainer
-        }
+        contentContainerStyle={[
+          blockedUsers.length === 0 ? styles.emptyListContainer : styles.listContainer,
+          { paddingBottom: Math.max(24, insets.bottom + 16) },
+        ]}
         ListEmptyComponent={renderEmpty}
         onRefresh={handleRefresh}
         refreshing={refreshing}
@@ -247,7 +268,8 @@ export const BlockedUsersScreen: React.FC<{ navigation?: any }> = ({ navigation 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+      </View>
+    </ImageBackground>
   );
 };
 
@@ -270,23 +292,24 @@ const formatDate = (timestamp: any): string => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0E1621',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0E1621',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: '#378BBB',
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.12)',
   },
   backButton: {
     width: 40,
@@ -297,8 +320,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontFamily: 'Inter-Bold',
   },
   headerRight: {
     width: 40,
@@ -315,12 +338,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#16283D',
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
     borderRadius: 18,
     padding: 14,
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#378BBB',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
   },
   userInfo: {
     flexDirection: 'row',
@@ -334,32 +357,32 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   userPhotoPlaceholder: {
-    backgroundColor: '#1B2F48',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   userPhotoPlaceholderText: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#B8C7D9',
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
   },
   userTextInfo: {
     flex: 1,
   },
   userName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     color: '#FFFFFF',
     marginBottom: 2,
   },
   blockReason: {
     fontSize: 13,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     marginBottom: 2,
   },
   blockedDate: {
     fontSize: 12,
-    color: '#7F93AA',
+    color: 'rgba(255,255,255,0.35)',
   },
   unblockButton: {
     backgroundColor: 'transparent',
@@ -372,7 +395,7 @@ const styles = StyleSheet.create({
   unblockButtonText: {
     color: '#FF4D6D',
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -383,41 +406,41 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#16283D',
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#378BBB',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.35)',
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+      fontSize: 22,
+      fontFamily: 'Inter-Bold',
+      color: '#FFFFFF',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(13, 11, 30, 0.78)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContainer: {
-    backgroundColor: '#16283D',
-    borderRadius: 20,
+    backgroundColor: '#1A1530',
+    borderRadius: 24,
     padding: 24,
     width: '100%',
     maxWidth: 340,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#378BBB',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.35)',
   },
   modalIconContainer: {
     width: 64,
@@ -429,15 +452,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontFamily: 'Inter-Bold',
     color: '#FFFFFF',
     marginBottom: 12,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 15,
-    color: '#B8C7D9',
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
@@ -453,13 +476,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#378BBB',
+    borderColor: 'rgba(139, 92, 246, 0.60)',
     alignItems: 'center',
   },
   modalCancelButtonText: {
-    color: '#378BBB',
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
   modalUnblockButton: {
     flex: 1,
@@ -472,6 +495,6 @@ const styles = StyleSheet.create({
   modalUnblockButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
   },
 });
