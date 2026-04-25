@@ -19,6 +19,7 @@ import {
   Modal,
   FlatList,
   Image,
+  Pressable,
   ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -570,26 +571,15 @@ const EditEventScreen = () => {
             <>
               <Text style={styles.fieldLabel}>Start Date & Time *</Text>
               <TouchableOpacity style={styles.selector} onPress={() => setStartPickerOpen(true)}>
-                <Ionicons name="calendar-outline" size={16} color="#378BBB" />
+                <Ionicons name="calendar-outline" size={16} color="#06B6D4" />
                 <Text style={styles.selectorText}>{formatDateTime(startTime)}</Text>
               </TouchableOpacity>
-              <DatePicker
-                modal open={startPickerOpen} date={startTime} mode="datetime"
-                onConfirm={d => { setStartPickerOpen(false); setStartTime(d); }}
-                onCancel={() => setStartPickerOpen(false)}
-              />
 
               <Text style={styles.fieldLabel}>End Date & Time *</Text>
               <TouchableOpacity style={styles.selector} onPress={() => setEndPickerOpen(true)}>
-                <Ionicons name="calendar-outline" size={16} color="#378BBB" />
+                <Ionicons name="calendar-outline" size={16} color="#06B6D4" />
                 <Text style={styles.selectorText}>{formatDateTime(endTime)}</Text>
               </TouchableOpacity>
-              <DatePicker
-                modal open={endPickerOpen} date={endTime} mode="datetime"
-                onConfirm={d => { setEndPickerOpen(false); setEndTime(d); }}
-                onCancel={() => setEndPickerOpen(false)}
-                minimumDate={startTime}
-              />
             </>
           )}
         </View>
@@ -889,41 +879,162 @@ const EditEventScreen = () => {
         <View style={{ height: 40 }} />
       </KeyboardAwareScrollView>
 
+      {/* ── Start Date Modal ── */}
+      <Modal
+        visible={startPickerOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setStartPickerOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setStartPickerOpen(false)} />
+
+          <View style={[styles.dateModalSheet, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.dateModalTitle}>Select Start Date & Time</Text>
+
+            <DatePicker
+              date={startTime}
+              mode="datetime"
+              theme="dark"
+              textColor="#FFFFFF"
+              fadeToColor="none"
+              onDateChange={setStartTime}
+            />
+
+            <View style={styles.dateModalActions}>
+              <TouchableOpacity
+                style={styles.dateModalCancelButton}
+                onPress={() => setStartPickerOpen(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.dateModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  setStartPickerOpen(false);
+                  if (endTime <= startTime) {
+                    setEndTime(new Date(startTime.getTime() + 3 * 60 * 60 * 1000));
+                  }
+                }}
+              >
+                <LinearGradient
+                  colors={['#8B2BE2', '#06B6D4']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.dateModalConfirmButton}
+                >
+                  <Text style={styles.dateModalConfirmText}>Set</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── End Date Modal ── */}
+      <Modal
+        visible={endPickerOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => setEndPickerOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setEndPickerOpen(false)} />
+
+          <View style={[styles.dateModalSheet, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.dateModalTitle}>Select End Date & Time</Text>
+
+            <DatePicker
+              date={endTime}
+              minimumDate={startTime}
+              mode="datetime"
+              theme="dark"
+              textColor="#FFFFFF"
+              fadeToColor="none"
+              onDateChange={setEndTime}
+            />
+
+            <View style={styles.dateModalActions}>
+              <TouchableOpacity
+                style={styles.dateModalCancelButton}
+                onPress={() => setEndPickerOpen(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.dateModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setEndPickerOpen(false)}
+              >
+                <LinearGradient
+                  colors={['#8B2BE2', '#06B6D4']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.dateModalConfirmButton}
+                >
+                  <Text style={styles.dateModalConfirmText}>Set</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Category Modal ── */}
       <Modal
         visible={categoryModalVisible}
         transparent
         animationType="slide"
+        statusBarTranslucent={true}
         onRequestClose={() => setCategoryModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setCategoryModalVisible(false)}
-        />
-        <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>Select Category</Text>
-          <FlatList
-            data={EVENT_CATEGORIES}
-            keyExtractor={item => item.label}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item }) => {
-              const active = category === item.label;
-              return (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(40, insets.bottom + 24) }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select Category</Text>
+
+            <FlatList
+              data={EVENT_CATEGORIES}
+              keyExtractor={item => item.label}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.categoryItem, active && styles.categoryItemActive]}
-                  onPress={() => { setCategory(item.label); setCategoryModalVisible(false); }}
+                  style={[styles.categoryItem, category === item.label && styles.categoryItemActive]}
+                  onPress={() => {
+                    setCategory(item.label);
+                    setCategoryModalVisible(false);
+                  }}
                 >
-                  <Ionicons name={item.icon as any} size={20} color={active ? '#FF4D6D' : '#506A85'} />
-                  <Text style={[styles.categoryItemText, active && { color: '#FF4D6D' }]}>
+                  <View style={styles.categoryIcon}>
+                    <Ionicons
+                      name={item.icon as any}
+                      size={22}
+                      color={category === item.label ? '#FFFFFF' : '#06B6D4'}
+                    />
+                  </View>
+
+                  <Text style={[styles.categoryLabel, category === item.label && styles.categoryLabelActive]}>
                     {item.label}
                   </Text>
-                  {active && <Ionicons name="checkmark" size={18} color="#FF4D6D" />}
+
+                  {category === item.label && (
+                    <Ionicons name="checkmark" size={20} color="#06B6D4" />
+                  )}
                 </TouchableOpacity>
-              );
-            }}
-          />
+              )}
+            />
+
+            <TouchableOpacity style={styles.modalClose} onPress={() => setCategoryModalVisible(false)}>
+              <Text style={styles.modalCloseText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -1139,28 +1250,142 @@ const styles = StyleSheet.create({
   genderChipText:       { fontSize: 13, fontFamily: 'Inter-SemiBold', color: '#506A85' },
   genderChipTextActive: { color: '#FFFFFF' },
 
-  // category modal
+  // modal shared
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
   },
+
   modalSheet: {
-    backgroundColor: '#1B2F48', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingTop: 12, paddingHorizontal: 16, maxHeight: '60%',
+    backgroundColor: '#1A1530',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+    paddingBottom: 40,
   },
+
   modalHandle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(184,199,217,0.3)', alignSelf: 'center', marginBottom: 16,
+    width: 52,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 16,
   },
+
   modalTitle: {
-    fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF', marginBottom: 12,
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 20,
   },
+
   categoryItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 13, borderRadius: 10, paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  categoryItemActive: { backgroundColor: 'rgba(255,77,109,0.08)' },
-  categoryItemText: {
-    flex: 1, fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#B8C7D9',
+
+  categoryItemActive: {
+    backgroundColor: 'rgba(139, 92, 246, 0.18)',
+  },
+
+  categoryIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  categoryLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+  },
+
+  categoryLabelActive: {
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+  },
+
+  modalClose: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+
+  modalCloseText: {
+    fontSize: 15,
+    fontFamily: 'Inter-SemiBold',
+    color: '#22D3EE',
+  },
+
+  // date picker modal
+  dateModalSheet: {
+    backgroundColor: '#1A1530',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
+  },
+
+  dateModalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+
+  dateModalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+
+  dateModalCancelButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  dateModalCancelText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+  },
+
+  dateModalConfirmButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  dateModalConfirmText: {
+    fontSize: 16,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
   },
 });
 
