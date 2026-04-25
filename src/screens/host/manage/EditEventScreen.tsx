@@ -19,6 +19,7 @@ import {
   Modal,
   FlatList,
   Image,
+  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -28,6 +29,7 @@ import DatePicker from 'react-native-date-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import storage from '@react-native-firebase/storage';
 import firestore from '@react-native-firebase/firestore';
+import LinearGradient from 'react-native-linear-gradient';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -339,16 +341,29 @@ const EditEventScreen = () => {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (fetching) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#378BBB" />
-      </View>
+      <ImageBackground
+        source={require('../../../assets/images/bg_splash.webp')}
+        style={styles.container}
+        resizeMode="cover"
+        blurRadius={6}
+      >
+        <View style={[styles.overlay, styles.centered]}>
+          <ActivityIndicator size="large" color="#06B6D4" />
+        </View>
+      </ImageBackground>
     );
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0E1621" />
+    <ImageBackground
+      source={require('../../../assets/images/bg_splash.webp')}
+      style={styles.container}
+      resizeMode="cover"
+      blurRadius={6}
+    >
+      <View style={styles.overlay}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
@@ -366,10 +381,17 @@ const EditEventScreen = () => {
           disabled={saving}
           activeOpacity={0.8}
         >
-          {saving
-            ? <ActivityIndicator size="small" color="#FFFFFF" />
-            : <Text style={styles.saveBtnText}>Save</Text>
-          }
+          <LinearGradient
+            colors={['#8B2BE2', '#06B6D4']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.saveGradient}
+          >
+            {saving
+              ? <ActivityIndicator size="small" color="#FFFFFF" />
+              : <Text style={styles.saveBtnText}>Save</Text>
+            }
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
@@ -389,7 +411,7 @@ const EditEventScreen = () => {
         enableAutomaticScroll
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(120, insets.bottom + 104) }]}
       >
         {/* ════════════════════════════════════════
             SECTION 1 — Basic Info (always editable)
@@ -404,7 +426,7 @@ const EditEventScreen = () => {
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Friday Night Meetup"
-            placeholderTextColor="#506A85"
+            placeholderTextColor="rgba(255,255,255,0.35)"
             maxLength={80}
           />
 
@@ -415,7 +437,7 @@ const EditEventScreen = () => {
             value={description}
             onChangeText={setDescription}
             placeholder="What's this event about?"
-            placeholderTextColor="#506A85"
+            placeholderTextColor="rgba(255,255,255,0.35)"
             multiline
             maxLength={800}
           />
@@ -445,7 +467,7 @@ const EditEventScreen = () => {
               value={tagInput}
               onChangeText={setTagInput}
               placeholder="Add a tag…"
-              placeholderTextColor="#506A85"
+              placeholderTextColor="rgba(255,255,255,0.35)"
               onSubmitEditing={addTag}
               returnKeyType="done"
               maxLength={30}
@@ -583,7 +605,7 @@ const EditEventScreen = () => {
             value={venue}
             onChangeText={setVenue}
             placeholder="e.g. The Grand Ballroom"
-            placeholderTextColor="#506A85"
+            placeholderTextColor="rgba(255,255,255,0.35)"
           />
 
           <Text style={styles.fieldLabel}>Address *</Text>
@@ -592,7 +614,7 @@ const EditEventScreen = () => {
             value={address}
             onChangeText={setAddress}
             placeholder="Full address"
-            placeholderTextColor="#506A85"
+            placeholderTextColor="rgba(255,255,255,0.35)"
             multiline
           />
         </View>
@@ -627,7 +649,7 @@ const EditEventScreen = () => {
                     value={price}
                     onChangeText={setPrice}
                     placeholder="e.g. 499"
-                    placeholderTextColor="#506A85"
+                    placeholderTextColor="rgba(255,255,255,0.35)"
                     keyboardType="numeric"
                   />
                 </>
@@ -666,7 +688,7 @@ const EditEventScreen = () => {
                     value={capacityTotal}
                     onChangeText={setCapacityTotal}
                     placeholder="e.g. 100"
-                    placeholderTextColor="#506A85"
+                    placeholderTextColor="rgba(255,255,255,0.35)"
                     keyboardType="numeric"
                   />
                 </>
@@ -760,7 +782,7 @@ const EditEventScreen = () => {
                   <TextInput
                     style={styles.input}
                     placeholder="e.g. 6  (min 3, max 20)"
-                    placeholderTextColor="#506A85"
+                    placeholderTextColor="rgba(255,255,255,0.35)"
                     value={maxGroupSize}
                     onChangeText={setMaxGroupSize}
                     keyboardType="number-pad"
@@ -815,7 +837,7 @@ const EditEventScreen = () => {
                       onChangeText={setAgeMin}
                       keyboardType="numeric"
                       placeholder="18"
-                      placeholderTextColor="#506A85"
+                      placeholderTextColor="rgba(255,255,255,0.35)"
                     />
                   </View>
                   <View style={styles.col2}>
@@ -826,7 +848,7 @@ const EditEventScreen = () => {
                       onChangeText={setAgeMax}
                       keyboardType="numeric"
                       placeholder="No limit"
-                      placeholderTextColor="#506A85"
+                      placeholderTextColor="rgba(255,255,255,0.35)"
                     />
                   </View>
                 </View>
@@ -905,13 +927,18 @@ const EditEventScreen = () => {
         </View>
       </Modal>
     </View>
+    </ImageBackground>
   );
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E1621' },
+  container: { flex: 1 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 11, 30, 0.60)',
+  },
   centered:  { alignItems: 'center', justifyContent: 'center' },
 
   // banner
@@ -958,19 +985,31 @@ const styles = StyleSheet.create({
 
   // header
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 12, gap: 12,
-    backgroundColor: '#0E1621',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    gap: 12,
+    backgroundColor: 'transparent',
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(55,139,187,0.12)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: { flex: 1, fontSize: 18, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
   saveBtn: {
-    backgroundColor: '#FF4D6D', borderRadius: 20,
-    paddingHorizontal: 18, paddingVertical: 8, minWidth: 60, alignItems: 'center',
+    borderRadius: 22,
+    overflow: 'hidden',
+    minWidth: 72,
+  },
+  saveGradient: {
+    minHeight: 40,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
   },
   saveBtnText: { fontSize: 14, fontFamily: 'Inter-SemiBold', color: '#FFFFFF' },
 
@@ -985,18 +1024,26 @@ const styles = StyleSheet.create({
   lockNoticeText: { flex: 1, fontSize: 12, fontFamily: 'Inter-Regular', color: '#FF9F0A', lineHeight: 18 },
 
   // scroll
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 8, gap: 8 },
 
   // sections
   sectionLabel: {
-    fontSize: 11, fontFamily: 'Inter-SemiBold', color: '#506A85',
-    textTransform: 'uppercase', letterSpacing: 0.8,
-    marginTop: 16, marginBottom: 6, marginLeft: 2,
+    fontSize: 12,
+    fontFamily: 'Inter-SemiBold',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 2,
   },
   card: {
-    backgroundColor: '#1B2F48', borderRadius: 14,
-    padding: 16, gap: 4,
-    borderWidth: 1, borderColor: 'rgba(55,139,187,0.12)',
+    backgroundColor: 'rgba(26, 21, 48, 0.78)',
+    borderRadius: 20,
+    padding: 16,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
 
   // fields
@@ -1005,20 +1052,33 @@ const styles = StyleSheet.create({
     marginTop: 8, marginBottom: 6,
   },
   input: {
-    backgroundColor: '#132232', borderRadius: 10, borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.2)',
-    paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: 14, fontFamily: 'Inter-Regular', color: '#FFFFFF',
+    minHeight: 54,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   inputMultiline: { minHeight: 90, textAlignVertical: 'top' },
 
   // selector (category / date)
   selector: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#132232', borderRadius: 10, borderWidth: 1,
-    borderColor: 'rgba(55,139,187,0.2)',
-    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 4,
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#16112B',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(139, 92, 246, 0.30)',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    marginBottom: 4,
   },
   selectorText: { flex: 1, fontSize: 14, fontFamily: 'Inter-Regular', color: '#FFFFFF' },
 
