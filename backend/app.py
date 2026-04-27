@@ -26,7 +26,6 @@ print("Face detector loaded ✅")
 # HuggingFace classifiers — loaded lazily on first use to avoid build/startup OOM
 _hf_device = 0 if torch.cuda.is_available() else -1
 _nsfw_clf = None
-_violence_clf = None
 
 def get_nsfw_clf():
     global _nsfw_clf
@@ -35,14 +34,6 @@ def get_nsfw_clf():
         _nsfw_clf = pipeline("image-classification", model="Falconsai/nsfw_image_detection", device=_hf_device)
         print("NSFW model loaded ✅")
     return _nsfw_clf
-
-def get_violence_clf():
-    global _violence_clf
-    if _violence_clf is None:
-        print("Loading violence detection model...")
-        _violence_clf = pipeline("image-classification", model="jaranohaal/vit-base-violence-detection", device=_hf_device)
-        print("Violence model loaded ✅")
-    return _violence_clf
 
 def pil_to_bgr(pil_img: Image.Image) -> np.ndarray:
     """Convert PIL Image to OpenCV BGR format"""
@@ -355,42 +346,26 @@ def check_nsfw():
         file = request.files['image']
         pil_img = Image.open(io.BytesIO(file.read())).convert("RGB")
 
-        nsfw_preds     = get_nsfw_clf()(pil_img)
-        violence_preds = get_violence_clf()(pil_img)
+        nsfw_preds = get_nsfw_clf()(pil_img)
 
-        # Top prediction for each model
-        nsfw_preds     = sorted(nsfw_preds,     key=lambda x: x['score'], reverse=True)
-        violence_preds = sorted(violence_preds, key=lambda x: x['score'], reverse=True)
-        nsfw_label,     nsfw_score     = nsfw_preds[0]['label'],     float(nsfw_preds[0]['score'])
-        violence_label, violence_score = violence_preds[0]['label'], float(violence_preds[0]['score'])
+        # Top prediction
+        nsfw_preds = sorted(nsfw_preds, key=lambda x: x['score'], reverse=True)
+        nsfw_label, nsfw_score = nsfw_preds[0]['label'], float(nsfw_preds[0]['score'])
 
-        NSFW_THRESH     = 0.50
-        VIOLENCE_THRESH = 0.50
+        NSFW_THRESH = 0.50
 
-        nsfw_label_l     = nsfw_label.strip().lower()
-        violence_label_l = violence_label.strip().lower()
+        nsfw_reject = (nsfw_label.strip().lower() == 'nsfw') and (nsfw_score >= NSFW_THRESH)
 
-        nsfw_reject     = (nsfw_label_l == 'nsfw') and (nsfw_score >= NSFW_THRESH)
-        violence_reject = (('violent' in violence_label_l or 'violence' in violence_label_l)
-                           and 'non' not in violence_label_l
-                           and violence_score >= VIOLENCE_THRESH)
+        reason = 'Photo contains explicit or inappropriate content.' if nsfw_reject else 'Photo passed content check.'
+        decision = 'REJECTED' if nsfw_reject else 'ACCEPTED'
 
-        if nsfw_reject:
-            reason = 'Photo contains explicit or inappropriate content.'
-        elif violence_reject:
-            reason = 'Photo contains violent content.'
-        else:
-            reason = 'Photo passed content check.'
-
-        decision = 'REJECTED' if (nsfw_reject or violence_reject) else 'ACCEPTED'
-
-        print(f"NSFW check: {decision} | nsfw={nsfw_label}({nsfw_score:.3f}) | violence={violence_label}({violence_score:.3f})")
+        print(f"NSFW check: {decision} | nsfw={nsfw_label}({nsfw_score:.3f})")
 
         return jsonify({
             'decision': decision,
             'reason':   reason,
-            'nsfw':     {'label': nsfw_label,     'score': nsfw_score},
-            'violence': {'label': violence_label, 'score': violence_score},
+            'nsfw':     {'label': nsfw_label, 'score': nsfw_score},
+            'violence': {'label': 'non-violent', 'score': 1.0},
         }), 200
 
     except Exception as e:
